@@ -1,0 +1,43 @@
+# Configuración global de Streamlit para Alfa App / SMA 2.0
+# Estos ajustes se aplican TANTO en `streamlit run` (VS Code) COMO en el .exe
+# empaquetado. El objetivo principal es eliminar el FOUC (flash del diseño
+# por defecto) que ocurría al iniciar la app y al cambiar entre fases.
+
+[client]
+# Apaga el sidebar auto-generado que Streamlit crea a partir de la carpeta
+# `pages/`. Antes lo escondíamos con CSS desde navigation.py, pero ese CSS
+# solo llega DESPUÉS del primer render, así que el usuario veía el sidebar
+# default por unos ms. Apagándolo desde config, nunca se renderiza.
+showSidebarNavigation = false
+
+# Oculta el menú "Manage app / Rerun" en producción para que la UI luzca
+# como una app empaquetada y no como Streamlit dev.
+toolbarMode = "minimal"
+
+# No mostrar tracebacks completos al usuario final.
+showErrorDetails = false
+
+
+[theme]
+# Define el tema base ANTES de que cargue cualquier CSS custom. Como esto va
+# en el HTML inicial, el primer pintazo del navegador ya usa estos colores —
+# evita el flash blanco → azul claro entre frames.
+base = "light"
+primaryColor = "#2563eb"
+backgroundColor = "#F5F9FF"
+secondaryBackgroundColor = "#F3F8FF"
+textColor = "#0F172A"
+font = "sans serif"
+
+
+# NOTA: Las opciones de [server] que apagan hot-reload (runOnSave,
+# fileWatcherType) NO van aquí — las aplica `launcher.py` vía env vars cuando
+# corre el .exe en producción. Dejarlas aquí rompería el flujo de desarrollo
+# en VS Code (`streamlit run Inicio.py`), porque al editar un .py Streamlit
+# no recargaría el código y habría que matar y rearrancar el server manualmente.
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+magicEnabled = false

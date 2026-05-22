@@ -1,0 +1,190 @@
+/* Global SMA 2.0 styles loaded from one source to avoid duplicated app-level CSS. */
+
+/* ─────────────────────────────────────────────────────────────────────────
+   FIX CRÍTICO: desplegables invisibles (selectbox / expander / datepicker).
+   El index.html de Streamlit aplica `#root > div { opacity: 0; transition:
+   opacity 0.2s ease; }` para hacer fade-in de la app. El primer hijo de
+   #root (la app principal) sí recibe opacity:1, pero cuando BaseWeb monta
+   su LayersManager como SEGUNDO hijo de #root para alojar los popovers,
+   ese wrapper se queda permanentemente en opacity:0. El popover funciona
+   (captura clicks y selecciona el valor) pero NO se ve. Forzamos opacity:1
+   en todos los hijos directos de #root para que los popovers sean visibles.
+   ───────────────────────────────────────────────────────────────────────── */
+#root > div {
+    opacity: 1 !important;
+}
+
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(180deg, #f5f9ff 0%, #eef5ff 100%) !important;
+}
+
+[data-testid="stAppViewContainer"]::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 999998;
+    background: #ffffff;
+    pointer-events: none;
+    animation: sma-preloader-hide 0.58s ease 0.12s forwards;
+}
+
+[data-testid="stAppViewContainer"]::after {
+    content: "";
+    position: fixed;
+    top: calc(50% - 18px);
+    left: calc(50% - 18px);
+    width: 36px;
+    height: 36px;
+    z-index: 999999;
+    border-radius: 999px;
+    border: 3px solid #dbeafe;
+    border-top-color: #2563eb;
+    pointer-events: none;
+    animation:
+        sma-spinner-spin 0.72s linear infinite,
+        sma-preloader-hide 0.58s ease 0.12s forwards;
+}
+
+[data-testid="stAppViewContainer"] main {
+    animation: sma-content-fade 0.32s ease-out both;
+}
+
+div[data-testid="stButton"]>button,
+div[data-testid="stDownloadButton"]>button {
+    border-radius: 12px !important;
+    min-height: 42px !important;
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+    font-weight: 800 !important;
+    background: #ffffff !important;
+    border: 1px solid #c8dcfb !important;
+    color: #0b2a5b !important;
+    box-shadow: 0 4px 12px rgba(15, 45, 90, 0.035) !important;
+}
+
+div[data-testid="stButton"]>button p,
+div[data-testid="stDownloadButton"]>button p {
+    line-height: 1.2 !important;
+}
+
+div[data-testid="stButton"]>button:hover,
+div[data-testid="stDownloadButton"]>button:hover {
+    border-color: #8bbcff !important;
+    color: #1d4ed8 !important;
+    background: #f8fbff !important;
+}
+
+div[data-testid="stTextInput"] input,
+div[data-testid="stSelectbox"] div[data-baseweb="select"]>div {
+    background: #ffffff !important;
+    border-color: #cfe2f7 !important;
+    color: #0b2a5b !important;
+}
+
+/* Expander rescue:
+   Streamlit expanders were clickable but visually clipped by parent cards with
+   overflow/max-height rules. Keep this scoped to real expander ancestry only. */
+[data-testid="stAppViewContainer"] div[class*="st-key-"]:has([data-testid="stExpander"]),
+[data-testid="stAppViewContainer"] div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stExpander"]),
+[data-testid="stAppViewContainer"] div[data-testid="stVerticalBlock"]:has([data-testid="stExpander"]),
+[data-testid="stAppViewContainer"] div[data-testid="stElementContainer"]:has([data-testid="stExpander"]) {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
+[data-testid="stAppViewContainer"] [data-testid="stExpander"][data-testid="stExpander"],
+[data-testid="stAppViewContainer"] [data-testid="stExpander"][data-testid="stExpander"] details,
+[data-testid="stAppViewContainer"] [data-testid="stExpanderDetails"][data-testid="stExpanderDetails"] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] details[open],
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] details[open] > div {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
+/* Dropdown/selectbox rescue: keep BaseWeb menus above cards and outside clipped
+   Streamlit blocks. This fixes invisible option lists that still receive clicks. */
+[data-baseweb="popover"],
+[data-baseweb="popover"] *,
+[role="listbox"],
+[role="listbox"] *,
+div[data-testid="stSelectbox"],
+div[data-testid="stSelectbox"]:has([data-baseweb="select"]),
+div[data-testid="stSelectbox"] [data-baseweb="select"] {
+    visibility: visible !important;
+}
+
+[data-baseweb="popover"],
+[role="listbox"] {
+    z-index: 2147483647 !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+[data-testid="stAppViewContainer"] div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stSelectbox"]),
+[data-testid="stAppViewContainer"] div[data-testid="stVerticalBlock"]:has([data-testid="stSelectbox"]),
+[data-testid="stAppViewContainer"] div[data-testid="stElementContainer"]:has([data-testid="stSelectbox"]) {
+    overflow: visible !important;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important; /* Borde gris para volumen */
+    border-radius: 22px !important;
+    box-shadow:
+        0 0 0 1px rgba(148, 163, 184, 0.15),
+        0 6px 14px rgba(15, 23, 42, 0.08),
+        0 2px 6px rgba(37, 99, 235, 0.06) !important;
+}
+
+[data-testid="stForm"],
+[data-testid="stExpander"] {
+    background: #ffffff !important;
+    border: 1.4px solid #dbeafe !important; /* Azul claro para los pequeños (formularios/expanders) */
+    border-radius: 22px !important;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045) !important;
+}
+
+@keyframes sma-spinner-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes sma-preloader-hide {
+    0% {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    99% {
+        opacity: 0;
+        visibility: visible;
+    }
+
+    100% {
+        opacity: 0;
+        visibility: hidden;
+    }
+}
+
+@keyframes sma-content-fade {
+    from {
+        opacity: 0.01;
+        transform: translateY(2px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

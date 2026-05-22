@@ -1,0 +1,61 @@
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+
+# ── Entornos virtuales ──────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+
+# ── PyInstaller (output del build, no va al repo) ───────────
+build/
+dist/
+*.spec.bak
+
+# ── Bases de datos locales del usuario ──────────────────────
+# La app las crea automáticamente al ejecutarse; no se versionan.
+app_eolica.db
+app_eolica.db-wal
+app_eolica.db-shm
+app_eolica_respaldo.db
+*.sqlite
+*.sqlite3
+.backups/
+*.db.bak
+
+# ── Logs y archivos de diagnóstico ──────────────────────────
+diagnostico.log
+*.log
+
+# ── Reportes y exportaciones generadas por la app ───────────
+reportes/*.docx
+reportes/*.xlsx
+reportes/*.pdf
+reportes/*.json
+
+# ── Editor / IDE ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Sistema operativo ───────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Streamlit cache ─────────────────────────────────────────
+.streamlit/secrets.toml
+
+# ── Carpetas de trabajo / borradores ────────────────────────
+scratch/
+legacy/
+Alfa app/
+
+# ── Claude Code config local ────────────────────────────────
+.claude/settings.local.json

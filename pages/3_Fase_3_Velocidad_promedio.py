@@ -1,0 +1,2737 @@
+import textwrap
+from pandas.util import hash_pandas_object
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+from navigation import render_dropdown_visibility_fix, render_sidebar_navigation, _icon_svg
+from urllib.parse import quote
+import streamlit.components.v1 as components
+from plotly.subplots import make_subplots
+
+from db import (
+    init_db,
+    cargar_nasa_hourly,
+    cargar_config,
+    guardar_config_values,
+    cargar_tabla_curva,
+)
+from widget_helpers import _init_widget_state, _safe_index
+from calculos import (
+    preparar_datos_rosa,
+    resumir_sectores_rosa,
+    crear_rosa_vientos_16,
+    crear_histograma_sector_con_ajustes,
+    construir_serie_viento_analisis,
+    preparar_datos_curva,
+    inferir_puntos_operacion_curva,
+    weibull_cdf,
+    rayleigh_cdf,
+    weibull_interval_prob,
+    rayleigh_interval_prob,
+    calidad_weibull,
+    SECTOR_LABELS_16,
+    normalizar_modelo_altura,
+    PROMEDIO_LOG_EXP_LABEL,
+)
+
+st.set_page_config(page_title="Fase 3 · Velocidad promedio", layout="wide")
+
+# Cargar CSS global e inyectar sidebar lo ANTES posible para evitar FOUC.
+render_sidebar_navigation("pages/3_Fase_3_Velocidad_promedio.py")
+
+init_db()
+
+ROUGHNESS_OPTIONS = {
+    "Water / Mar": 2e-4,
+    "Snow / Nieve": 1e-3,
+    "Grass / Césped": 0.03,
+    "Farmland / Cultivo": 0.10,
+    "Forest / Bosque": 0.80,
+    "City / Ciudad": 1.00,
+}
+
+MODEL_OPTIONS = ["50 m", "10 m", "Exponencial", "Log A (2 puntos)", "Promedio Log-Exp"]
+DIRECTION_OPTIONS = ["WD50M", "WD10M"]
+MOSTRAR_HISTOGRAMA_SUPERIOR = False  # Control visual para mostrar/ocultar el histograma superior en Fase 3
+PLOTLY_PERF_CONFIG = {
+    "displayModeBar": False,
+    "responsive": True,
+}
+
+
+def _df_signature(df: pd.DataFrame, cols: list[str] | None = None) -> tuple:
+    if df is None or len(df) == 0:
+        return (0, ())
+    subset = df[[col for col in (cols or df.columns) if col in df.columns]].copy()
+    try:
+        digest = int(hash_pandas_object(subset, index=True).sum())
+    except Exception:
+        digest = hash(tuple(subset.astype(str).head(50).to_numpy().ravel()))
+    return (len(df), tuple(subset.columns), digest)
+
+
+def _session_cached_result(state_key: str, signature: tuple, builder):
+    cached = st.session_state.get(state_key)
+    if isinstance(cached, dict) and cached.get("signature") == signature:
+        return cached["value"]
+    value = builder()
+    st.session_state[state_key] = {"signature": signature, "value": value}
+    return value
+
+
+def _render_dataframe_safe(df, numeric_formats=None, **kwargs):
+    column_config = {}
+    for col, fmt in (numeric_formats or {}).items():
+        if col in df.columns:
+            column_config[col] = st.column_config.NumberColumn(format=fmt)
+    st.dataframe(df, column_config=column_config, **kwargs)
+
+
+def _expander_icon_label(icon_name: str, label: str) -> str:
+    icon_svg = _icon_svg(icon_name, 22, "#2563eb")
+    icon_uri = "data:image/svg+xml;utf8," + quote(icon_svg)
+    return f"![{label}]({icon_uri}) {label}"
+
+
+def _config_value(config, primary_key, fallback_keys, default, caster=None):
+    keys = [primary_key] + list(fallback_keys)
+    for key in keys:
+        value = config.get(key)
+        if value not in [None, ""]:
+            if caster is None:
+                return value
+            try:
+                return caster(value)
+            except Exception:
+                continue
+    return default
+
+
+def _bool_config_value(config, primary_key, fallback_keys, default=False):
+    value = _config_value(config, primary_key, fallback_keys, default, caster=None)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() == "true"
+
+
+def _render_plotly_iframe(fig: go.Figure, height: int, key_suffix: str) -> None:
+    html = fig.to_html(
+        full_html=False,
+        include_plotlyjs="inline",
+        config={
+            "displayModeBar": False,
+            "responsive": False,
+        },
+        default_width="100%",
+        default_height=f"{height}px",
+    )
+    iframe_html = f"""
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          html, body {{
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+            overflow: hidden;
+          }}
+          .f3-plot-frame {{
+            width: 100%;
+            height: {height}px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            background: #ffffff;
+            overflow: hidden;
+          }}
+          .f3-plot-frame .plotly-graph-div {{
+            margin: 0 auto !important;
+          }}
+        </style>
+      </head>
+      <body>
+        <div class="f3-plot-frame">{html}</div>
+      </body>
+    </html>
+    """
+    components.html(iframe_html, height=height, scrolling=False)
+
+
+def construir_viento_analisis(df_nasa, modelo, altura_deseada, roughness_label, direccion_fuente):
+    modelo = normalizar_modelo_altura(modelo)
+    df, meta = construir_serie_viento_analisis(
+        df_nasa=df_nasa,
+        modelo=modelo,
+        altura_deseada=altura_deseada,
+        roughness_label=roughness_label,
+        direccion_fuente=direccion_fuente,
+        roughness_options=ROUGHNESS_OPTIONS,
+        output_speed_col="WS_ANALISIS",
+        output_direction_col="WD_USADA",
+    )
+
+    if modelo == "50 m":
+        meta["descripcion"] = "Análisis construido con WS50M y WD50M."
+    elif modelo == "10 m":
+        meta["descripcion"] = "Análisis construido con WS10M y WD10M."
+    elif modelo == "Exponencial":
+        meta["descripcion"] = "Análisis con velocidad extrapolada por perfil exponencial."
+    elif modelo == "Log A (2 puntos)":
+        meta["descripcion"] = "Análisis con velocidad extrapolada por perfil logarítmico ajustado a 2 puntos."
+    elif modelo == PROMEDIO_LOG_EXP_LABEL:
+        meta["descripcion"] = "Análisis con velocidad extrapolada como promedio entre el perfil exponencial y el perfil logarítmico A."
+
+    return df, meta
+
+
+@st.cache_data(show_spinner=False)
+def construir_heatmap_probabilidad(df_rosa, vmax, bin_width):
+    bins = np.arange(0.0, vmax + bin_width, bin_width)
+    if bins[-1] < vmax:
+        bins = np.append(bins, vmax)
+
+    labels = [f"{bins[i]:.1f}-{bins[i + 1]:.1f}" for i in range(len(bins) - 1)]
+    matrix = []
+
+    for sector in SECTOR_LABELS_16:
+        sub = df_rosa.loc[df_rosa["Sector"] == sector, "WS_ANALISIS"].dropna().to_numpy(dtype=float)
+        if len(sub) == 0:
+            probs = np.zeros(len(bins) - 1)
+        else:
+            counts, _ = np.histogram(sub, bins=bins)
+            probs = counts / counts.sum() * 100.0
+        matrix.append(probs)
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=np.array(matrix),
+            x=labels,
+            y=SECTOR_LABELS_16,
+            colorscale="YlOrRd",
+            colorbar=dict(title="Probabilidad (%)"),
+            hovertemplate=(
+                "Sector: %{y}<br>"
+                "Intervalo: %{x} m/s<br>"
+                "Probabilidad: %{z:.2f}%"
+                "<extra></extra>"
+            ),
+        )
+    )
+    fig.update_layout(
+        title=None,
+        template="plotly_white",
+        height=700,
+        margin=dict(l=40, r=40, t=60, b=40),
+        xaxis_title=None,
+        yaxis_title=None,
+    )
+    return fig, bins
+
+
+@st.cache_data(show_spinner=False)
+def crear_figura_sector(df_sector, fila_sector, bins, mostrar_cdf, cut_in, nominal, cut_out):
+    v = df_sector["WS_ANALISIS"].dropna().to_numpy(dtype=float)
+    counts, edges = np.histogram(v, bins=bins)
+    probs_real = counts / counts.sum() * 100.0 if counts.sum() > 0 else np.zeros_like(counts, dtype=float)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+
+    k = float(fila_sector["k Weibull"])
+    c_weib = float(fila_sector["c Weibull (m/s)"])
+    c_ray = float(fila_sector["c Rayleigh (m/s)"])
+
+    probs_weib = []
+    probs_ray = []
+    for i in range(len(edges) - 1):
+        a = edges[i]
+        b = edges[i + 1]
+        probs_weib.append(weibull_interval_prob(a, b, k, c_weib) * 100.0 if np.isfinite(k) and np.isfinite(c_weib) else np.nan)
+        probs_ray.append(rayleigh_interval_prob(a, b, c_ray) * 100.0 if np.isfinite(c_ray) else np.nan)
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_trace(
+        go.Bar(
+            x=centers,
+            y=probs_real,
+            name="Histograma real (%)",
+            marker_color="#7fb3c4",
+            hovertemplate="Velocidad: %{x:.2f} m/s<br>Probabilidad real: %{y:.2f}%<extra></extra>",
+        ),
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=centers,
+            y=probs_weib,
+            mode="lines+markers",
+            name="Weibull (%)",
+            line=dict(width=3, color="#1f77b4"),
+            hovertemplate="Velocidad: %{x:.2f} m/s<br>Probabilidad Weibull: %{y:.2f}%<extra></extra>",
+        ),
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=centers,
+            y=probs_ray,
+            mode="lines+markers",
+            name="Rayleigh (%)",
+            line=dict(width=3, color="#ff7f0e", dash="dash"),
+            hovertemplate="Velocidad: %{x:.2f} m/s<br>Probabilidad Rayleigh: %{y:.2f}%<extra></extra>",
+        ),
+        secondary_y=False,
+    )
+
+    if mostrar_cdf:
+        xcdf = np.linspace(0.0, edges[-1], 400)
+        fig.add_trace(
+            go.Scatter(
+                x=xcdf,
+                y=weibull_cdf(xcdf, k, c_weib) * 100.0,
+                mode="lines",
+                name="CDF Weibull (%)",
+                line=dict(width=2, color="#2ca02c"),
+            ),
+            secondary_y=True,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=xcdf,
+                y=rayleigh_cdf(xcdf, c_ray) * 100.0,
+                mode="lines",
+                name="CDF Rayleigh (%)",
+                line=dict(width=2, color="#d62728", dash="dot"),
+            ),
+            secondary_y=True,
+        )
+
+    for xline, name, color in [
+        (cut_in, "Cut-in", "#2ca02c"),
+        (nominal, "Nominal", "#9467bd"),
+        (cut_out, "Cut-out", "#d62728"),
+    ]:
+        fig.add_vline(x=float(xline), line_width=2, line_dash="dot", line_color=color)
+        fig.add_annotation(x=float(xline), y=1.02, yref="paper", text=name, showarrow=False, font=dict(color=color))
+
+    fig.update_layout(
+        title=f"Curva de probabilidad de ocurrencia - Sector {fila_sector['Sector']}",
+        template="plotly_white",
+        height=620,
+        margin=dict(l=40, r=40, t=60, b=40),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        bargap=0.05,
+    )
+    fig.update_xaxes(title_text="Velocidad del viento (m/s)")
+    fig.update_yaxes(title_text="Probabilidad por intervalo (%)", secondary_y=False)
+    if mostrar_cdf:
+        fig.update_yaxes(title_text="Probabilidad acumulada (%)", secondary_y=True, range=[0, 100])
+    return fig
+
+
+def crear_tabla_probabilidades_intervalos(df_sector, fila_sector, vmax, bin_width):
+    v = df_sector["WS_ANALISIS"].dropna().to_numpy(dtype=float)
+    bins = np.arange(0.0, vmax + bin_width, bin_width)
+    if bins[-1] < vmax:
+        bins = np.append(bins, vmax)
+
+    k = float(fila_sector["k Weibull"])
+    c_weib = float(fila_sector["c Weibull (m/s)"])
+    c_ray = float(fila_sector["c Rayleigh (m/s)"])
+
+    filas = []
+    total = len(v)
+    for i in range(len(bins) - 1):
+        a = bins[i]
+        b = bins[i + 1]
+        if total > 0:
+            if i < len(bins) - 2:
+                prob_real = 100.0 * np.sum((v >= a) & (v < b)) / total
+            else:
+                prob_real = 100.0 * np.sum((v >= a) & (v <= b)) / total
+        else:
+            prob_real = np.nan
+
+        filas.append({
+            "Rango": f"{a:.1f} - {b:.1f} m/s",
+            "Probabilidad real (%)": prob_real,
+            "Probabilidad Weibull (%)": weibull_interval_prob(a, b, k, c_weib) * 100.0 if np.isfinite(k) and np.isfinite(c_weib) else np.nan,
+            "Probabilidad Rayleigh (%)": rayleigh_interval_prob(a, b, c_ray) * 100.0 if np.isfinite(c_ray) else np.nan,
+        })
+
+    return pd.DataFrame(filas)
+
+
+def crear_tabla_operacion(df_sector, fila_sector, cut_in, nominal, cut_out):
+    v = df_sector["WS_ANALISIS"].dropna().to_numpy(dtype=float)
+    k = float(fila_sector["k Weibull"])
+    c_weib = float(fila_sector["c Weibull (m/s)"])
+    c_ray = float(fila_sector["c Rayleigh (m/s)"])
+
+    rangos = [
+        (0.0, cut_in, "Menor que cut-in"),
+        (cut_in, nominal, "Entre cut-in y nominal"),
+        (nominal, cut_out, "Entre nominal y cut-out"),
+        (cut_out, max(cut_out + 20.0, cut_out * 1.5), "Mayor que cut-out"),
+    ]
+
+    total = len(v)
+    filas = []
+    for a, b, nombre in rangos:
+        if total > 0:
+            if nombre == "Mayor que cut-out":
+                prob_real = 100.0 * np.sum(v >= a) / total
+            else:
+                prob_real = 100.0 * np.sum((v >= a) & (v < b)) / total
+        else:
+            prob_real = np.nan
+
+        if nombre == "Mayor que cut-out":
+            prob_weib = (1.0 - weibull_cdf(a, k, c_weib)) * 100.0 if np.isfinite(k) and np.isfinite(c_weib) else np.nan
+            prob_ray = (1.0 - rayleigh_cdf(a, c_ray)) * 100.0 if np.isfinite(c_ray) else np.nan
+        else:
+            prob_weib = weibull_interval_prob(a, b, k, c_weib) * 100.0 if np.isfinite(k) and np.isfinite(c_weib) else np.nan
+            prob_ray = rayleigh_interval_prob(a, b, c_ray) * 100.0 if np.isfinite(c_ray) else np.nan
+
+        filas.append({
+            "Zona de operación": nombre,
+            "Probabilidad real (%)": prob_real,
+            "Probabilidad Weibull (%)": prob_weib,
+            "Probabilidad Rayleigh (%)": prob_ray,
+        })
+
+    return pd.DataFrame(filas)
+
+def _phase_card(key: str | None = None):
+    return st.container(border=True, key=key)
+
+
+def _render_phase3_css():
+    st.markdown(
+        """
+        <style>
+        [data-testid="stAppViewContainer"] {
+            background: linear-gradient(180deg, #f5f9ff 0%, #eef5ff 100%) !important;
+        }
+        .hero-card {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+            border: 1px solid #cbd5e1;
+            border-radius: 20px;
+            padding: 1.45rem 1.55rem 1.35rem 1.55rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045);
+        }
+        .hero-card::after {
+            content: "";
+            position: absolute;
+            right: -10px;
+            top: -8px;
+            width: 260px;
+            height: 140px;
+            background:
+              radial-gradient(circle at 78% 25%, rgba(147, 197, 253, 0.28) 0 18px, transparent 19px),
+              radial-gradient(circle at 56% 18%, rgba(191, 219, 254, 0.30) 0 26px, transparent 27px);
+            opacity: 0.9;
+            pointer-events: none;
+        }
+        .f3-hero__title {
+            font-size: 2.1rem;
+            line-height: 1.05;
+            font-weight: 800;
+            color: #1e3a8a;
+            margin-bottom: 0.28rem;
+        }
+        .f3-hero__subtitle {
+            color: #64748b;
+            font-size: 0.94rem;
+            line-height: 1.42;
+            font-weight: 700;
+            max-width: 74rem;
+        }
+        .fase-hero-title {
+            font-size: 2.1rem;
+            line-height: 1.05;
+            font-weight: 800;
+            color: #1e3a8a;
+            margin: 0 0 0.28rem 0;
+            position: relative;
+            z-index: 2;
+        }
+        .fase-hero-subtitle {
+            color: #64748b;
+            font-size: 0.94rem;
+            line-height: 1.42;
+            font-weight: 700;
+            margin: 0;
+            max-width: 74rem;
+            position: relative;
+            z-index: 2;
+        }
+        .f3-card-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.62rem;
+            margin-bottom: 0.56rem;
+        }
+        .f3-card-heading__icon {
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, #f8fbff 0%, #edf4ff 100%);
+            border: 1px solid #c7dbff;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.95);
+        }
+        .f3-card-heading__icon--note {
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+        }
+        .f3-card-heading__title {
+            color: #2563eb;
+            font-size: 1.03rem;
+            font-weight: 900;
+            line-height: 1.08;
+        }
+        .f3-card-heading__subtitle {
+            color: #64748b;
+            font-size: 0.84rem;
+            margin-top: 0.12rem;
+        }
+        .f3-kpi-card {
+            min-height: 92px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            gap: 0.86rem !important;
+            padding: 0.94rem 0.9rem !important;
+            height: 100%;
+        }
+        .f3-kpi-card__icon {
+            width: 66px !important;
+            height: 66px !important;
+            min-width: 66px !important;
+            border-radius: 999px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            align-self: center !important;
+            background: linear-gradient(180deg, #f8fbff 0%, #edf5ff 100%) !important;
+            border: 1px solid #bfdbfe !important;
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+            transform: translateY(-4px) !important;
+        }
+        .f3-kpi-card__icon svg {
+            width: 34px !important;
+            height: 34px !important;
+            display: block !important;
+        }
+        .f3-kpi-card__icon svg * {
+            stroke-width: 2.4 !important;
+        }
+        .f3-kpi-card__body {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            min-height: 66px !important;
+        }
+        .f3-kpi-card__label {
+            font-size: 0.86rem !important;
+            font-weight: 800 !important;
+            color: #334155 !important;
+            line-height: 1.05 !important;
+            margin: 0 0 0.28rem 0 !important;
+        }
+        .f3-kpi-card__value {
+            font-size: 1.85rem !important;
+            font-weight: 900 !important;
+            color: #020617 !important;
+            line-height: 1.05 !important;
+            margin: 0 !important;
+        }
+        .st-key-f3_kpi_4 .f3-kpi-card__value {
+            font-size: 1.25rem !important;
+            line-height: 1.05 !important;
+            font-weight: 800 !important;
+            white-space: normal !important;
+            overflow-wrap: break-word !important;
+        }
+        .f3-soft-note {
+            border: 1px solid #cbd5e1;
+            border-radius: 18px;
+            background: linear-gradient(180deg, #f8fbff 0%, #f1f7ff 100%);
+            padding: 0.72rem 0.95rem;
+            color: #1d4ed8;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            line-height: 1.35;
+        }
+        .f3-soft-note__text {
+            color: #1d4ed8;
+            font-size: 0.92rem;
+            font-weight: 750;
+            line-height: 1.34;
+        }
+        .f3-summary-card {
+            border: 1px solid #dbe5f1;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+            padding: 0.98rem 1.02rem 0.92rem 1.02rem;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+        }
+        .f3-summary-card__title {
+            color: #0f172a;
+            font-size: 0.98rem;
+            font-weight: 900;
+            margin-bottom: 0.76rem;
+        }
+        .f3-summary-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.65rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #eef4fb;
+        }
+        .f3-summary-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .f3-summary-row__label {
+            color: #475569;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+        .f3-summary-row__value {
+            color: #0f172a;
+            font-size: 0.86rem;
+            font-weight: 800;
+            text-align: right;
+            line-height: 1.25;
+        }
+        .f3-mini-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.48rem;
+            margin-bottom: 0.48rem;
+        }
+        .f3-mini-stat {
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            background: #ffffff;
+            padding: 0.68rem 0.78rem;
+            min-height: 78px;
+        }
+        .f3-mini-stat__label {
+            color: #64748b;
+            font-size: 0.76rem;
+            font-weight: 700;
+            margin-bottom: 0.12rem;
+        }
+        .f3-mini-stat__value {
+            color: #0f172a;
+            font-size: 1.14rem;
+            font-weight: 900;
+            line-height: 1.05;
+        }
+        .f3-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            color: #2563eb;
+            font-size: 0.86rem;
+            font-weight: 800;
+        }
+        .st-key-f3_card_expanders [data-testid="stExpander"] {
+            border: 1px solid #dbe5f1 !important;
+            border-radius: 18px !important;
+            background: #ffffff !important;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.03) !important;
+            margin-bottom: 0.7rem !important;
+        }
+        .st-key-f3_card_expanders [data-testid="stExpander"] summary {
+            color: #0f2f78 !important;
+            font-weight: 800 !important;
+            min-height: 52px !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        .st-key-f3_card_header,
+        .st-key-f3_cfg_general,
+        .st-key-f3_cfg_cuts,
+        .st-key-f3_cfg_sector,
+        .st-key-f3_kpi_1,
+        .st-key-f3_kpi_2,
+        .st-key-f3_kpi_3,
+        .st-key-f3_kpi_4,
+        .st-key-f3_kpi_5,
+        .st-key-f3_note_card,
+        .st-key-f3_card_heatmap,
+        .st-key-f3_card_expanders,
+        .st-key-f3_sector_summary,
+        .st-key-f3_sector_mini_frecuencia,
+        .st-key-f3_sector_mini_horas,
+        .st-key-f3_sector_mini_horas_eq,
+        .st-key-f3_sector_mini_k_weibull,
+        .st-key-f3_sector_mini_c_weibull,
+        .st-key-f3_pg_altura,
+        .st-key-f3_pg_modelo,
+        .st-key-f3_pg_vmax,
+        .st-key-f3_pg_binwidth {
+            border: 1.35px solid #cbd5e1 !important;
+            border-radius: 28px !important;
+            overflow: visible !important;
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+        }
+        .st-key-f3_card_header div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_sector div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_kpi_1 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_kpi_2 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_kpi_3 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_kpi_4 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_kpi_5 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_note_card div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_card_heatmap div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_card_expanders div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_summary div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_frecuencia div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_horas div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_horas_eq div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_k_weibull div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_c_weibull div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_pg_altura div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_pg_modelo div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_pg_vmax div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_pg_binwidth div[data-testid="stVerticalBlockBorderWrapper"] {
+            border: none !important;
+            border-radius: 28px !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            padding: 0.86rem 0.98rem !important;
+        }
+        .st-key-f3_card_header div[data-testid="stVerticalBlockBorderWrapper"] {
+            background: #f8fbff !important;
+            border: 2px solid #aebcd2 !important;
+            border-radius: 18px !important;
+            box-shadow:
+                0 0 0 1px rgba(148, 163, 184, 0.35),
+                0 6px 14px rgba(15, 23, 42, 0.13),
+                0 2px 6px rgba(37, 99, 235, 0.10) !important;
+            padding: 1.05rem 1.05rem 0.95rem 1.05rem !important;
+            min-height: unset !important;
+            height: auto !important;
+        }
+        .st-key-f3_cfg_general,
+        .st-key-f3_cfg_cuts,
+        .st-key-f3_cfg_sector {
+            height: 100%;
+        }
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_sector div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 226px !important;
+            padding-top: 0.82rem !important;
+            padding-bottom: 0.76rem !important;
+        }
+        .st-key-f3_cfg_sector div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 246px !important;
+            padding-top: 0.88rem !important;
+            padding-bottom: 1.15rem !important;
+        }
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 166px !important;
+            padding-top: 0.46rem !important;
+            padding-bottom: 0.34rem !important;
+        }
+        .st-key-f3_cfg_general [data-testid="stVerticalBlock"],
+        .st-key-f3_cfg_cuts [data-testid="stVerticalBlock"],
+        .st-key-f3_cfg_sector [data-testid="stVerticalBlock"] {
+            gap: 0.45rem !important;
+        }
+        .st-key-f3_cfg_general [data-testid="stVerticalBlock"],
+        .st-key-f3_cfg_cuts [data-testid="stVerticalBlock"] {
+            gap: 0.14rem !important;
+        }
+        .st-key-f3_cfg_general .f3-card-heading,
+        .st-key-f3_cfg_cuts .f3-card-heading {
+            margin-bottom: 0.2rem !important;
+        }
+        .st-key-f3_kpi_1,
+        .st-key-f3_kpi_2,
+        .st-key-f3_kpi_3,
+        .st-key-f3_kpi_4,
+        .st-key-f3_kpi_5 {
+            height: 100%;
+        }
+        .st-key-f3_kpi_1 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_kpi_2 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_kpi_3 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_kpi_4 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_kpi_5 div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 112px !important;
+            padding-top: 0.72rem !important;
+            padding-bottom: 0.72rem !important;
+        }
+        .st-key-f3_note_card div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding-top: 0.72rem !important;
+            padding-bottom: 0.72rem !important;
+        }
+        .st-key-f3_card_heatmap div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding-top: 0.8rem !important;
+            padding-bottom: 0.72rem !important;
+        }
+        .st-key-f3_sector_summary div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 0.88rem 0.92rem !important;
+        }
+        .st-key-f3_sector_mini_frecuencia div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_horas div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_horas_eq div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_k_weibull div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_c_weibull div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 78px !important;
+            padding: 0.62rem 0.74rem !important;
+        }
+        .st-key-f3_card_heatmap [data-testid="stPlotlyChart"] {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+        .st-key-f3_cfg_general [data-baseweb="input"],
+        .st-key-f3_cfg_general [data-baseweb="select"] > div,
+        .st-key-f3_cfg_cuts [data-baseweb="input"],
+        .st-key-f3_cfg_cuts [data-baseweb="select"] > div,
+        .st-key-f3_cfg_sector [data-baseweb="input"],
+        .st-key-f3_cfg_sector [data-baseweb="select"] > div {
+            min-height: 44px !important;
+        }
+        .st-key-f3_pg_altura div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_pg_modelo div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_pg_vmax div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_pg_binwidth div[data-testid="stVerticalBlockBorderWrapper"] {
+            border: none !important;
+            border-radius: 20px !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            padding: 0.28rem 0.58rem 0.34rem 0.58rem !important;
+            min-height: 82px !important;
+        }
+        .st-key-f3_cfg_general .f3-card-heading {
+            gap: 0.72rem !important;
+            margin-bottom: 0.65rem !important;
+        }
+        .st-key-f3_cfg_general [data-testid="stHorizontalBlock"] {
+            row-gap: 0.75rem !important;
+            column-gap: 1.0rem !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+        .st-key-f3_cfg_general .f3-card-heading__icon {
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px !important;
+            background: linear-gradient(180deg, #f8fbff 0%, #edf5ff 100%) !important;
+            border: 1px solid #bfdbfe !important;
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+        }
+        .st-key-f3_cfg_general .f3-card-heading__title {
+            line-height: 1.1 !important;
+            display: flex !important;
+            align-items: center !important;
+            min-height: 40px !important;
+        }
+        .st-key-f3_cfg_general .f3-card-heading,
+        .st-key-f3_cfg_cuts .f3-card-heading,
+        .st-key-f3_cfg_sector .f3-card-heading {
+            display: flex !important;
+            align-items: center !important;
+        }
+        .st-key-f3_cfg_general .f3-card-heading__icon,
+        .st-key-f3_cfg_cuts .f3-card-heading__icon,
+        .st-key-f3_cfg_sector .f3-card-heading__icon {
+            width: 54px !important;
+            height: 54px !important;
+            min-width: 54px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 999px !important;
+        }
+        .st-key-f3_cfg_general .f3-card-heading__icon svg,
+        .st-key-f3_cfg_cuts .f3-card-heading__icon svg,
+        .st-key-f3_cfg_sector .f3-card-heading__icon svg {
+            width: 28px !important;
+            height: 28px !important;
+            display: block !important;
+        }
+        .st-key-f3_cfg_general .f3-card-heading__title,
+        .st-key-f3_cfg_cuts .f3-card-heading__title,
+        .st-key-f3_cfg_sector .f3-card-heading__title {
+            display: flex !important;
+            align-items: center !important;
+            line-height: 1 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            transform: translateY(1px) !important;
+        }
+        .st-key-f3_pg_altura,
+        .st-key-f3_pg_modelo,
+        .st-key-f3_pg_vmax,
+        .st-key-f3_pg_binwidth {
+            border: none !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        .st-key-f3_pg_altura [data-testid="stWidgetLabel"],
+        .st-key-f3_pg_modelo [data-testid="stWidgetLabel"],
+        .st-key-f3_pg_vmax [data-testid="stWidgetLabel"],
+        .st-key-f3_pg_binwidth [data-testid="stWidgetLabel"] {
+            display: none !important;
+        }
+        .f3-pg-custom-label {
+            font-size: 0.86rem !important;
+            font-weight: 800 !important;
+            color: #1e293b !important;
+            line-height: 1.05 !important;
+            margin-bottom: 0.45rem !important;
+            padding-left: 0.12rem !important;
+            transform: none !important;
+            position: static !important;
+            top: auto !important;
+        }
+        .f3-pg-field-label {
+            transform: none !important;
+            position: static !important;
+            top: auto !important;
+        }
+        .f3-pg-bottom-spacer {
+            height: 6px !important;
+            min-height: 6px !important;
+            display: block !important;
+        }
+        .f3-pg-content-down-spacer {
+            display: block !important;
+            width: 100% !important;
+            height: 10px !important;
+            min-height: 10px !important;
+        }
+        .f3-pg-input-down-gap {
+            display: block !important;
+            width: 100% !important;
+            height: 26px !important;
+            min-height: 26px !important;
+        }
+        .st-key-f3_pg_altura label,
+        .st-key-f3_pg_modelo label,
+        .st-key-f3_pg_vmax label,
+        .st-key-f3_pg_binwidth label {
+            font-size: 0.83rem !important;
+            font-weight: 750 !important;
+            color: #475569 !important;
+            line-height: 1.15 !important;
+            margin-bottom: 0.18rem !important;
+        }
+        .st-key-f3_pg_altura [data-baseweb="input"],
+        .st-key-f3_pg_modelo [data-baseweb="select"] > div,
+        .st-key-f3_pg_vmax [data-baseweb="input"],
+        .st-key-f3_pg_binwidth [data-baseweb="input"] {
+            min-height: 46px !important;
+            background: #ffffff !important;
+            border: 1px solid #bfdbfe !important;
+            border-radius: 14px !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.98), 0 1px 2px rgba(15, 23, 42, 0.02) !important;
+            display: flex !important;
+            align-items: center !important;
+            overflow: hidden !important;
+        }
+        .st-key-f3_pg_altura [data-testid="stNumberInput"] [data-baseweb="input"],
+        .st-key-f3_pg_vmax [data-testid="stNumberInput"] [data-baseweb="input"],
+        .st-key-f3_pg_binwidth [data-testid="stNumberInput"] [data-baseweb="input"] {
+            background: #ffffff !important;
+            border: 1px solid #bfdbfe !important;
+            border-radius: 14px !important;
+            overflow: hidden !important;
+        }
+        .st-key-f3_pg_altura [data-baseweb="input"] > div,
+        .st-key-f3_pg_vmax [data-baseweb="input"] > div,
+        .st-key-f3_pg_binwidth [data-baseweb="input"] > div,
+        .st-key-f3_pg_modelo [data-baseweb="select"] > div > div {
+            background: #ffffff !important;
+        }
+        .st-key-f3_pg_altura [data-baseweb="input"] input,
+        .st-key-f3_pg_modelo [data-baseweb="select"] span,
+        .st-key-f3_pg_vmax [data-baseweb="input"] input,
+        .st-key-f3_pg_binwidth [data-baseweb="input"] input {
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            line-height: 1.1 !important;
+            background: #ffffff !important;
+        }
+        .st-key-f3_pg_altura [data-testid="stNumberInput"] input,
+        .st-key-f3_pg_vmax [data-testid="stNumberInput"] input,
+        .st-key-f3_pg_binwidth [data-testid="stNumberInput"] input {
+            background: #ffffff !important;
+            padding-left: 1rem !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+        }
+        .st-key-f3_pg_modelo [data-baseweb="select"] > div > div {
+            min-height: 46px !important;
+            align-items: center !important;
+        }
+        .st-key-f3_pg_modelo [data-baseweb="select"] svg {
+            color: #64748b !important;
+        }
+        .st-key-f3_pg_altura [data-testid="stNumberInput"] [data-baseweb="input"] > div:last-child,
+        .st-key-f3_pg_vmax [data-testid="stNumberInput"] [data-baseweb="input"] > div:last-child,
+        .st-key-f3_pg_binwidth [data-testid="stNumberInput"] [data-baseweb="input"] > div:last-child {
+            background: #ffffff !important;
+            border-left: 1px solid #dbeafe !important;
+        }
+        .st-key-f3_pg_altura [data-baseweb="input"] button,
+        .st-key-f3_pg_vmax [data-baseweb="input"] button,
+        .st-key-f3_pg_binwidth [data-baseweb="input"] button {
+            color: #0f172a !important;
+            background: #ffffff !important;
+            border-radius: 10px !important;
+            border: 1px solid #eef2f7 !important;
+            min-width: 2.35rem !important;
+        }
+        .st-key-f3_pg_altura [data-testid="stNumberInput"] button,
+        .st-key-f3_pg_vmax [data-testid="stNumberInput"] button,
+        .st-key-f3_pg_binwidth [data-testid="stNumberInput"] button {
+            background: #ffffff !important;
+            border-left: 1px solid #dbeafe !important;
+            color: #0f172a !important;
+            min-width: 2.35rem !important;
+        }
+        .st-key-f3_pg_altura [data-testid="stNumberInput"] button:hover,
+        .st-key-f3_pg_vmax [data-testid="stNumberInput"] button:hover,
+        .st-key-f3_pg_binwidth [data-testid="stNumberInput"] button:hover {
+            background: #eff6ff !important;
+        }
+        .st-key-f3_cfg_cuts [data-testid="stNumberInput"] [data-baseweb="input"] {
+            background: #ffffff !important;
+            border: 1px solid #bfdbfe !important;
+            border-radius: 14px !important;
+            overflow: hidden !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.98), 0 1px 2px rgba(15, 23, 42, 0.02) !important;
+        }
+        .st-key-f3_cfg_cuts [data-testid="stNumberInput"] [data-baseweb="input"] > div,
+        .st-key-f3_cfg_cuts [data-testid="stNumberInput"] [data-baseweb="input"] input {
+            background: #ffffff !important;
+            color: #0f172a !important;
+        }
+        .st-key-f3_cfg_cuts [data-testid="stNumberInput"] [data-baseweb="input"] > div:last-child {
+            background: #ffffff !important;
+            border-left: 1px solid #dbeafe !important;
+        }
+        .st-key-f3_cfg_cuts [data-testid="stNumberInput"] button {
+            background: #ffffff !important;
+            border-left: 1px solid #dbeafe !important;
+            border-radius: 10px !important;
+            color: #0f172a !important;
+            min-width: 2.35rem !important;
+        }
+        .st-key-f3_cfg_cuts [data-testid="stNumberInput"] button:hover {
+            background: #eff6ff !important;
+        }
+        .st-key-f3_cfg_cuts [data-testid="stCheckbox"] {
+            padding-top: 0.18rem !important;
+        }
+        /* Override final: compactar y empatar altura de los dos cards superiores */
+        .st-key-f3_cfg_general,
+        .st-key-f3_cfg_cuts {
+            min-height: unset !important;
+            height: auto !important;
+        }
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 170px !important;
+            height: 170px !important;
+            padding-top: 0.42rem !important;
+            padding-bottom: 0.34rem !important;
+        }
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 205px !important;
+            height: 205px !important;
+            padding-top: 0.58rem !important;
+            padding-bottom: 0.48rem !important;
+        }
+        .st-key-f3_cfg_general [data-testid="stVerticalBlock"],
+        .st-key-f3_cfg_cuts [data-testid="stVerticalBlock"] {
+            gap: 0.1rem !important;
+        }
+        .st-key-f3_cfg_general .f3-card-heading,
+        .st-key-f3_cfg_cuts .f3-card-heading {
+            margin-bottom: 0.12rem !important;
+        }
+        .st-key-f3_cfg_general [data-testid="stHorizontalBlock"],
+        .st-key-f3_cfg_cuts [data-testid="stHorizontalBlock"] {
+            row-gap: 0.32rem !important;
+            column-gap: 0.68rem !important;
+        }
+        /* Override final exclusivo: Parámetros generales (evitar recorte de labels) */
+        .st-key-f3_cfg_general {
+            overflow: visible !important;
+            height: auto !important;
+            min-height: unset !important;
+        }
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"] {
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 225px !important;
+            padding-top: 1.25rem !important;
+            padding-bottom: 1.20rem !important;
+        }
+        .st-key-f3_cfg_general .f3-pg-custom-label,
+        .st-key-f3_cfg_general .f3-pg-field-label,
+        .st-key-f3_cfg_general .st-key-f3_pg_altura label,
+        .st-key-f3_cfg_general .st-key-f3_pg_modelo label,
+        .st-key-f3_cfg_general .st-key-f3_pg_vmax label,
+        .st-key-f3_cfg_general .st-key-f3_pg_binwidth label {
+            top: auto !important;
+            transform: none !important;
+            position: static !important;
+            margin-bottom: 0.35rem !important;
+            line-height: 1.15 !important;
+        }
+        /* Override final: igualar altura visual de los dos cards superiores */
+        .st-key-f3_cfg_general,
+        .st-key-f3_cfg_cuts {
+            min-height: unset !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 225px !important;
+            height: 225px !important;
+            overflow: visible !important;
+        }
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding-top: 1.25rem !important;
+            padding-bottom: 1.20rem !important;
+        }
+        .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding-top: 0.92rem !important;
+            padding-bottom: 0.88rem !important;
+        }
+        /* ==========================================================
+           FIX encabezados superiores Fase 3
+           ========================================================== */
+        .st-key-f3_cfg_general .f3-header-icon-fixed,
+        .st-key-f3_cfg_cuts .f3-header-icon-fixed,
+        .st-key-f3_cfg_sector .f3-header-icon-fixed {
+            width: 54px !important;
+            height: 54px !important;
+            min-width: 54px !important;
+            border-radius: 999px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: linear-gradient(180deg, #f8fbff 0%, #edf5ff 100%) !important;
+            border: 1px solid #bfdbfe !important;
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .st-key-f3_cfg_general .f3-header-icon-fixed svg,
+        .st-key-f3_cfg_cuts .f3-header-icon-fixed svg,
+        .st-key-f3_cfg_sector .f3-header-icon-fixed svg {
+            width: 28px !important;
+            height: 28px !important;
+            display: block !important;
+            margin: 0 !important;
+        }
+
+        .st-key-f3_cfg_general .f3-header-title-fixed,
+        .st-key-f3_cfg_cuts .f3-header-title-fixed,
+        .st-key-f3_cfg_sector .f3-header-title-fixed {
+            min-height: 54px !important;
+            height: 54px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            color: #2563eb !important;
+            font-size: 1.03rem !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .st-key-f3_cfg_general .f3-header-subtitle-fixed,
+        .st-key-f3_cfg_cuts .f3-header-subtitle-fixed,
+        .st-key-f3_cfg_sector .f3-header-subtitle-fixed {
+            color: #64748b !important;
+            font-size: 0.84rem !important;
+            font-weight: 600 !important;
+            line-height: 1.2 !important;
+            margin-top: 0.18rem !important;
+        }
+        .f3-sector-bottom-spacer {
+            display: block !important;
+            width: 100% !important;
+            height: 18px !important;
+            min-height: 18px !important;
+        }
+        .f3-cuts-bottom-spacer {
+            display: block !important;
+            width: 100% !important;
+            height: 14px !important;
+            min-height: 14px !important;
+        }
+        .st-key-f3_cfg_sector,
+        .st-key-f3_cfg_sector div[data-testid="stVerticalBlockBorderWrapper"] {
+            overflow: visible !important;
+        }
+
+        /* ==========================================================
+           Fase 3 - Negrilla visual en contenedores superiores
+           ========================================================== */
+
+        .st-key-f3_cfg_general,
+        .st-key-f3_cfg_cuts,
+        .st-key-f3_cfg_sector {
+            font-weight: 700 !important;
+        }
+
+        /* Titulos de cards */
+        .st-key-f3_cfg_general .f3-header-title-fixed,
+        .st-key-f3_cfg_cuts .f3-header-title-fixed,
+        .st-key-f3_cfg_sector .f3-header-title-fixed,
+        .st-key-f3_cfg_general .f3-native-header__title,
+        .st-key-f3_cfg_cuts .f3-native-header__title,
+        .st-key-f3_cfg_sector .f3-native-header__title {
+            font-weight: 900 !important;
+        }
+
+        /* Labels visibles */
+        .st-key-f3_cfg_general label,
+        .st-key-f3_cfg_cuts label,
+        .st-key-f3_cfg_sector label,
+        .st-key-f3_cfg_general .f3-pg-custom-label,
+        .st-key-f3_cfg_cuts .f3-pg-custom-label,
+        .st-key-f3_cfg_sector .f3-pg-custom-label,
+        .st-key-f3_cfg_general .f3-pg-field-label,
+        .st-key-f3_cfg_cuts .f3-pg-field-label,
+        .st-key-f3_cfg_sector .f3-pg-field-label {
+            font-weight: 800 !important;
+            color: #0f172a !important;
+        }
+
+        /* Texto y numeros dentro de inputs/selects */
+        .st-key-f3_cfg_general input,
+        .st-key-f3_cfg_cuts input,
+        .st-key-f3_cfg_sector input,
+        .st-key-f3_cfg_general [data-baseweb="select"] div,
+        .st-key-f3_cfg_cuts [data-baseweb="select"] div,
+        .st-key-f3_cfg_sector [data-baseweb="select"] div {
+            font-weight: 800 !important;
+            color: #0f172a !important;
+        }
+
+        /* Botones + y - */
+        .st-key-f3_cfg_general button,
+        .st-key-f3_cfg_cuts button,
+        .st-key-f3_cfg_sector button {
+            font-weight: 900 !important;
+            color: #0f172a !important;
+        }
+
+        /* Checkbox y texto asociado */
+        .st-key-f3_cfg_cuts [data-testid="stCheckbox"] label,
+        .st-key-f3_cfg_cuts [data-testid="stCheckbox"] span,
+        .st-key-f3_cfg_cuts [data-testid="stCheckbox"] p {
+            font-weight: 800 !important;
+            color: #0f172a !important;
+        }
+
+        /* Nota azul del bloque Sector */
+        .st-key-f3_cfg_sector .f3-soft-note,
+        .st-key-f3_cfg_sector .f3-soft-note * {
+            font-weight: 800 !important;
+            color: #0f52ff !important;
+        }
+
+        /* ==========================================================
+           Fase 3 - Negrilla labels faltantes Dirección/Sector
+           ========================================================== */
+        .st-key-f3_cfg_cuts label,
+        .st-key-f3_cfg_cuts label p,
+        .st-key-f3_cfg_cuts [data-testid="stWidgetLabel"],
+        .st-key-f3_cfg_cuts [data-testid="stWidgetLabel"] p,
+        .st-key-f3_cfg_cuts [data-testid="stNumberInput"] label,
+        .st-key-f3_cfg_cuts [data-testid="stNumberInput"] label p,
+        .st-key-f3_cfg_cuts [data-testid="stSelectbox"] label,
+        .st-key-f3_cfg_cuts [data-testid="stSelectbox"] label p,
+        .st-key-f3_cfg_sector label,
+        .st-key-f3_cfg_sector label p,
+        .st-key-f3_cfg_sector [data-testid="stWidgetLabel"],
+        .st-key-f3_cfg_sector [data-testid="stWidgetLabel"] p,
+        .st-key-f3_cfg_sector [data-testid="stSelectbox"] label,
+        .st-key-f3_cfg_sector [data-testid="stSelectbox"] label p {
+            font-weight: 800 !important;
+            color: #0f172a !important;
+        }
+
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_sector div[data-testid="stVerticalBlockBorderWrapper"] {
+            box-sizing: border-box !important;
+        }
+
+        .st-key-f3_cfg_cuts [data-testid="stSelectbox"],
+        .st-key-f3_cfg_cuts [data-testid="stCheckbox"],
+        .st-key-f3_cfg_cuts [data-testid="stNumberInput"],
+        .st-key-f3_cfg_sector [data-testid="stSelectbox"],
+        .st-key-f3_cfg_sector .f3-soft-note {
+            transform: translateY(7px) !important;
+        }
+
+        .st-key-f3_card_expanders [data-testid="stExpanderDetails"] {
+            padding-top: 0.15rem !important;
+        }
+        div[data-baseweb="input"],
+        div[data-baseweb="select"] > div,
+        .stCheckbox {
+            border-radius: 14px !important;
+        }
+        div[data-baseweb="input"],
+        div[data-baseweb="select"] > div {
+            border: 1px solid #dbe5f1 !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+            background: #ffffff !important;
+        }
+        [data-testid="stMetric"] {
+            padding: 0 !important;
+        }
+        @media (max-width: 1200px) {
+            .f3-mini-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        /* --- Secciones de altura unificada movidas al bloque final para mayor prioridad --- */
+
+        .st-key-f3_cfg_general [data-testid="stVerticalBlock"],
+        .st-key-f3_cfg_cuts [data-testid="stVerticalBlock"],
+        .st-key-f3_cfg_sector [data-testid="stVerticalBlock"] {
+            height: 100% !important;
+            min-height: 100% !important;
+            max-height: 100% !important;
+            box-sizing: border-box !important;
+            overflow: visible !important;
+        }
+        .f3-main-card-header {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            gap: 0.46rem !important;
+            color: #1e40af !important;
+            font-weight: 900 !important;
+            font-size: 1.08rem !important;
+            line-height: 1 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .f3-main-card-header__title {
+            display: inline-flex !important;
+            align-items: center !important;
+            line-height: 1 !important;
+        }
+        .f3-main-card-header__icon {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 20px !important;
+            height: 20px !important;
+            border-radius: 999px !important;
+            background: #eff6ff !important;
+            border: 1px solid #cbd5e1 !important;
+            flex-shrink: 0 !important;
+        }
+        .f3-main-card-header__icon svg {
+            display: block !important;
+            width: 14px !important;
+            height: 14px !important;
+        }
+        /* ==========================================================
+           Fase 3 - Cards limpios Rosa / Análisis
+           ========================================================== */
+        .st-key-f3_card_rose_v3,
+        .st-key-f3_card_sector_v3 {
+            width: 100% !important;
+            max-width: none !important;
+            height: 600px !important;
+            min-height: 600px !important;
+            max-height: 600px !important;
+            box-sizing: border-box !important;
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 28px !important;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+            overflow: hidden !important;
+        }
+        .st-key-f3_card_rose_v3 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_card_sector_v3 div[data-testid="stVerticalBlockBorderWrapper"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            height: 600px !important;
+            min-height: 600px !important;
+            max-height: 600px !important;
+            padding: 1.10rem 1.25rem 1.10rem 1.25rem !important;
+            box-sizing: border-box !important;
+            overflow: visible !important;
+        }
+        .st-key-f3_card_rose_v3 [data-testid="stVerticalBlock"],
+        .st-key-f3_card_sector_v3 [data-testid="stVerticalBlock"] {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.82rem !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            max-height: 100% !important;
+            overflow: hidden !important;
+            transform: none !important;
+        }
+        .st-key-f3_card_rose_v3 [data-testid="stVerticalBlock"] *,
+        .st-key-f3_card_sector_v3 [data-testid="stVerticalBlock"] * {
+            transform: none !important;
+        }
+        .st-key-f3_card_rose_v3 [data-testid="stPlotlyChart"],
+        .st-key-f3_card_sector_v3 [data-testid="stPlotlyChart"] {
+            overflow: visible !important;
+        }
+        .st-key-f3_rose_body_v3,
+        .st-key-f3_sector_body_v3 {
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+        }
+        .st-key-f3_rose_body_v3 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_body_v3 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_rose_plot_col_v3 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_rose_side_col_v3 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_plot_wrap_v3 div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_stats_row_v3 div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .st-key-f3_rose_body_v3 [data-testid="stHorizontalBlock"] {
+            align-items: flex-start !important;
+            column-gap: 1.05rem !important;
+        }
+        .st-key-f3_rose_plot_col_v3 [data-testid="stPlotlyChart"] {
+            height: 560px !important;
+            min-height: 560px !important;
+            display: flex !important;
+            justify-content: center !important;
+            margin: 0 !important;
+        }
+        .st-key-f3_rose_side_col_v3,
+        .st-key-f3_rose_side_col_v3 div[data-testid="stVerticalBlockBorderWrapper"] {
+            height: 100% !important;
+            min-height: 100% !important;
+        }
+        .st-key-f3_rose_side_col_v3 [data-testid="stVerticalBlock"] {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            height: 100% !important;
+            min-height: 100% !important;
+        }
+        .st-key-f3_rose_table_button_lower {
+            position: static !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            flex: 0 0 auto !important;
+        }
+        .st-key-f3_rose_table_button_lower div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .f3-rose-button-big-spacer {
+            display: block !important;
+            width: 100% !important;
+            height: 290px !important;
+            min-height: 290px !important;
+        }
+        .st-key-f3_sector_summary {
+            border-radius: 18px !important;
+            border: 1px solid #cbd5e1 !important;
+            border-color: #d7e3f3 !important;
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03) !important;
+            min-height: 245px !important;
+            height: 245px !important;
+            border-radius: 22px !important;
+            overflow: hidden !important;
+        }
+        .st-key-f3_sector_summary div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 1.2rem 1.25rem !important;
+            min-height: 245px !important;
+            height: 245px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            box-sizing: border-box !important;
+        }
+        .st-key-f3_btn_toggle_sector_table {
+            margin-top: 0 !important;
+        }
+        .st-key-f3_btn_toggle_sector_table button {
+            min-height: 44px !important;
+            border-radius: 14px !important;
+            border: 1px solid #bfdbfe !important;
+            background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%) !important;
+            color: #2563eb !important;
+            font-weight: 800 !important;
+            box-shadow: 0 1px 4px rgba(37, 99, 235, 0.08) !important;
+        }
+        .st-key-f3_sector_body_v3 [data-testid="stVerticalBlock"] {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.78rem !important;
+        }
+        .st-key-f3_sector_stats_row_v3 [data-testid="stHorizontalBlock"] {
+            column-gap: 0.52rem !important;
+            align-items: stretch !important;
+        }
+        .st-key-f3_sector_stats_row_v3 {
+            margin-top: 0.85rem !important;
+        }
+        .st-key-f3_sector_stats_row_v3 div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding-top: 0.35rem !important;
+        }
+        .st-key-f3_sector_plot_wrap_v3 {
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            margin-top: 0.55rem !important;
+        }
+        .st-key-f3_sector_plot_wrap_v3 [data-testid="stPlotlyChart"] {
+            height: 500px !important;
+            min-height: 500px !important;
+            display: flex !important;
+            justify-content: center !important;
+            margin: 0 !important;
+        }
+        .st-key-f3_sector_mini_frecuencia,
+        .st-key-f3_sector_mini_horas,
+        .st-key-f3_sector_mini_horas_eq,
+        .st-key-f3_sector_mini_k_weibull,
+        .st-key-f3_sector_mini_c_weibull {
+            border-radius: 12px !important;
+            background: linear-gradient(180deg, #fbfdff 0%, #f6faff 100%) !important;
+            border-color: #d8e3f2 !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035) !important;
+        }
+        .st-key-f3_sector_mini_frecuencia div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_horas div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_horas_eq div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_k_weibull div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_sector_mini_c_weibull div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 58px !important;
+            padding: 0.56rem 0.72rem !important;
+            border-radius: 12px !important;
+        }
+        .st-key-f3_sector_mini_frecuencia .f3-mini-stat__label,
+        .st-key-f3_sector_mini_horas .f3-mini-stat__label,
+        .st-key-f3_sector_mini_horas_eq .f3-mini-stat__label,
+        .st-key-f3_sector_mini_k_weibull .f3-mini-stat__label,
+        .st-key-f3_sector_mini_c_weibull .f3-mini-stat__label {
+            font-size: 0.74rem !important;
+            margin-bottom: 0.1rem !important;
+        }
+        .st-key-f3_sector_mini_frecuencia .f3-mini-stat__value,
+        .st-key-f3_sector_mini_horas .f3-mini-stat__value,
+        .st-key-f3_sector_mini_horas_eq .f3-mini-stat__value,
+        .st-key-f3_sector_mini_k_weibull .f3-mini-stat__value,
+        .st-key-f3_sector_mini_c_weibull .f3-mini-stat__value {
+            font-size: 1.04rem !important;
+        }
+        .f3_sector_stats_row_v3 .f3-mini-stat,
+        .st-key-f3_card_sector_v3 .f3-mini-stat {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            position: relative !important;
+        }
+.f3_sector_stats_row_v3 .f3-mini-stat > *,
+.st-key-f3_card_sector_v3 .f3-mini-stat > * {
+    transform: translateY(-6px) !important;
+}
+
+.st-key-f3_sector_mini_frecuencia .f3-mini-stat__label,
+.st-key-f3_sector_mini_frecuencia .f3-mini-stat__value,
+.st-key-f3_sector_mini_horas .f3-mini-stat__label,
+.st-key-f3_sector_mini_horas .f3-mini-stat__value,
+.st-key-f3_sector_mini_horas_eq .f3-mini-stat__label,
+.st-key-f3_sector_mini_horas_eq .f3-mini-stat__value,
+.st-key-f3_sector_mini_k_weibull .f3-mini-stat__label,
+.st-key-f3_sector_mini_k_weibull .f3-mini-stat__value,
+.st-key-f3_sector_mini_c_weibull .f3-mini-stat__label,
+.st-key-f3_sector_mini_c_weibull .f3-mini-stat__value {
+    transform: translateY(-10px) !important;
+}
+        .f3_sector_stats_row_v3 .f3-mini-stat__label,
+        .st-key-f3_card_sector_v3 .f3-mini-stat__label {
+            width: 100% !important;
+            text-align: center !important;
+            margin-bottom: 0.12rem !important;
+        }
+        .f3_sector_stats_row_v3 .f3-mini-stat__value,
+        .st-key-f3_card_sector_v3 .f3-mini-stat__value {
+            width: 100% !important;
+            text-align: center !important;
+        }
+        .st-key-f3_sector_table_detached {
+            border: 1.35px solid #cbd5e1 !important;
+            border-radius: 28px !important;
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.045) !important;
+            overflow: hidden !important;
+        }
+        .st-key-f3_sector_table_detached div[data-testid="stVerticalBlockBorderWrapper"] {
+            border: none !important;
+            border-radius: 28px !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            padding: 0.95rem 1.05rem 1.05rem 1.05rem !important;
+        }
+        .f3-sector-table-title {
+            color: #1e40af !important;
+            font-size: 1.08rem !important;
+            font-weight: 900 !important;
+            line-height: 1.1 !important;
+            margin: 0 0 0.58rem 0 !important;
+            padding: 0 !important;
+        }
+        .st-key-f3_sector_table_detached [data-testid="stDataFrame"] {
+            border: 1px solid #d5e2f2 !important;
+            border-radius: 16px !important;
+            background: #ffffff !important;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035) !important;
+            overflow: hidden !important;
+        }
+        .st-key-f3_sector_table_detached [data-testid="stDataFrame"] [role="columnheader"],
+        .st-key-f3_sector_table_detached [data-testid="stDataFrame"] thead th {
+            background: linear-gradient(180deg, #f2f7ff 0%, #eaf2ff 100%) !important;
+            color: #1e3a8a !important;
+            font-weight: 900 !important;
+            border-bottom: 1px solid #d5e2f2 !important;
+        }
+        .st-key-f3_sector_table_detached [data-testid="stDataFrame"] [role="gridcell"],
+        .st-key-f3_sector_table_detached [data-testid="stDataFrame"] tbody td {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+        .st-key-f3_card_heatmap {
+            border: 1.25px solid #e2e8f0 !important;
+            border-radius: 24px !important;
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+            overflow: hidden !important;
+            height: 520px !important;
+            min-height: 520px !important;
+            max-height: 520px !important;
+        }
+        .st-key-f3_card_heatmap div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 0.85rem 1rem 0.95rem 1rem !important;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            height: 520px !important;
+            min-height: 520px !important;
+            max-height: 520px !important;
+            box-sizing: border-box !important;
+        }
+        .st-key-f3_card_heatmap .f3-native-header,
+        .st-key-f3_card_heatmap .f3-card-heading {
+            margin-bottom: 0.36rem !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
+            text-align: left !important;
+        }
+        .f3-heatmap-title-row {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            gap: 0.45rem !important;
+            margin: 0 0 0.36rem 0 !important;
+            padding: 0 !important;
+            text-align: left !important;
+        }
+        .f3-heatmap-title-text {
+            color: #2563eb !important;
+            font-size: 1.03rem !important;
+            font-weight: 900 !important;
+            line-height: 1.1 !important;
+        }
+        .f3-heatmap-title-info {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 19px !important;
+            height: 19px !important;
+            border-radius: 999px !important;
+            border: 1px solid #cbd5e1 !important;
+            background: #eff6ff !important;
+            color: #2563eb !important;
+            flex-shrink: 0 !important;
+        }
+        .st-key-f3_card_heatmap .f3-card-heading__title,
+        .st-key-f3_card_heatmap .f3-header-title-fixed,
+        .st-key-f3_card_heatmap .f3-native-header__title {
+            color: #2563eb !important;
+            font-weight: 900 !important;
+            text-align: left !important;
+        }
+        .st-key-f3_card_heatmap [data-testid="stPlotlyChart"] {
+            display: flex !important;
+            justify-content: center !important;
+            margin: 0 !important;
+            height: 455px !important;
+            min-height: 455px !important;
+        }
+        .st-key-f3_card_heatmap [data-testid="stPlotlyChart"] .gtitle,
+        .st-key-f3_card_heatmap [data-testid="stPlotlyChart"] .infolayer .g-gtitle {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+        }
+        .f3-heatmap-top-spacer {
+            display: block !important;
+            width: 100% !important;
+            height: 14px !important;
+            min-height: 14px !important;
+        }
+
+        /* --- Responsive fixes simplificados --- */
+
+        .f3-card-heading {
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.85rem !important;
+            flex-wrap: nowrap !important;
+        }
+
+        .f3-card-heading__title {
+            line-height: 1.15 !important;
+            overflow-wrap: anywhere !important;
+        }
+
+        .f3-card-heading__icon {
+            width: clamp(42px, 3.6vw, 64px) !important;
+            height: clamp(42px, 3.6vw, 64px) !important;
+            min-width: clamp(42px, 3.6vw, 64px) !important;
+        }
+
+        .st-key-f3_cfg_general [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
+        .st-key-f3_cfg_cuts [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
+        .st-key-f3_cfg_sector [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 0 !important;
+        }
+
+        .f3-kpi-card {
+            min-height: 96px !important;
+            height: auto !important;
+            overflow: visible !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: clamp(0.55rem, 1vw, 1rem) !important;
+        }
+
+        .f3-kpi-card__icon {
+            width: clamp(44px, 3.4vw, 64px) !important;
+            height: clamp(44px, 3.4vw, 64px) !important;
+            min-width: clamp(44px, 3.4vw, 64px) !important;
+            transform: translateY(-4px) !important;
+        }
+
+        .f3-kpi-card__label {
+            line-height: 1.1 !important;
+            overflow-wrap: anywhere !important;
+        }
+
+        .f3-kpi-card__value {
+            line-height: 1.05 !important;
+            overflow-wrap: anywhere !important;
+        }
+
+        @media (max-width: 1350px) {
+            .f3-card-heading {
+                gap: 0.65rem !important;
+            }
+
+            .f3-card-heading__title {
+                font-size: 1.05rem !important;
+                line-height: 1.15 !important;
+            }
+
+            .f3-card-heading__icon {
+                width: 48px !important;
+                height: 48px !important;
+                min-width: 48px !important;
+            }
+
+            .f3-kpi-card {
+                padding: 0.75rem 0.85rem !important;
+                gap: 0.65rem !important;
+            }
+
+            .f3-kpi-card__icon {
+                width: 48px !important;
+                height: 48px !important;
+                min-width: 48px !important;
+                transform: translateY(-4px) !important;
+            }
+
+            .f3-kpi-card__value {
+                font-size: clamp(1.25rem, 2vw, 1.9rem) !important;
+            }
+
+            .f3-kpi-card__label {
+                font-size: 0.78rem !important;
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"],
+            .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"],
+            .st-key-f3_cfg_sector div[data-testid="stVerticalBlockBorderWrapper"] {
+                min-height: unset !important;
+                height: auto !important;
+            }
+
+            .f3-card-heading {
+                flex-wrap: wrap !important;
+                align-items: flex-start !important;
+            }
+
+            .f3-kpi-card {
+                min-height: 88px !important;
+            }
+
+            .f3-kpi-card__value {
+                font-size: 1.35rem !important;
+            }
+        }
+        .f3-cut-field-label {
+            min-height: 2.55rem;
+            display: flex;
+            align-items: flex-start;
+            color: #0f172a;
+            font-weight: 850;
+            font-size: clamp(0.84rem, 0.85vw, 1rem);
+            line-height: 1.18;
+            margin-bottom: 0.35rem;
+        }
+
+        .f3-sector-title-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .f3-sector-title-icon {
+            width: 56px;
+            height: 56px;
+            min-width: 56px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, #f8fbff 0%, #edf5ff 100%);
+            border: 1px solid #bfdbfe;
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08), inset 0 1px 0 rgba(255,255,255,0.95);
+        }
+
+        .f3-sector-title-text {
+            color: #2563eb;
+            font-weight: 900;
+            font-size: 1.03rem;
+        }
+
+        .st-key-f3_cfg_cuts [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 0 !important;
+        }
+
+        /* ==========================================================
+           Fase 3 - Altura unificada exacta (250px)
+           ========================================================== */
+        .st-key-f3_cfg_general,
+        .st-key-f3_cfg_cuts,
+        .st-key-f3_cfg_sector {
+            height: 250px !important;
+            min-height: 250px !important;
+            max-height: 250px !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-f3_cfg_sector div[data-testid="stVerticalBlockBorderWrapper"] {
+            height: 250px !important;
+            min-height: 250px !important;
+            max-height: 250px !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            padding-bottom: 0 !important;
+        }
+
+        /* Compactar recuadro azul informativo de Sector */
+        .st-key-f3_cfg_sector .f3-soft-note,
+        .st-key-f3_cfg_sector .f3-sector-info-note,
+        .st-key-f3_cfg_sector .f3-info-banner,
+        .st-key-f3_cfg_sector .f3-sector-info,
+        .st-key-f3_cfg_sector .f3-note-card {
+            padding: 0.42rem 0.55rem !important;
+            margin-top: 0.45rem !important;
+            margin-bottom: 0 !important;
+            min-height: 42px !important;
+            border-radius: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.50rem !important;
+            transform: none !important;
+        }
+
+        .st-key-f3_cfg_sector .f3-soft-note,
+        .st-key-f3_cfg_sector .f3-soft-note *,
+        .st-key-f3_cfg_sector .f3-sector-info-note *,
+        .st-key-f3_cfg_sector .f3-info-banner *,
+        .st-key-f3_cfg_sector .f3-sector-info *,
+        .st-key-f3_cfg_sector .f3-note-card * {
+            font-size: 0.68rem !important;
+            line-height: 1.12 !important;
+            font-weight: 750 !important;
+        }
+
+        .st-key-f3_cfg_sector .f3-soft-note svg,
+        .st-key-f3_cfg_sector .f3-sector-info-note svg,
+        .st-key-f3_cfg_sector .f3-info-banner svg,
+        .st-key-f3_cfg_sector .f3-sector-info svg,
+        .st-key-f3_cfg_sector .f3-note-card svg {
+            width: 18px !important;
+            height: 18px !important;
+        }
+
+        .st-key-f3_cfg_sector .f3-soft-note .f3-card-heading__icon {
+            width: 28px !important;
+            height: 28px !important;
+            min-width: 28px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        @media (max-width: 1400px) {
+            .f3-cut-field-label {
+                min-height: 2.75rem;
+                font-size: 0.86rem;
+            }
+            .st-key-f3_cfg_sector .f3-soft-note {
+                padding: 0.45rem 0.60rem !important;
+                min-height: 50px !important;
+            }
+            .st-key-f3_cfg_sector .f3-soft-note,
+            .st-key-f3_cfg_sector .f3-soft-note * {
+                font-size: 0.72rem !important;
+                line-height: 1.15 !important;
+            }
+            .st-key-f3_cfg_sector .f3-soft-note svg {
+                width: 20px !important;
+                height: 20px !important;
+            }
+            .st-key-f3_cfg_sector .f3-soft-note .f3-card-heading__icon {
+                width: 30px !important;
+                height: 30px !important;
+                min-width: 30px !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _panel_header_html(title: str, icon_name: str, subtitle: str = "") -> str:
+    subtitle_html = f'<div class="f3-card-heading__subtitle">{subtitle}</div>' if subtitle else ""
+    return textwrap.dedent(
+        f"""
+        <div class="f3-card-heading">
+            <div class="f3-card-heading__icon">{_icon_svg(icon_name, 18, "#2563eb")}</div>
+            <div>
+                <div class="f3-card-heading__title">{title}</div>
+                {subtitle_html}
+            </div>
+        </div>
+        """
+    ).strip()
+
+
+def _kpi_card_html(icon_name: str, label: str, value: str) -> str:
+    return textwrap.dedent(
+        f"""
+        <div class="f3-kpi-card">
+            <div class="f3-kpi-card__icon">{_icon_svg(icon_name, 22, "#2563eb")}</div>
+            <div>
+                <div class="f3-kpi-card__label">{label}</div>
+                <div class="f3-kpi-card__value">{value}</div>
+            </div>
+        </div>
+        """
+    ).strip()
+
+
+def _mini_stat_html(label: str, value: str) -> str:
+    return textwrap.dedent(
+        f"""
+        <div class="f3-mini-stat">
+            <div class="f3-mini-stat__label">{label}</div>
+            <div class="f3-mini-stat__value">{value}</div>
+        </div>
+        """
+    ).strip()
+
+
+def _extract_alpha_promedio(meta: dict) -> str:
+    for idx in (1, 2):
+        name = str(meta.get(f"parametro_{idx}_nombre") or "")
+        value = meta.get(f"parametro_{idx}_valor", np.nan)
+        if "alpha" in name.lower() and pd.notna(value):
+            return f"{float(value):.4f}"
+    return "N/A"
+
+
+def _summary_sector_html(resumen: pd.DataFrame, direccion_fuente: str) -> str:
+    fila_max = resumen.loc[resumen["Frecuencia (%)"].idxmax()]
+    fila_min = resumen.loc[resumen["Frecuencia (%)"].idxmin()]
+    rows = [
+        ("Sectores", f"{int((resumen['Datos'] > 0).sum())}"),
+        ("Dirección usada", direccion_fuente),
+        ("Frecuencia máx.", f"{fila_max['Frecuencia (%)']:.2f}% ({fila_max['Sector']})"),
+        ("Frecuencia mín.", f"{fila_min['Frecuencia (%)']:.2f}% ({fila_min['Sector']})"),
+    ]
+    rows_html = "".join(
+        f'<div class="f3-summary-row"><div class="f3-summary-row__label">{label}</div><div class="f3-summary-row__value">{value}</div></div>'
+        for label, value in rows
+    )
+    return f'<div class="f3-summary-card"><div class="f3-summary-card__title">Resumen sectorial</div>{rows_html}</div>'
+
+
+def _render_card_header_native(title: str, icon_name: str, subtitle: str = ""):
+    icon_col, text_col = st.columns([0.12, 0.88], gap="small")
+
+    with icon_col:
+        st.markdown(
+            f'<div class="f3-header-icon-fixed">{_icon_svg(icon_name, 28, "#2563eb")}</div>',
+            unsafe_allow_html=True,
+        )
+
+    with text_col:
+        st.markdown(
+            f'<div class="f3-header-title-fixed">{title}</div>',
+            unsafe_allow_html=True,
+        )
+        if subtitle:
+            st.markdown(
+                f'<div class="f3-header-subtitle-fixed">{subtitle}</div>',
+                unsafe_allow_html=True,
+            )
+
+
+def _render_kpi_card_native(icon_name: str, label: str, value: str):
+    icon_col, text_col = st.columns([0.24, 0.76], gap="small")
+    with icon_col:
+        st.markdown(
+            f'<div class="f3-kpi-card__icon">{_icon_svg(icon_name, 34, "#2563eb")}</div>',
+            unsafe_allow_html=True,
+        )
+    with text_col:
+        st.markdown(
+            f'<div class="f3-kpi-card__body"><div class="f3-kpi-card__label">{label}</div><div class="f3-kpi-card__value">{value}</div></div>',
+            unsafe_allow_html=True,
+        )
+
+
+def _render_summary_sector_native(resumen: pd.DataFrame, direccion_fuente: str):
+    fila_max = resumen.loc[resumen["Frecuencia (%)"].idxmax()]
+    fila_min = resumen.loc[resumen["Frecuencia (%)"].idxmin()]
+    st.markdown('<div class="f3-summary-card__title">Resumen sectorial</div>', unsafe_allow_html=True)
+    rows = [
+        ("Sectores", f"{int((resumen['Datos'] > 0).sum())}"),
+        ("Dirección usada", direccion_fuente),
+        ("Frecuencia máx.", f"{fila_max['Frecuencia (%)']:.2f}% ({fila_max['Sector']})"),
+        ("Frecuencia mín.", f"{fila_min['Frecuencia (%)']:.2f}% ({fila_min['Sector']})"),
+    ]
+    for idx, (label, value) in enumerate(rows):
+        border_style = "1px solid #eef4fb" if idx < len(rows) - 1 else "none"
+        st.markdown(
+            f"""
+            <div class="f3-summary-row" style="border-bottom:{border_style};">
+                <div class="f3-summary-row__label">{label}</div>
+                <div class="f3-summary-row__value">{value}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def _render_soft_note_native(text: str):
+    icon_col, text_col = st.columns([0.08, 0.92], gap="small")
+    with icon_col:
+        st.markdown(
+            f'<div class="f3-card-heading__icon f3-card-heading__icon--note">{_icon_svg("info", 16, "#2563eb")}</div>',
+            unsafe_allow_html=True,
+        )
+    with text_col:
+        st.markdown(f'<div class="f3-soft-note__text">{text}</div>', unsafe_allow_html=True)
+
+
+_render_phase3_css()
+
+# Override visual puntual: empatar acabado SMA 2.0 para el card del heatmap (Fase 3)
+st.markdown(
+    """
+    <style>
+    /* FORZADO: estilo SMA 2.0 para '3. Heatmap de probabilidad para 16 sectores' */
+    .st-key-f3_card_rose_v3,
+    .st-key-f3_card_sector_v3 {
+        min-height: 650px !important;
+        box-sizing: border-box !important;
+    }
+
+    .st-key-f3_card_rose_v3 div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f3_card_sector_v3 div[data-testid="stVerticalBlockBorderWrapper"] {
+        min-height: 650px !important;
+        box-sizing: border-box !important;
+    }
+
+    .st-key-f3_rose_body_v3,
+    .st-key-f3_sector_body_v3 {
+        min-height: 585px !important;
+        box-sizing: border-box !important;
+    }
+
+    .st-key-f3_rose_plot_col_v3 {
+        min-height: 560px !important;
+    }
+
+    .st-key-f3_sector_plot_wrap_v3 {
+        min-height: 500px !important;
+    }
+
+    .st-key-f3_card_heatmap {
+        border: 1.4px solid #cbd5e1 !important;
+        border-radius: 28px !important;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+        box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+        min-height: 560px !important;
+    }
+
+    .st-key-f3_card_heatmap div[data-testid="stVerticalBlockBorderWrapper"] {
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 28px !important;
+        background: transparent !important;
+        overflow: visible !important;
+        box-sizing: border-box !important;
+        min-height: 560px !important;
+    }
+
+    .st-key-f3_card_heatmap [data-testid="stPlotlyChart"] {
+        min-height: 470px !important;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+df_nasa = cargar_nasa_hourly()
+config = cargar_config()
+df_curva = cargar_tabla_curva()
+
+if len(df_nasa) == 0:
+    st.warning("Todavía no hay datos horarios guardados desde la Fase 2.")
+    st.stop()
+
+df_curva_num = _session_cached_result(
+    "f3_curva_preparada",
+    ("curva", _df_signature(df_curva)),
+    lambda: preparar_datos_curva(df_curva),
+)
+cut_in_inf, nominal_inf, cut_out_inf = inferir_puntos_operacion_curva(df_curva_num)
+
+altura_deseada_default = _config_value(config, "perfil_hhub", ["f2_altura_deseada"], 80.0, caster=float)
+modelo_default = normalizar_modelo_altura(_config_value(config, "f3_modelo_altura", ["f35_modelo"], "Exponencial"))
+dir_default = _config_value(config, "f3_direccion_fuente", ["f35_direccion_fuente"], "WD50M")
+roughness_default = _config_value(config, "f3_roughness_label", ["f35_roughness_label"], "Grass / Césped")
+sector_default = _config_value(config, "f3_selected_sector", ["f35_selected_sector"], "N")
+vmax_default = _config_value(config, "f3_prob_vmax", ["f35_vmax"], 25.0, caster=float)
+bin_width_default = _config_value(config, "f3_prob_bin_width", ["f35_bin_width"], 0.5, caster=float)
+show_cdf_default = _bool_config_value(config, "f3_prob_show_cdf", ["f35_show_cdf"], False)
+cut_in_default = _config_value(config, "f3_prob_cutin", ["f35_cutin"], cut_in_inf, caster=float)
+nominal_default = _config_value(config, "f3_prob_nominal", ["f35_nominal"], nominal_inf, caster=float)
+cut_out_default = _config_value(config, "f3_prob_cutout", ["f35_cutout"], cut_out_inf, caster=float)
+
+_init_widget_state("f3_altura_deseada", altura_deseada_default)
+_init_widget_state("f3_modelo_altura", modelo_default)
+_init_widget_state("f3_direccion_fuente", dir_default)
+_init_widget_state("f3_vmax", vmax_default)
+_init_widget_state("f3_bin_width", bin_width_default)
+_init_widget_state("f3_mostrar_cdf", show_cdf_default)
+_init_widget_state("f3_cut_in", cut_in_default)
+_init_widget_state("f3_nominal", nominal_default)
+_init_widget_state("f3_cut_out", cut_out_default)
+
+altura_deseada = st.session_state.get("f3_altura_deseada", altura_deseada_default)
+modelo = st.session_state.get("f3_modelo_altura", modelo_default)
+direccion_fuente = st.session_state.get("f3_direccion_fuente", dir_default)
+vmax = st.session_state.get("f3_vmax", vmax_default)
+bin_width = st.session_state.get("f3_bin_width", bin_width_default)
+mostrar_cdf = st.session_state.get("f3_mostrar_cdf", show_cdf_default)
+cut_in = st.session_state.get("f3_cut_in", cut_in_default)
+nominal = st.session_state.get("f3_nominal", nominal_default)
+cut_out = st.session_state.get("f3_cut_out", cut_out_default)
+roughness_label = roughness_default
+
+if not (0 <= cut_in < nominal < cut_out):
+    st.error("Debe cumplirse: cut-in < nominal < cut-out.")
+    st.stop()
+
+try:
+    f3_analysis_signature = (
+        _df_signature(df_nasa, ["timestamp", "WS10M", "WS50M", "WD10M", "WD50M"]),
+        modelo,
+        float(altura_deseada),
+        roughness_label,
+        direccion_fuente,
+    )
+
+    def _build_f3_analysis_bundle():
+        df_analisis_local, meta_local = construir_viento_analisis(
+            df_nasa=df_nasa,
+            modelo=modelo,
+            altura_deseada=altura_deseada,
+            roughness_label=roughness_label,
+            direccion_fuente=direccion_fuente,
+        )
+        df_rosa_local = preparar_datos_rosa(df_analisis_local, ws_col="WS_ANALISIS", wd_col="WD_USADA")
+        resumen_local = resumir_sectores_rosa(df_rosa_local, ws_col="WS_ANALISIS").copy()
+        resumen_local["Horas observadas (h)"] = resumen_local["Datos"].astype(int)
+        resumen_local["Horas equivalentes anuales (h/año)"] = resumen_local["Frecuencia (%)"] / 100.0 * 8760.0
+        resumen_local["Calidad Weibull"] = resumen_local["Datos"].apply(calidad_weibull)
+        return df_analisis_local, meta_local, df_rosa_local, resumen_local
+
+    df_analisis, meta, df_rosa, resumen = _session_cached_result(
+        "f3_analysis_bundle",
+        f3_analysis_signature,
+        _build_f3_analysis_bundle,
+    )
+except Exception as e:
+    st.error(f"No pude preparar los datos de análisis sectorial: {e}")
+    st.stop()
+
+if len(df_rosa) == 0:
+    st.warning("No hay registros válidos para la Fase 3.")
+    st.stop()
+
+sectores_disponibles = resumen.loc[resumen["Datos"] > 0, "Sector"].tolist()
+if not sectores_disponibles:
+    st.warning("No hay sectores con datos suficientes.")
+    st.stop()
+if sector_default not in sectores_disponibles:
+    sector_default = sectores_disponibles[0]
+
+_init_widget_state("f3_selected_sector", sector_default)
+sector_elegido = st.session_state.get("f3_selected_sector", sector_default)
+if sector_elegido not in sectores_disponibles:
+    sector_elegido = sector_default
+    st.session_state["f3_selected_sector"] = sector_elegido
+
+fila_sector = resumen[resumen["Sector"] == sector_elegido].iloc[0]
+df_sector = df_rosa[df_rosa["Sector"] == sector_elegido].copy()
+velocidades_sector = df_sector["WS_ANALISIS"].to_numpy(dtype=float)
+
+fig_hist = crear_histograma_sector_con_ajustes(
+    velocidades=velocidades_sector,
+    sector=sector_elegido,
+    k_weibull=fila_sector["k Weibull"],
+    c_weibull=fila_sector["c Weibull (m/s)"],
+    c_rayleigh=fila_sector["c Rayleigh (m/s)"],
+)
+
+fig_heatmap, bins = _session_cached_result(
+    "f3_heatmap_result",
+    (f3_analysis_signature, float(vmax), float(bin_width)),
+    lambda: construir_heatmap_probabilidad(df_rosa, vmax=vmax, bin_width=bin_width),
+)
+fig_heatmap = go.Figure(fig_heatmap)
+fig_sector = crear_figura_sector(
+    df_sector=df_sector,
+    fila_sector=fila_sector,
+    bins=bins,
+    mostrar_cdf=mostrar_cdf,
+    cut_in=cut_in,
+    nominal=nominal,
+    cut_out=cut_out,
+)
+fig_rosa = crear_rosa_vientos_16(resumen)
+for trace in fig_rosa.data:
+    if hasattr(trace, "showscale"):
+        trace.showscale = False
+    marker = getattr(trace, "marker", None)
+    if marker is not None and hasattr(marker, "showscale"):
+        marker.showscale = False
+
+fig_rosa.update_layout(
+    title_text="",
+    width=500,
+    height=500,
+    autosize=False,
+    margin=dict(t=16, b=22, l=6, r=6),
+    paper_bgcolor="#ffffff",
+    plot_bgcolor="#ffffff",
+    coloraxis_showscale=False,
+    showlegend=False,
+    polar=dict(
+        bgcolor="#ffffff",
+        radialaxis=dict(tickfont=dict(size=10)),
+        angularaxis=dict(tickfont=dict(size=10)),
+        domain=dict(x=[0.0, 1.0], y=[0.02, 0.94]),
+    ),
+)
+fig_sector.update_layout(
+    width=960,
+    height=500,
+    autosize=False,
+    title=dict(
+        text=f"<b>Curva de probabilidad de ocurrencia - Sector {sector_elegido}</b>",
+        x=0.5,
+        xanchor="center",
+        y=0.98,
+        yanchor="top",
+        pad=dict(t=2, b=12),
+        font=dict(size=14, color="#0f172a"),
+    ),
+    margin=dict(t=78, b=82, l=88, r=14),
+    paper_bgcolor="#ffffff",
+    plot_bgcolor="#ffffff",
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="left",
+        x=0.0,
+        font=dict(size=10),
+    ),
+)
+fig_sector.update_xaxes(title_text="Velocidad del viento (m/s)", title_standoff=10)
+fig_sector.update_yaxes(title_text="Probabilidad por intervalo (%)", title_standoff=8)
+fig_heatmap.update_layout(
+    title=None,
+    title_text=None,
+    annotations=[],
+    height=470,
+    autosize=False,
+    margin=dict(t=6, b=72, l=52, r=72),
+    paper_bgcolor="#ffffff",
+    plot_bgcolor="#ffffff",
+    xaxis=dict(automargin=True),
+    yaxis=dict(automargin=True),
+    coloraxis_colorbar=dict(
+        x=1.03,
+        y=0.5,
+        len=0.88,
+        thickness=14,
+        outlinecolor="#d1d9e6",
+        outlinewidth=1,
+        title=dict(text="<b>Probabilidad (%)</b>", side="top", font=dict(size=11, color="#475569", family="Arial Black, Arial, sans-serif")),
+        tickfont=dict(size=10, color="#334155", family="Arial Black, Arial, sans-serif"),
+    ),
+)
+_heatmap_x_labels = [f"{bins[i]:.1f}-{bins[i + 1]:.1f}" for i in range(len(bins) - 1)]
+_heatmap_x_ticktext = [f"<b>{lbl}</b>" for lbl in _heatmap_x_labels]
+fig_heatmap.update_xaxes(
+    title_text="<b>Intervalo de velocidad (m/s)</b>",
+    tickangle=-32,
+    tickmode="array",
+    tickvals=_heatmap_x_labels,
+    ticktext=_heatmap_x_ticktext,
+    tickfont=dict(size=8, color="#64748b", family="Arial Black, Arial, sans-serif"),
+    title_font=dict(size=11, color="#475569", family="Arial Black, Arial, sans-serif"),
+    automargin=True,
+    showgrid=False,
+)
+fig_heatmap.update_yaxes(
+    title_text="<b>Sector</b>",
+    tickfont=dict(size=10, color="#64748b", family="Arial Black, Arial, sans-serif"),
+    title_font=dict(size=11, color="#475569", family="Arial Black, Arial, sans-serif"),
+    automargin=True,
+    showgrid=False,
+)
+_sector_labels = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+fig_heatmap.update_yaxes(tickmode="array", tickvals=_sector_labels, ticktext=[f"<b>{s}</b>" for s in _sector_labels])
+fig_heatmap.update_traces(
+    colorbar=dict(
+        title=dict(
+            text="<b>Probabilidad (%)</b>",
+            side="top",
+            font=dict(size=10, color="#475569", family="Arial Black, Arial, sans-serif"),
+        ),
+        thickness=16,
+        len=0.84,
+        x=1.01,
+        y=0.50,
+        tickfont=dict(size=9, color="#64748b", family="Arial Black, Arial, sans-serif"),
+        outlinewidth=0,
+    )
+)
+
+tabla_intervalos = crear_tabla_probabilidades_intervalos(
+    df_sector=df_sector,
+    fila_sector=fila_sector,
+    vmax=vmax,
+    bin_width=bin_width,
+)
+tabla_operacion = crear_tabla_operacion(
+    df_sector=df_sector,
+    fila_sector=fila_sector,
+    cut_in=cut_in,
+    nominal=nominal,
+    cut_out=cut_out,
+)
+kpi_items = [
+    ("database-stack", "Registros válidos", f"{len(df_rosa):,}"),
+    ("wind", "Velocidad media", f"{df_rosa['WS_ANALISIS'].mean():.2f} m/s"),
+    ("sector-pie", "Sectores con datos", f"{int((resumen['Datos'] > 0).sum())} / 16"),
+    ("chart", "Modelo", modelo),
+    ("sigma", "Alpha promedio", _extract_alpha_promedio(meta)),
+]
+if "f3_show_sector_table" not in st.session_state:
+    st.session_state["f3_show_sector_table"] = False
+
+with _phase_card("f3_card_header"):
+    st.markdown(
+        """
+        <div class="hero-card">
+            <div class="fase-hero-title">Fase 3 &middot; Velocidad promedio</div>
+            <div class="fase-hero-subtitle">Caracterizaci&oacute;n direccional del viento y estimaci&oacute;n de la velocidad media con su probabilidad de ocurrencia.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+config_cols = st.columns([1.12, 1.2, 0.94], gap="small")
+with config_cols[0]:
+    with _phase_card("f3_cfg_general"):
+        _render_card_header_native("Parámetros generales", "controls")
+        if True:
+            st.markdown(
+                '<div class="f3-pg-content-down-spacer"></div>',
+                unsafe_allow_html=True,
+            )
+            g1, g2 = st.columns(2, gap="small")
+            with g1:
+                with st.container(border=True, key="f3_pg_altura"):
+                    st.markdown('<div class="f3-pg-custom-label">Altura (m)</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f3-pg-input-down-gap"></div>', unsafe_allow_html=True)
+                    altura_deseada = st.number_input(
+                        "Altura (m)",
+                        min_value=0.10,
+                        step=0.10,
+                        format="%.2f",
+                        key="f3_altura_deseada",
+                        label_visibility="collapsed",
+                    )
+            with g2:
+                with st.container(border=True, key="f3_pg_modelo"):
+                    st.markdown('<div class="f3-pg-custom-label">Modelo</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f3-pg-input-down-gap"></div>', unsafe_allow_html=True)
+                    modelo = st.selectbox(
+                        "Modelo",
+                        MODEL_OPTIONS,
+                        index=_safe_index(MODEL_OPTIONS, st.session_state.get("f3_modelo_altura", modelo_default), 2),
+                        key="f3_modelo_altura",
+                        label_visibility="collapsed",
+                    )
+            g3, g4 = st.columns(2, gap="small")
+            with g3:
+                with st.container(border=True, key="f3_pg_vmax"):
+                    st.markdown('<div class="f3-pg-custom-label">V. máx. análisis (m/s)</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f3-pg-input-down-gap"></div>', unsafe_allow_html=True)
+                    vmax = st.number_input(
+                        "V. máx. análisis (m/s)",
+                        min_value=5.0,
+                        step=1.0,
+                        format="%.2f",
+                        key="f3_vmax",
+                        label_visibility="collapsed",
+                    )
+            with g4:
+                with st.container(border=True, key="f3_pg_binwidth"):
+                    st.markdown('<div class="f3-pg-custom-label">Ancho de intervalo (m/s)</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f3-pg-input-down-gap"></div>', unsafe_allow_html=True)
+                    bin_width = st.number_input(
+                        "Ancho de intervalo (m/s)",
+                        min_value=0.25,
+                        step=0.25,
+                        format="%.2f",
+                        key="f3_bin_width",
+                        label_visibility="collapsed",
+                    )
+            st.markdown(
+                '<div class="f3-pg-bottom-spacer"></div>',
+                unsafe_allow_html=True,
+            )
+
+with config_cols[1]:
+    with _phase_card("f3_cfg_cuts"):
+        _render_card_header_native("Dirección y cortes", "arrow")
+        if True:
+            top1, top2 = st.columns([1.18, 1.0], gap="small")
+            with top1:
+                direccion_fuente = st.selectbox(
+                    "Dirección usada",
+                    DIRECTION_OPTIONS,
+                    index=_safe_index(DIRECTION_OPTIONS, st.session_state.get("f3_direccion_fuente", dir_default), 0),
+                    key="f3_direccion_fuente",
+                )
+            with top2:
+                mostrar_cdf = st.checkbox(
+                    "Mostrar probabilidad acumulada",
+                    key="f3_mostrar_cdf",
+                )
+            cuts1, cuts2, cuts3 = st.columns(3, gap="small")
+            with cuts1:
+                st.markdown('<div class="f3-cut-field-label">Cut-in (m/s)</div>', unsafe_allow_html=True)
+                cut_in = st.number_input(
+                    "Cut-in (m/s)",
+                    min_value=0.0,
+                    step=0.5,
+                    format="%.2f",
+                    key="f3_cut_in",
+                    label_visibility="collapsed",
+                )
+            with cuts2:
+                st.markdown('<div class="f3-cut-field-label">Velocidad nominal<br>(m/s)</div>', unsafe_allow_html=True)
+                nominal = st.number_input(
+                    "Velocidad nominal (m/s)",
+                    min_value=0.0,
+                    step=0.5,
+                    format="%.2f",
+                    key="f3_nominal",
+                    label_visibility="collapsed",
+                )
+            with cuts3:
+                st.markdown('<div class="f3-cut-field-label">Cut-out (m/s)</div>', unsafe_allow_html=True)
+                cut_out = st.number_input(
+                    "Cut-out (m/s)",
+                    min_value=0.0,
+                    step=0.5,
+                    format="%.2f",
+                    key="f3_cut_out",
+                    label_visibility="collapsed",
+                )
+            st.markdown(
+                '<div class="f3-cuts-bottom-spacer"></div>',
+                unsafe_allow_html=True,
+            )
+
+with config_cols[2]:
+    with _phase_card("f3_cfg_sector"):
+        st.markdown(
+            f'''<div class="f3-sector-title-row">
+                <span class="f3-sector-title-icon">{_icon_svg("sector-pie", 28, "#2563eb")}</span>
+                <span class="f3-sector-title-text">Sector</span>
+            </div>''',
+            unsafe_allow_html=True,
+        )
+        sector_elegido = st.selectbox(
+            "Seleccionar sector",
+            sectores_disponibles,
+            index=sectores_disponibles.index(sector_default),
+            key="f3_selected_sector",
+        )
+        st.markdown(
+            '<div class="f3-soft-note"><span class="f3-card-heading__icon" style="width:30px;height:30px;min-width:30px;">'
+            + _icon_svg("info", 16, "#2563eb")
+            + '</span><div>La curva y las tablas de probabilidad usan el ancho de intervalo seleccionado.</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="f3-sector-bottom-spacer"></div>',
+            unsafe_allow_html=True,
+        )
+
+guardar_config_values({
+    "f3_modelo_altura": modelo,
+    "f3_direccion_fuente": direccion_fuente,
+    "f3_roughness_label": roughness_label,
+    "f3_selected_sector": st.session_state.get("f3_selected_sector", sector_default),
+    "f3_prob_vmax": vmax,
+    "f3_prob_bin_width": bin_width,
+    "f3_prob_show_cdf": mostrar_cdf,
+    "f3_prob_cutin": cut_in,
+    "f3_prob_nominal": nominal,
+    "f3_prob_cutout": cut_out,
+})
+
+kpi_cols = st.columns(5, gap="small")
+for idx, ((icon_name, label, value), col) in enumerate(zip(kpi_items, kpi_cols), start=1):
+    with col:
+        with _phase_card(f"f3_kpi_{idx}"):
+            _render_kpi_card_native(icon_name, label, value)
+
+if MOSTRAR_HISTOGRAMA_SUPERIOR:
+    st.plotly_chart(fig_hist, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+
+top_cols = st.columns([1.03, 1.03], gap="small")
+with top_cols[0]:
+    with st.container(border=True, key="f3_card_rose_v3"):
+        st.markdown(
+            f'<div class="f3-main-card-header"><div class="f3-main-card-header__title">1. Rosa de vientos</div><div class="f3-main-card-header__icon">{_icon_svg("info", 16, "#2563eb")}</div></div>',
+            unsafe_allow_html=True,
+        )
+        with st.container(key="f3_rose_body_v3"):
+            rose_cols = st.columns([1.18, 0.96], gap="medium")
+            with rose_cols[0]:
+                with st.container(key="f3_rose_plot_col_v3"):
+                    _render_plotly_iframe(fig_rosa, height=560, key_suffix="rose")
+            with rose_cols[1]:
+                with st.container(key="f3_rose_side_col_v3"):
+                    with st.container(border=True, key="f3_sector_summary"):
+                        _render_summary_sector_native(resumen, direccion_fuente)
+                    st.markdown(
+                        '<div class="f3-rose-button-big-spacer"></div>',
+                        unsafe_allow_html=True,
+                    )
+                    with st.container(key="f3_rose_table_button_lower"):
+                        if st.button(
+                            "▦  Ver tabla sectorial",
+                            key="f3_btn_toggle_sector_table",
+                            use_container_width=True,
+                        ):
+                            st.session_state["f3_show_sector_table"] = not st.session_state["f3_show_sector_table"]
+
+with top_cols[1]:
+    with st.container(border=True, key="f3_card_sector_v3"):
+        st.markdown(
+            f'<div class="f3-main-card-header"><div class="f3-main-card-header__title">2. Análisis por sector</div><div class="f3-main-card-header__icon">{_icon_svg("info", 16, "#2563eb")}</div></div>',
+            unsafe_allow_html=True,
+        )
+        with st.container(key="f3_sector_body_v3"):
+            with st.container(key="f3_sector_stats_row_v3"):
+                mini_cols = st.columns(5, gap="small")
+                mini_items = [
+                    ("frecuencia", "Frecuencia", f"{fila_sector['Frecuencia (%)']:.2f}%"),
+                    ("horas", "Horas", f"{int(fila_sector['Horas observadas (h)']):,} h"),
+                    ("horas_eq", "Horas eq. anuales", f"{fila_sector['Horas equivalentes anuales (h/año)']:.1f} h"),
+                    ("k_weibull", "k Weibull", f"{fila_sector['k Weibull']:.4f}"),
+                    ("c_weibull", "c Weibull", f"{fila_sector['c Weibull (m/s)']:.4f}"),
+                ]
+                for col, (key_suffix, label, value) in zip(mini_cols, mini_items):
+                    with col:
+                        with st.container(border=True, key=f"f3_sector_mini_{key_suffix}"):
+                            st.markdown(f'<div class="f3-mini-stat__label">{label}</div>', unsafe_allow_html=True)
+                            st.markdown(f'<div class="f3-mini-stat__value">{value}</div>', unsafe_allow_html=True)
+            with st.container(key="f3_sector_plot_wrap_v3"):
+                _render_plotly_iframe(fig_sector, height=500, key_suffix="sector")
+
+if st.session_state.get("f3_show_sector_table", False):
+    with _phase_card("f3_sector_table_detached"):
+        st.markdown('<div class="f3-sector-table-title">Tabla sectorial</div>', unsafe_allow_html=True)
+        _render_dataframe_safe(
+            resumen,
+            {
+                "Centro (°)": "%.1f",
+                "Inicio (°)": "%.1f",
+                "Fin (°)": "%.1f",
+                "Frecuencia (%)": "%.2f",
+                "Horas equivalentes anuales (h/año)": "%.2f",
+                "Velocidad media (m/s)": "%.2f",
+                "Desv. estándar (m/s)": "%.2f",
+                "k Weibull": "%.4f",
+                "c Weibull (m/s)": "%.4f",
+                "c Rayleigh (m/s)": "%.4f",
+            },
+            use_container_width=True,
+        )
+
+with _phase_card("f3_card_heatmap"):
+    st.markdown(
+        f'<div class="f3-heatmap-title-row"><span class="f3-heatmap-title-text">3. Heatmap de probabilidad para 16 sectores</span><span class="f3-heatmap-title-info">{_icon_svg("info", 14, "#2563eb")}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="f3-heatmap-top-spacer"></div>', unsafe_allow_html=True)
+    st.plotly_chart(fig_heatmap, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+
+with _phase_card("f3_card_expanders"):
+    with st.expander(_expander_icon_label("table-intervals", "Ver tabla de probabilidades por intervalos"), expanded=False):
+        _render_dataframe_safe(
+            tabla_intervalos,
+            {
+                "Probabilidad real (%)": "%.2f",
+                "Probabilidad Weibull (%)": "%.2f",
+                "Probabilidad Rayleigh (%)": "%.2f",
+            },
+            use_container_width=True,
+        )
+    with st.expander(_expander_icon_label("table-zones", "Ver tabla de probabilidades por zona de operación del aerogenerador"), expanded=False):
+        _render_dataframe_safe(
+            tabla_operacion,
+            {
+                "Probabilidad real (%)": "%.2f",
+                "Probabilidad Weibull (%)": "%.2f",
+                "Probabilidad Rayleigh (%)": "%.2f",
+            },
+            use_container_width=True,
+        )
+    with st.expander(_expander_icon_label("table-hourly", "Ver datos horarios usados en la Fase 3"), expanded=False):
+        mostrar = df_rosa[["timestamp", "WS_ANALISIS", "WD_USADA", "Sector"]].copy()
+        mostrar.columns = ["timestamp", "Velocidad usada (m/s)", "Dirección usada (°)", "Sector"]
+        _render_dataframe_safe(
+            mostrar,
+            {
+                "Velocidad usada (m/s)": "%.2f",
+                "Dirección usada (°)": "%.2f",
+            },
+            use_container_width=True,
+        )
+
+render_dropdown_visibility_fix()
+st.stop()
