@@ -100,19 +100,19 @@ def _sync_widget_to_db(key, config_key_mapping):
         _sync_widget_to_db("f3_modelo", {"f3_modelo_altura": "f3_modelo"})
     """
     from db import guardar_config_values
-    
+
     values_to_save = {}
     for db_key, ss_key in config_key_mapping.items():
         value = st.session_state.get(ss_key)
         if value is not None:
             values_to_save[db_key] = value
-    
+
     if values_to_save:
         guardar_config_values(values_to_save)
 
 
-def _create_number_input_stable(label, min_value=None, max_value=None, step=1.0, format="%.2f", 
-                                 key=None, config_db_key=None, config_fallback_keys=None, 
+def _create_number_input_stable(label, min_value=None, max_value=None, step=1.0, format="%.2f",
+                                 key=None, config_db_key=None, config_fallback_keys=None,
                                  default=None, on_change=None):
     """
     Create a st.number_input with stable state management.
@@ -133,12 +133,12 @@ def _create_number_input_stable(label, min_value=None, max_value=None, step=1.0,
     """
     if key is None:
         raise ValueError("key parameter is required for stable state management")
-    
+
     # Initialize from config if first time
     if key not in st.session_state and (config_db_key or config_fallback_keys or default is not None):
         from db import cargar_config
         config = cargar_config()
-        
+
         value = None
         if config_db_key and config_db_key in config:
             value = config[config_db_key]
@@ -147,12 +147,12 @@ def _create_number_input_stable(label, min_value=None, max_value=None, step=1.0,
                 if fallback_key in config:
                     value = config[fallback_key]
                     break
-        
+
         try:
             _init_widget_state(key, float(value) if value not in [None, ""] else (float(default) if default is not None else 0.0))
         except (ValueError, TypeError):
             _init_widget_state(key, float(default) if default is not None else 0.0)
-    
+
     # Create widget - value from session_state because key is stable
     return st.number_input(
         label,
@@ -186,12 +186,12 @@ def _create_selectbox_stable(label, options, key=None, config_db_key=None, confi
     """
     if key is None:
         raise ValueError("key parameter is required for stable state management")
-    
+
     # Initialize from config if first time
     if key not in st.session_state and (config_db_key or config_fallback_keys or default is not None):
         from db import cargar_config
         config = cargar_config()
-        
+
         value = None
         if config_db_key and config_db_key in config:
             value = config[config_db_key]
@@ -200,17 +200,17 @@ def _create_selectbox_stable(label, options, key=None, config_db_key=None, confi
                 if fallback_key in config:
                     value = config[fallback_key]
                     break
-        
+
         final_value = value if value not in [None, ""] else default
         if final_value and final_value not in options:
             final_value = default if default in options else options[0]
-        
+
         _init_widget_state(key, final_value if final_value in options else options[0])
-    
+
     # Find the index for display
     current_value = st.session_state.get(key, options[0] if options else None)
     index = _safe_index(options, current_value, 0)
-    
+
     # Create widget - uses session_state but we override index for initial display
     return st.selectbox(
         label,
@@ -239,12 +239,12 @@ def _create_checkbox_stable(label, key=None, config_db_key=None, config_fallback
     """
     if key is None:
         raise ValueError("key parameter is required for stable state management")
-    
+
     # Initialize from config if first time
     if key not in st.session_state and (config_db_key or config_fallback_keys):
         from db import cargar_config
         config = cargar_config()
-        
+
         value = False
         if config_db_key and config_db_key in config:
             value = str(config[config_db_key]).lower() == "true"
@@ -255,9 +255,9 @@ def _create_checkbox_stable(label, key=None, config_db_key=None, config_fallback
                     break
         else:
             value = default
-        
+
         _init_widget_state(key, value)
-    
+
     return st.checkbox(
         label,
         key=key,
@@ -280,10 +280,10 @@ def _ensure_project_change(project_name_key="project_name"):
         project_name_key: The config key that identifies the current project
     """
     from db import cargar_config
-    
+
     config = cargar_config()
     current_project = config.get(project_name_key, "default")
-    
+
     ss_key = f"_last_project_{project_name_key}"
     if ss_key not in st.session_state:
         st.session_state[ss_key] = current_project

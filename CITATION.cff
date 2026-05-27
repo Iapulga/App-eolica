@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "Si usa SMA 2.0 en una publicación, por favor cite el software como se indica abajo."
+title: "SMA 2.0 — Wind Project Analyzer"
+abstract: >-
+  Aplicación open-source en Python/Streamlit para el análisis de recursos eólicos
+  y la estimación de producción anual de energía (AEP) en parques eólicos.
+  Incluye perfiles de viento, ajuste Weibull/Rayleigh, MCP, modelos de estela,
+  pérdidas IEC 61400-15-2, evaluación económica (LCOE/NPV/IRR) y generación
+  de reportes técnicos.
+type: software
+authors:
+  - family-names: "Gómez Maestre"
+    given-names: "Alan David"
+    email: "alandavidgomezmaestre@gmail.com"
+repository-code: "https://github.com/alandavidgomezmaestre/sma2"
+url: "https://github.com/alandavidgomezmaestre/sma2"
+license: MIT
+version: "0.9.0"
+date-released: "2026-05-26"
+keywords:
+  - wind energy
+  - AEP
+  - wake modeling
+  - LCOE
+  - renewable energy
+  - Streamlit
+  - Python
+  - WindPRO alternative
+  - IEC 61400

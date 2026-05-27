@@ -1,5 +1,6 @@
 
 import base64
+import datetime
 import textwrap
 from pathlib import Path
 from urllib.parse import quote
@@ -9,27 +10,34 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
-from navigation import render_dropdown_visibility_fix, render_sidebar_navigation, _icon_svg
 
-from db import init_db, cargar_config, guardar_config_values, guardar_nasa_hourly, cargar_nasa_hourly, get_db_file_path
-from widget_helpers import _init_widget_state
 from calculos import (
     KAPPA,
-    calcular_alpha_desde_dos_alturas,
     ajustar_logaritmico_dos_puntos,
+    calcular_alpha_desde_dos_alturas,
+    calcular_alpha_desde_serie,
     calcular_perfil_exponencial,
     calcular_perfil_logaritmico,
-    calcular_velocidad_friccion,
-    velocidad_logaritmica_en_altura,
-    crear_grafica_perfil_individual,
     construir_url_nasa_power,
-    leer_csv_nasa_subido,
-    leer_json_nasa_subido,
-    leer_csv_gwa,
-    generar_serie_weibull,
     consultar_open_meteo,
     crear_grafica_nasa_hourly,
+    crear_grafica_perfil_individual,
+    generar_serie_weibull,
+    leer_csv_gwa,
+    leer_csv_nasa_subido,
+    leer_json_nasa_subido,
+    velocidad_logaritmica_en_altura,
 )
+from db import (
+    cargar_config,
+    cargar_nasa_hourly,
+    get_db_file_path,
+    guardar_config_values,
+    guardar_nasa_hourly,
+    init_db,
+)
+from navigation import _icon_svg, render_dropdown_visibility_fix, render_sidebar_navigation
+from widget_helpers import _init_widget_state
 
 st.set_page_config(page_title="Fase 2 · Perfiles de viento", layout="wide")
 
@@ -2435,10 +2443,11 @@ st.markdown(
     .st-key-f2_card_f,
     .st-key-f2_card_g,
     .st-key-f2_card_final,
-    .st-key-f2_card_empty {
+    .st-key-f2_card_empty,
+    .st-key-f2_card_mast {
         border: 1.4px solid #cbd5e1 !important;
         border-radius: 28px !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
         box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
     }
@@ -2455,7 +2464,8 @@ st.markdown(
     .st-key-f2_card_f div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f2_card_g div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f2_card_final div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f2_card_empty div[data-testid="stVerticalBlockBorderWrapper"] {
+    .st-key-f2_card_empty div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f2_card_mast div[data-testid="stVerticalBlockBorderWrapper"] {
         border: none !important;
         box-shadow: none !important;
         border-radius: 28px !important;
@@ -3108,15 +3118,15 @@ if _f2_show_nasa:
                 consultar_nasa = st.button("Consultar NASA POWER", key="btn_consultar_nasa_power", use_container_width=True)
             # Overlay the search icon inside the button text via CSS content trick on the <p> tag
             st.markdown(
-                f"""
+                """
                 <style>
-                .st-key-btn_consultar_nasa_power [data-testid="stButton"] > button p {{
+                .st-key-btn_consultar_nasa_power [data-testid="stButton"] > button p {
                     display: inline-flex !important;
                     align-items: center !important;
                     justify-content: center !important;
                     gap: 0.5rem !important;
-                }}
-                .st-key-btn_consultar_nasa_power [data-testid="stButton"] > button p::before {{
+                }
+                .st-key-btn_consultar_nasa_power [data-testid="stButton"] > button p::before {
                     content: '';
                     display: inline-flex;
                     width: 18px;
@@ -3126,7 +3136,7 @@ if _f2_show_nasa:
                     background-repeat: no-repeat;
                     background-size: contain;
                     background-position: center;
-                }}
+                }
                 </style>
                 """,
                 unsafe_allow_html=True,
@@ -3420,6 +3430,25 @@ if len(df_nasa) > 0:
     roughness_label = _safe_fase2_roughness_label(rugosidad_guardada)
 
     alpha = float(calcular_alpha_desde_dos_alturas(v10, h1, v50, h2))
+    # A7 - α calculado desde serie (mediana/IQR)
+    try:
+        _alpha_serie = calcular_alpha_desde_serie(df_nasa, ws_col_low="WS10M", ws_col_high="WS50M", z_low=h1, z_high=h2)
+        guardar_config_values({
+            "f2_alpha_calc_mediana": _alpha_serie["mediana"] if _alpha_serie["mediana"] == _alpha_serie["mediana"] else "",
+            "f2_alpha_calc_p25": _alpha_serie["p25"] if _alpha_serie["p25"] == _alpha_serie["p25"] else "",
+            "f2_alpha_calc_p75": _alpha_serie["p75"] if _alpha_serie["p75"] == _alpha_serie["p75"] else "",
+            "f2_alpha_calc_n": _alpha_serie["n_validos"],
+        })
+        if _alpha_serie["n_validos"] >= 50 and _alpha_serie["mediana"] == _alpha_serie["mediana"]:
+            st.info(
+                f"α calculado desde serie NASA POWER (WS10M↔WS50M): "
+                f"mediana = **{_alpha_serie['mediana']:.3f}** "
+                f"(IQR {_alpha_serie['p25']:.3f}–{_alpha_serie['p75']:.3f}, "
+                f"n = {_alpha_serie['n_validos']:,}). "
+                f"α por medias = {alpha:.3f}. Diferencia indica heterogeneidad temporal."
+            )
+    except Exception:
+        pass
     u_star_a, z0_ajustada = ajustar_logaritmico_dos_puntos(v10, h1, v50, h2, kappa=KAPPA)
 
     v_exp_deseada = float(v10 * (altura_deseada / h1) ** alpha)
@@ -3829,6 +3858,145 @@ if len(df_nasa) > 0:
                 use_container_width=True,
             )
         st.markdown("</div>", unsafe_allow_html=True)
+
+    # B2 + B3 — Torre meteorológica + MCP
+    with _phase_card("f2_card_mast"):
+        st.markdown(
+            _section_title_html("M", "controls", "Torre meteorológica (B2) + MCP (B3)", "Sube datos de torre 10-min para validación + Measure-Correlate-Predict contra NASA POWER."),
+            unsafe_allow_html=True,
+        )
+
+        import mast_import
+        from calculos import aplicar_mcp as _aplicar_mcp
+        from calculos import mcp_lineal_sectorial
+        from db import (
+            borrar_mast_data as _bmd,
+        )
+        from db import (
+            cargar_mast_data as _cmd,
+        )
+        from db import (
+            existe_mast_data as _exmd,
+        )
+        from db import (
+            guardar_mast_data as _gmd,
+        )
+        from db import (
+            guardar_ws_mcp as _gwm,
+        )
+
+        col_up, col_info = st.columns([1.4, 1])
+        with col_up:
+            uploaded_mast = st.file_uploader(
+                "CSV/Excel torre met (formato auto-detect)",
+                type=["csv", "xlsx", "xls"],
+                key="f2_uploader_mast",
+            )
+            altura_objetivo_mast = st.number_input(
+                "Altura del sensor (m)",
+                min_value=10.0, max_value=200.0,
+                value=float(config.get("f2_mast_altura_sensor") or 80.0),
+                step=1.0, format="%.1f", key="f2_mast_altura_sensor",
+            )
+            if uploaded_mast is not None and st.button("Procesar e importar", key="f2_btn_import_mast", use_container_width=True):
+                try:
+                    raw = uploaded_mast.getvalue()
+                    df_mast_10min = mast_import.parsear_torre_csv(raw, uploaded_mast.name, altura_objetivo=altura_objetivo_mast)
+                    df_mast_h = mast_import.agregar_10min_a_horario(df_mast_10min)
+                    val = mast_import.validar_torre_data(df_mast_10min)
+                    _gmd(df_mast_h, source_file=uploaded_mast.name)
+                    guardar_config_values({
+                        "f2_mast_disponible": "True",
+                        "f2_mast_source_file": uploaded_mast.name,
+                        "f2_mast_recovery_pct": val.get("recovery_pct", 0.0),
+                        "f2_mast_altura_sensor": altura_objetivo_mast,
+                    })
+                    st.success(f"Importado {len(df_mast_h)} horas. Recovery {val.get('recovery_pct', 0):.1f}%. ws_mean={val.get('ws_mean', 0):.2f} m/s.")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Error importando torre: {exc}")
+
+        with col_info:
+            if _exmd():
+                df_mast_db = _cmd()
+                st.metric("Torre disponible", "✓ Sí")
+                st.metric("Horas guardadas", f"{len(df_mast_db):,}")
+                st.metric("Fuente", str(config.get("f2_mast_source_file", "—")))
+                if st.button("Borrar torre", key="f2_btn_clear_mast"):
+                    _bmd()
+                    guardar_config_values({"f2_mast_disponible": "False", "f2_mast_source_file": ""})
+                    st.rerun()
+            else:
+                st.info("Sin torre importada.")
+
+        if _exmd():
+            df_mast_db = _cmd()
+            df_mast_db["timestamp"] = pd.to_datetime(df_mast_db["timestamp"], errors="coerce")
+
+            # Plot torre vs NASA overlap
+            overlap_start = max(df_nasa["timestamp"].min(), df_mast_db["timestamp"].min())
+            overlap_end = min(df_nasa["timestamp"].max(), df_mast_db["timestamp"].max())
+            st.markdown(f"**Periodo overlap NASA ↔ torre:** {overlap_start} → {overlap_end}")
+
+            st.markdown("### MCP (Measure-Correlate-Predict)")
+            if st.button("Calcular MCP sectorial", key="f2_btn_run_mcp", use_container_width=True, type="primary"):
+                try:
+                    mcp_res = mcp_lineal_sectorial(df_nasa, df_mast_db, ws_sat_col="WS50M", wd_sat_col="WD50M", ws_torre_col="ws_10min", wd_torre_col="wd_10min", n_sectores=12)
+                    global_res = mcp_res["global"]
+                    st.success(f"MCP sectorial calculado. R² global = {global_res.get('r2', float('nan')):.3f} (n={global_res.get('n_samples', 0)} horas overlap, RMSE={global_res.get('rmse', float('nan')):.2f} m/s)")
+
+                    import json as _json_mcp
+                    coefs_serializable = {str(k): {kk: vv for kk, vv in v.items() if isinstance(vv, (int, float))} for k, v in mcp_res["sectores"].items()}
+                    coefs_serializable["global"] = {kk: vv for kk, vv in global_res.items() if isinstance(vv, (int, float))}
+
+                    guardar_config_values({
+                        "f2_mcp_calculado": "True",
+                        "f2_mcp_r2": global_res.get("r2", ""),
+                        "f2_mcp_rmse": global_res.get("rmse", ""),
+                        "f2_mcp_slope_global": global_res.get("a", ""),
+                        "mcp_coefs_json": _json_mcp.dumps(coefs_serializable),
+                    })
+
+                    # Scatter sat vs torre
+                    if "x_obs" in global_res and "y_obs" in global_res:
+                        import plotly.graph_objects as _go_mcp
+                        fig_sc = _go_mcp.Figure()
+                        fig_sc.add_trace(_go_mcp.Scatter(x=global_res["x_obs"], y=global_res["y_obs"], mode="markers", marker=dict(size=4, color="#2563eb", opacity=0.5), name="Obs"))
+                        x_min, x_max = float(np.nanmin(global_res["x_obs"])), float(np.nanmax(global_res["x_obs"]))
+                        xs_line = np.linspace(x_min, x_max, 50)
+                        fig_sc.add_trace(_go_mcp.Scatter(x=xs_line, y=global_res["a"] * xs_line + global_res["b"], mode="lines", line=dict(color="#dc2626", width=2), name=f"y = {global_res['a']:.3f}x + {global_res['b']:.2f}"))
+                        fig_sc.add_trace(_go_mcp.Scatter(x=xs_line, y=xs_line, mode="lines", line=dict(color="#7e22ce", width=1, dash="dash"), name="1:1"))
+                        fig_sc.update_layout(template="plotly_white", height=380, margin=dict(l=14, r=14, t=42, b=16), title="NASA POWER (WS50M) vs Torre", xaxis_title="NASA WS50M (m/s)", yaxis_title="Torre ws_10min (m/s)")
+                        st.plotly_chart(fig_sc, use_container_width=True)
+
+                    # Tabla coefs por sector
+                    rows_sec = []
+                    for s, c in mcp_res["sectores"].items():
+                        rows_sec.append({"Sector": s, "Rango (°)": f"{c.get('lo', 0):.0f}-{c.get('hi', 0):.0f}", "a": c.get("a"), "b": c.get("b"), "R²": c.get("r2"), "n": c.get("n_samples")})
+                    df_coefs = pd.DataFrame(rows_sec)
+                    st.dataframe(df_coefs, use_container_width=True, hide_index=True)
+
+                    # Apply MCP and save WS_MCP back to nasa_hourly
+                    ws_mcp_serie = _aplicar_mcp(df_nasa, mcp_res, ws_col="WS50M", wd_col="WD50M", sectorial=True)
+                    df_with_ts = df_nasa.copy()
+                    df_with_ts["WS_MCP"] = ws_mcp_serie.values
+                    ws_mcp_indexed = pd.Series(df_with_ts["WS_MCP"].values, index=df_with_ts["timestamp"].astype(str))
+                    _gwm(ws_mcp_indexed)
+                    st.success(f"WS_MCP aplicado a {len(ws_mcp_indexed)} horas de NASA y guardado en DB.")
+                except Exception as exc:
+                    st.error(f"MCP falló: {exc}")
+
+            # Selector serie_uso global
+            serie_uso_options = ["nasa", "mcp"]
+            serie_uso_default = str(config.get("f2_serie_uso") or "nasa").lower()
+            serie_uso_ui = st.selectbox(
+                "Serie usada para análisis downstream",
+                serie_uso_options,
+                index=serie_uso_options.index(serie_uso_default) if serie_uso_default in serie_uso_options else 0,
+                key="f2_serie_uso",
+                help="nasa: serie NASA cruda · mcp: serie NASA ajustada con MCP (requiere torre + MCP calculado)",
+            )
+            guardar_config_values({"f2_serie_uso": serie_uso_ui})
 
 else:
     with _phase_card("f2_card_empty"):

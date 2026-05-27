@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 PROJECT_MODE_FREE = "free"
 
 PROJECT_PROFILE_OPTIONS = [

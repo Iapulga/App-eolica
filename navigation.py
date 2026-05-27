@@ -1,11 +1,16 @@
 import textwrap
 from pathlib import Path
+
 import streamlit as st
 from streamlit.source_util import page_icon_and_name
+
 from assets_loader import (
     load_global_css as _load_global_css_cached,
+)
+from assets_loader import (
     preload_all_phases_css as _preload_all_phases_css,
 )
+
 
 def _icon_svg(name: str, size: int = 18, color: str = "#2563eb") -> str:
     stroke = f'stroke="{color}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"'

@@ -1,0 +1,195 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sma2"
+version = "0.9.0"
+description = "Aplicación open-source de análisis de parques eólicos: recurso, estelas, AEP, LCOE y reportes."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Alan David Gómez Maestre", email = "alandavidgomezmaestre@gmail.com" }
+]
+keywords = [
+    "wind-energy",
+    "AEP",
+    "wake-modeling",
+    "LCOE",
+    "renewable-energy",
+    "streamlit",
+    "IEC-61400",
+    "windpro-alternative"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Natural Language :: Spanish",
+]
+dependencies = [
+    "streamlit>=1.30,<2.0",
+    "numpy>=1.24,<3.0",
+    "pandas>=2.0,<3.0",
+    "scipy>=1.10,<2.0",
+    "plotly>=5.18,<7.0",
+    "matplotlib>=3.8,<4.0",
+    "Pillow>=10.0,<13.0",
+    "python-docx>=1.0,<2.0",
+    "simplekml>=1.3,<2.0",
+    "openpyxl>=3.1,<4.0",
+    "requests>=2.28,<3.0",
+]
+
+[project.optional-dependencies]
+gis = [
+    "elevation>=1.1",
+    "rasterio>=1.3",
+    "shapely>=2.0",
+    "pyproj>=3.6",
+]
+solar = [
+    "pvlib>=0.10",
+]
+pywake = [
+    "py_wake>=2.5,<3.0",
+]
+mapviewer = [
+    "folium>=0.15",
+    "streamlit-folium>=0.18",
+]
+ml = [
+    "scikit-learn>=1.3",
+]
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-cov>=4.1,<6.0",
+    "ruff>=0.5,<1.0",
+    "mypy>=1.8,<2.0",
+    "pre-commit>=3.5,<5.0",
+]
+docs = [
+    "sphinx>=7.0,<9.0",
+    "sphinx-rtd-theme>=2.0,<4.0",
+    "myst-parser>=2.0,<5.0",
+    "sphinx-copybutton>=0.5,<1.0",
+]
+all = [
+    "sma2[gis,solar,pywake,mapviewer,ml]"
+]
+
+[project.urls]
+Homepage = "https://github.com/alandavidgomezmaestre/sma2"
+Repository = "https://github.com/alandavidgomezmaestre/sma2"
+Issues = "https://github.com/alandavidgomezmaestre/sma2/issues"
+Changelog = "https://github.com/alandavidgomezmaestre/sma2/blob/main/CHANGELOG.md"
+
+# ─────────────────────────────────────────────────────────────────────
+# Tooling
+# ─────────────────────────────────────────────────────────────────────
+
+[tool.setuptools]
+# El proyecto no es un paquete distribuible vía pip por ahora; los módulos
+# viven en la raíz. Esta sección reserva la posibilidad de empaquetar más adelante.
+py-modules = []
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = [
+    "dist",
+    "build",
+    "scratch",
+    "legacy",
+    ".claude",
+    "*.spec",
+]
+
+[tool.ruff.lint]
+# Conjunto inicial conservador. Se irá endureciendo en PRs futuros
+# (ver issues con label `tech-debt` o `ruff-cleanup` y FASE 1 del roadmap).
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort (orden de imports)
+    "UP",   # pyupgrade
+    "B",    # bugbear
+]
+ignore = [
+    # — Estilísticos tolerados durante la migración a v1.0 —
+    "E501",   # line too long — refactor incremental
+    "E701",   # multiple-statements-on-one-line-colon — patrón Streamlit one-liner
+    "E702",   # multiple-statements-on-one-line-semicolon — patrón Streamlit one-liner
+    "E731",   # lambda-assignment — usado en handlers cortos Streamlit
+    "W293",   # blank-line-with-whitespace — cosmético
+
+    # — Reglas a endurecer en FASE 1 (testing) cuando se cubran rutas afectadas —
+    "F401",   # unused-import — limpiar tras tipado en FASE 1
+    "F841",   # unused-variable — defensive coding actual
+    "F601",   # multi-value-repeated-key — duplicación Unicode en mapas de retrocompat (manifiestos.py)
+    "F811",   # redefined-while-unused — funciones definidas varias veces en manifiestos.py (TODO limpiar)
+
+    # — Patrones aceptados —
+    "B007",   # unused-loop-control-variable — claridad sobre eficiencia
+    "B008",   # function-call-in-default — patrón Streamlit
+    "B904",   # raise-without-from-inside-except — limpiar gradualmente
+    "B905",   # zip-without-explicit-strict — limpiar gradualmente
+    "E402",   # module-import-not-at-top — algunos lazy imports legítimos
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "F841", "F401"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "slow: tests lentos (>5s) — se ejecutan solo en CI completa",
+    "requires_gis: requiere elevation/rasterio instalado",
+    "requires_pvlib: requiere pvlib instalado",
+    "requires_pywake: requiere py_wake instalado",
+    "integration: tests end-to-end sobre múltiples módulos",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "scratch/*",
+    "legacy/*",
+    "dist/*",
+    "build/*",
+    "launcher.py",
+    "build_exe.py",
+    "patch_streamlit_index.py",
+    ".claude/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+exclude = ["dist", "build", "scratch", "legacy", ".claude"]

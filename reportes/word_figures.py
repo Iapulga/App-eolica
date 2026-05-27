@@ -3,17 +3,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-from PIL import Image, ImageChops
-from docx.shared import Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Cm
+from PIL import Image, ImageChops
 
 # ---------------------------------------------------------------------
 # Configuración de exportación e inserción por familia visual
 # ---------------------------------------------------------------------
 
-WORD_FIGURE_SPECS: Dict[str, Dict[str, Any]] = {
+WORD_FIGURE_SPECS: dict[str, dict[str, Any]] = {
     "phase1_power_cp":            {"w": 1500, "h": 950,  "scale": 2, "insert_cm": 15.8},
     "phase2_map":                 {"w": 1100, "h": 850,  "scale": 2, "insert_cm": 13.5},
     "phase2_time_series":         {"w": 1800, "h": 900,  "scale": 2, "insert_cm": 16.2},
@@ -40,7 +40,7 @@ WORD_FIGURE_SPECS: Dict[str, Dict[str, Any]] = {
 }
 
 
-def _spec_for_family(family: str | None) -> Dict[str, Any]:
+def _spec_for_family(family: str | None) -> dict[str, Any]:
     if not family:
         return WORD_FIGURE_SPECS["generic"]
     return WORD_FIGURE_SPECS.get(family, WORD_FIGURE_SPECS["generic"])

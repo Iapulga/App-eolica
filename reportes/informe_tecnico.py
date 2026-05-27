@@ -1,5 +1,5 @@
-from math import pi
 import unicodedata
+from math import pi
 
 import numpy as np
 import pandas as pd
@@ -7,13 +7,13 @@ import plotly.graph_objects as go
 
 from .docx import load_informe_tecnico_master_docx
 from .figuras import (
+    _create_phase4_annual_rose,
+    _create_phase4_geometric_rose,
     build_site_map_bundle,
     export_plotly_figure_artifact,
-    _create_phase4_geometric_rose,
-    _create_phase4_annual_rose,
 )
 from .manifiestos import _informe_tecnico_table_from_dataframe
-from .texto import normalize_visible_text, normalize_text_deep
+from .texto import normalize_text_deep, normalize_visible_text
 
 
 def _normalize_spanish_text(value):
@@ -192,7 +192,6 @@ def _build_phase2_section(config=None, project_name="", df_nasa=None):
         calcular_alpha_desde_dos_alturas,
         calcular_perfil_exponencial,
         calcular_perfil_logaritmico,
-        calcular_velocidad_friccion,
         crear_grafica_nasa_hourly,
         crear_grafica_perfil_individual,
         velocidad_logaritmica_en_altura,
@@ -473,10 +472,10 @@ def _build_phase3_section(config, df_nasa):
 
     from calculos import (
         construir_serie_viento_analisis,
+        crear_histograma_sector_con_ajustes,
+        crear_rosa_vientos_16,
         preparar_datos_rosa,
         resumir_sectores_rosa,
-        crear_rosa_vientos_16,
-        crear_histograma_sector_con_ajustes,
     )
 
     altura_deseada = float(config.get("perfil_hhub") or 80.0)
@@ -598,11 +597,12 @@ def _build_phase35_section(config, df_nasa, df_curva_raw):
 
     from calculos import (
         construir_serie_viento_analisis,
+        inferir_puntos_operacion_curva,
         preparar_datos_curva,
         preparar_datos_rosa,
         resumir_sectores_rosa,
-        inferir_puntos_operacion_curva,
     )
+
     from .figuras import _build_probability_heatmap, _build_probability_sector_figure
 
     altura_deseada = float(config.get("perfil_hhub") or 80.0)
@@ -690,7 +690,8 @@ def _build_phase4_section(config, df_nasa, df_curva_raw, df_layout):
         return None
 
     from calculos import analizar_estelas_parque_16, crear_figura_direccion_estela, crear_figura_layout_parque
-    from .figuras import _build_phase4_wind_analysis, _analyze_geometry_all_sectors
+
+    from .figuras import _analyze_geometry_all_sectors, _build_phase4_wind_analysis
 
     diametro = float(config.get("diametro") or 100.0)
     ct = float(config.get("f4_ct") or 0.80)

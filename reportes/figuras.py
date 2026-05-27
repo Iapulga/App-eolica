@@ -9,11 +9,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from .texto import normalize_spanish_text as _normalize_spanish_text
-
 from calculos import (
-    SECTOR_LABELS_16,
     SECTOR_CENTERS_16,
+    SECTOR_LABELS_16,
     ajustar_logaritmico_dos_puntos,
     analizar_estelas_parque_16,
     calcular_alpha_desde_dos_alturas,
@@ -21,7 +19,6 @@ from calculos import (
     calcular_estelas_jensen_direccion,
     calcular_perfil_exponencial,
     calcular_perfil_logaritmico,
-    calcular_velocidad_friccion,
     construir_serie_viento_analisis,
     crear_figura_direccion_estela,
     crear_figura_layout_parque,
@@ -40,6 +37,8 @@ from calculos import (
     weibull_cdf,
     weibull_interval_prob,
 )
+
+from .texto import normalize_spanish_text as _normalize_spanish_text
 
 
 def _slugify_figure_name(value):
@@ -468,7 +467,7 @@ def export_plotly_figure_artifact(fig, figure_id, title, stem=None, source_hint=
                 "note": "Figura exportada como imagen PNG.",
             })
             return png_bytes, metadata
-        except Exception as exc:
+        except Exception:
             try:
                 png_bytes = _export_plotly_figure_matplotlib(fig, title=title, export_options=export_options)
                 png_bytes = _optimize_png_bytes(png_bytes, max_dimension=int(export_options.get("max_dimension", 1600)))

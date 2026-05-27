@@ -1,80 +1,61 @@
 import io
-import hashlib
-import json
-import re
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 from pandas.util import hash_pandas_object
-from navigation import render_dropdown_visibility_fix, render_sidebar_navigation, _icon_svg
-import plotly.graph_objects as go
-import calculos_energia as energia_calc
 
-from db import (
-    init_db,
-    cargar_config,
-    guardar_config_values,
-    cargar_nasa_hourly,
-    cargar_tabla_curva,
-    cargar_layout_parque,
-    guardar_proyecto,
-    exportar_proyecto_json_texto,
-)
-from widget_helpers import _init_widget_state
+import calculos
+import calculos_energia as energia_calc
 from calculos import (
-    preparar_datos_rosa,
-    resumir_sectores_rosa,
-    crear_rosa_vientos_16,
-    crear_figura_layout_parque,
-    analizar_estelas_parque_16,
-    construir_serie_viento_analisis,
-    preparar_datos_curva,
-    interpolar_potencia_curva_preparada,
-    weibull_pdf,
-    rayleigh_pdf,
-    normalizar_modelo_altura,
     PROMEDIO_LOG_EXP_LABEL,
+    calcular_ti_serie,
+    clasificar_iec_61400_1,
+    construir_serie_viento_analisis,
+    crear_figura_layout_parque,
+    crear_rosa_vientos_16,
+    interpolar_potencia_curva_preparada,
+    normalizar_modelo_altura,
+    preparar_datos_curva,
+    rayleigh_pdf,
+    weibull_pdf,
 )
 from calculos_economicos import (
-    CAPEX_MODE_OPTIONS,
-    OPEX_MODE_OPTIONS,
-    MONEDA_OPTIONS,
-    FX_MODE_OPTIONS,
     CAPEX_COMPONENT_DEFAULTS,
+    CAPEX_MODE_OPTIONS,
+    FX_MODE_OPTIONS,
+    MONEDA_OPTIONS,
     OPEX_COMPONENT_DEFAULTS,
-    load_component_values,
-    dumps_component_values,
-    calcular_metricas_base_economicas,
+    OPEX_MODE_OPTIONS,
     calcular_capex,
-    calcular_opex,
     calcular_lcoe_descontado,
+    calcular_metricas_base_economicas,
+    calcular_metricas_financieras,
+    calcular_opex,
+    calcular_sensibilidad_lcoe,
     convertir_resumen_economico,
-    obtener_tasa_cop_usd_online,
+    dumps_component_values,
     format_currency_amount,
     format_lcoe_value,
+    load_component_values,
+    obtener_tasa_cop_usd_online,
 )
+from db import (
+    cargar_config,
+    cargar_layout_parque,
+    cargar_nasa_hourly,
+    cargar_tabla_curva,
+    guardar_config_values,
+    init_db,
+)
+from navigation import render_dropdown_visibility_fix, render_sidebar_navigation
 from reportes import (
     get_project_context,
     get_report_context,
-    get_export_metadata,
-    get_report_manifest,
-    build_informe_tecnico_model,
-    build_informe_tecnico_word_model,
-    build_report_payload,
-    dataframe_to_table_payload,
-    build_latex_appendix_pack,
-    build_latex_skeleton,
-    build_figure_export_bundle,
-    build_indexed_appendix_annex_bundle,
-    build_probability_curve_bundle,
-    build_site_map_bundle,
-    build_informe_tecnico_pdf,
-    build_informe_tecnico_docx,
-    build_appendix_pack_files,
-    build_appendix_pack_zip_bytes,
 )
 from reportes.fase5_export_helpers import RUNTIME_CONTEXT_STATE_KEY
+from widget_helpers import _init_widget_state
 
 st.set_page_config(page_title="Fase 5 · AEP bruta y neta", layout="wide")
 
@@ -1848,7 +1829,7 @@ FASE_5_CSS = """
 def _f5_icon_svg(name: str, color: str = "#0B63F6", size: int = 22) -> str:
     stroke = f'stroke="{color}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"'
     stroke_bold = f'stroke="{color}" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round" fill="none"'
-    
+
     if name == "energy":
         body = (
             f'<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" fill="{color}" opacity="0.15"/>'
@@ -1905,7 +1886,7 @@ def _f5_icon_svg(name: str, color: str = "#0B63F6", size: int = 22) -> str:
             + f'<g transform="rotate(120 12 10)">{blade}</g>'
             + f'<g transform="rotate(240 12 10)">{blade}</g>'
             + f'<circle cx="12" cy="10" r="2.2" fill="{color}"/>'
-            + f'<circle cx="12" cy="10" r="0.6" fill="#ffffff"/>'
+            + '<circle cx="12" cy="10" r="0.6" fill="#ffffff"/>'
         )
     elif name == "gauge":
         body = (
@@ -1975,7 +1956,7 @@ def _f5_icon_svg(name: str, color: str = "#0B63F6", size: int = 22) -> str:
         )
     else:
         body = f'<circle cx="12" cy="12" r="8" {stroke}/>'
-    
+
     return f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block; overflow:visible;">{body}</svg>'
 
 def _render_f5_section_header(icon: str, title: str, subtitle: str | None = None):
@@ -2030,19 +2011,19 @@ def _render_f5_main_result_card(icon, icon_tone, title, method, value, unit):
 
 
 def _render_f5_action_card(icon, title, description, button_label, icon_color="blue", btn_color="blue"):
-    if icon_color == "red": 
+    if icon_color == "red":
         file_type = "pdf"
-    elif icon_color == "blue": 
+    elif icon_color == "blue":
         file_type = "word"
-    elif icon_color == "green": 
+    elif icon_color == "green":
         file_type = "excel"
-    elif icon_color == "purple": 
+    elif icon_color == "purple":
         file_type = "json"
-    elif icon_color == "orange": 
+    elif icon_color == "orange":
         file_type = "orange"
-    else: 
+    else:
         file_type = "default"
-        
+
     return (
         f'<div class="f5-ref-export-card">'
         f'<div class="f5-ref-export-top">'
@@ -2147,9 +2128,13 @@ st.markdown(
     .st-key-f5_card_export,
     .st-key-f5_econ_capex_card,
     .st-key-f5_econ_opex_card,
-    .st-key-f5_econ_lcoe_card {
+    .st-key-f5_econ_lcoe_card,
+    .st-key-f5_card_ti_iec,
+    .st-key-f5_card_sens_tornado,
+    .st-key-f5_card_montecarlo,
+    .st-key-f5_card_aep_serie {
         border: 1px solid #cbd5e1 !important;
-        border-radius: 20px !important;
+        border-radius: 28px !important;
         background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
         box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
         overflow: visible !important;
@@ -2174,7 +2159,11 @@ st.markdown(
     .st-key-f5_card_export div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f5_econ_capex_card div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f5_econ_opex_card div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f5_econ_lcoe_card div[data-testid="stVerticalBlockBorderWrapper"] {
+    .st-key-f5_econ_lcoe_card div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_ti_iec div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_sens_tornado div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_montecarlo div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_aep_serie div[data-testid="stVerticalBlockBorderWrapper"] {
         border: none !important;
         box-shadow: none !important;
         border-radius: 28px !important;
@@ -2222,6 +2211,40 @@ wake_manual_default = float(config.get("f5_wake_manual_pct", 5.0))
 disp_default = float(config.get("f5_disp_pct", 3.0))
 elec_default = float(config.get("f5_elec_pct", 2.0))
 otras_default = float(config.get("f5_otras_pct", 1.5))
+
+# A1 - densidad
+altitud_default = float(config.get("f5_altitud_sitio_m") or 0.0)
+temperatura_media_default = float(config.get("f5_temperatura_media_c") or 15.0)
+densidad_correccion_aplicada_default = str(config.get("f5_densidad_correccion_aplicada", "True")).strip().lower() in ("true", "1", "si", "sí", "yes")
+
+# A2 - pérdidas extra
+loss_disp_red_default = float(config.get("f5_loss_disp_red_pct") or 0.0)
+loss_hielo_default = float(config.get("f5_loss_hielo_pct") or 0.0)
+loss_histeresis_default = float(config.get("f5_loss_histeresis_pct") or 0.0)
+loss_curtailment_default = float(config.get("f5_loss_curtailment_pct") or 0.0)
+
+# A3 - financieras
+precio_energia_default = float(config.get("f5_precio_energia_mwh") or 60.0)
+
+# A4 - sensibilidad
+sens_delta_default = float(config.get("f5_sens_delta_pct") or 15.0)
+
+# A5 - wake model
+wake_model_options = ["Jensen", "Larsen", "Frandsen", "Gaussian", "TurbOPark", "DWM"]
+try:
+    from calculos import _pywake_disponible as _pw_avail
+    if _pw_avail():
+        wake_model_options += ["pyWake-NOJ", "pyWake-Bastankhah", "pyWake-Niayifar"]
+except Exception:
+    pass
+wake_model_default = str(config.get("f5_wake_model") or config.get("f4_wake_model") or "Jensen").strip().capitalize()
+if wake_model_default not in wake_model_options:
+    wake_model_default = "Jensen"
+ambient_ti_default = float(config.get("f5_ambient_ti") or 0.10)
+
+# A6 - IEC
+iec_clase_default = str(config.get("f5_iec_clase_declarada") or "II").upper()
+iec_turb_default = str(config.get("f5_iec_turb_declarada") or "B").upper()
 project_name_default = config.get("project_name", "Proyecto_eolico_1")
 capex_mode_default = str(config.get("f5_capex_mode") or "semi_auto_mw")
 capex_total_default = float(config.get("f5_capex_total") or 0.0)
@@ -2283,6 +2306,10 @@ _init_widget_state("f5_n_turbinas", max(1, int(n_turbinas_layout)))
 _init_widget_state("f5_dir_altura", dir_altura_default)
 _init_widget_state("f5_ct", ct_default)
 _init_widget_state("f5_kw", kw_default)
+# A1, A5
+_init_widget_state("f5_altitud_sitio_m", altitud_default)
+_init_widget_state("f5_temperatura_media_c", temperatura_media_default)
+_init_widget_state("f5_wake_model", wake_model_default)
 
 top_config_col, top_losses_col = st.columns([1, 1], gap="large")
 
@@ -2327,7 +2354,7 @@ with top_config_col:
                     key="f5_n_turbinas",
                 )
 
-            d1, d2, d3 = st.columns([1.25, 0.8, 0.8])
+            d1, d2, d3, d4 = st.columns([1.0, 0.7, 0.7, 0.9])
             with d1:
                 dir_altura = st.selectbox(
                     "Dirección usada",
@@ -2354,6 +2381,73 @@ with top_config_col:
                     format="%.3f",
                     key="f5_kw",
                 )
+            with d4:
+                wake_model_ui = st.selectbox(
+                    "Modelo estela",
+                    wake_model_options,
+                    index=wake_model_options.index(wake_model_default),
+                    key="f5_wake_model",
+                )
+
+            # A1 - corrección densidad
+            e1, e2, e3 = st.columns([1, 1, 1])
+            with e1:
+                altitud_sitio_m = st.number_input(
+                    "Altitud sitio (m)",
+                    min_value=-100.0,
+                    max_value=6000.0,
+                    value=altitud_default,
+                    step=10.0,
+                    format="%.0f",
+                    key="f5_altitud_sitio_m",
+                )
+            with e2:
+                temperatura_media_c = st.number_input(
+                    "Temperatura media (°C)",
+                    min_value=-30.0,
+                    max_value=50.0,
+                    value=temperatura_media_default,
+                    step=0.5,
+                    format="%.1f",
+                    key="f5_temperatura_media_c",
+                )
+            with e3:
+                rho_sitio_calc = calculos.calcular_densidad_sitio(altitud_sitio_m, temperatura_media_c)
+                factor_densidad_calc = calculos.factor_correccion_densidad(rho_sitio_calc)
+
+                _t2m_avail = (df_nasa is not None and "T2M" in df_nasa.columns and pd.to_numeric(df_nasa["T2M"], errors="coerce").notna().any())
+                densidad_modo_default = str(config.get("f5_densidad_modo", "anual")).strip().lower()
+                if not _t2m_avail and densidad_modo_default == "mensual":
+                    densidad_modo_default = "anual"
+                densidad_modo_options = ["anual"] + (["mensual"] if _t2m_avail else [])
+                densidad_modo = st.selectbox(
+                    "Modo densidad",
+                    densidad_modo_options,
+                    index=densidad_modo_options.index(densidad_modo_default) if densidad_modo_default in densidad_modo_options else 0,
+                    key="f5_densidad_modo",
+                    help="anual: T+altitud constantes (A1) · mensual: T2M de NASA POWER por mes (B7, requiere T2M en datos)",
+                )
+
+                if densidad_modo == "mensual" and _t2m_avail:
+                    _dens_mensual = calculos.agregar_densidad_mensual(df_nasa, altitud_m=altitud_sitio_m, temperatura_fallback_c=temperatura_media_c)
+                    rho_anual_serie = _dens_mensual["anual"]
+                    factor_densidad_calc = calculos.factor_correccion_densidad(rho_anual_serie)
+                    rho_sitio_calc = rho_anual_serie
+                    st.markdown(
+                        f'<div class="f5-mini-note" style="margin-top:0.4rem;">'
+                        f'ρ media anual (T2M) ≈ <b>{rho_anual_serie:.3f}</b> kg/m³ &nbsp;|&nbsp; '
+                        f'factor ≈ <b>{factor_densidad_calc:.3f}</b>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        f'<div class="f5-mini-note" style="margin-top:0.4rem;">'
+                        f'ρ sitio ≈ <b>{rho_sitio_calc:.3f}</b> kg/m³ &nbsp;|&nbsp; '
+                        f'factor corr. ≈ <b>{factor_densidad_calc:.3f}</b>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
             roughness_label = roughness_default
             if modo_estadistico == "Comparar Weibull y Rayleigh":
@@ -2384,6 +2478,10 @@ guardar_config_values({
     "f5_roughness_label": roughness_label,
     "f5_ct": st.session_state.get("f5_ct", ct_default),
     "f5_kw": st.session_state.get("f5_kw", kw_default),
+    "f5_altitud_sitio_m": st.session_state.get("f5_altitud_sitio_m", altitud_default),
+    "f5_temperatura_media_c": st.session_state.get("f5_temperatura_media_c", temperatura_media_default),
+    "f5_densidad_sitio": f"{rho_sitio_calc:.4f}",
+    "f5_wake_model": st.session_state.get("f5_wake_model", wake_model_default),
 })
 
 # Initialize widget state before creating widgets
@@ -2392,6 +2490,10 @@ _init_widget_state("f5_wake_manual_pct", wake_manual_default)
 _init_widget_state("f5_disp_pct", disp_default)
 _init_widget_state("f5_elec_pct", elec_default)
 _init_widget_state("f5_otras_pct", otras_default)
+_init_widget_state("f5_loss_disp_red_pct", loss_disp_red_default)
+_init_widget_state("f5_loss_hielo_pct", loss_hielo_default)
+_init_widget_state("f5_loss_histeresis_pct", loss_histeresis_default)
+_init_widget_state("f5_loss_curtailment_pct", loss_curtailment_default)
 
 with top_losses_col:
     with st.container(border=True, key="f5_card_losses"):
@@ -2416,10 +2518,10 @@ with top_losses_col:
                     key="f5_wake_manual_pct",
                 )
 
-            p3, p4, p5 = st.columns(3)
+            p3, p4, p5, p6 = st.columns(4)
             with p3:
                 disp_pct = st.number_input(
-                    "Disponibilidad (%)",
+                    "Disp. turbina (%)",
                     min_value=0.0,
                     value=disp_default,
                     step=0.1,
@@ -2427,17 +2529,26 @@ with top_losses_col:
                     key="f5_disp_pct",
                 )
             with p4:
+                loss_disp_red_pct = st.number_input(
+                    "Disp. red (%)",
+                    min_value=0.0,
+                    value=loss_disp_red_default,
+                    step=0.1,
+                    format="%.2f",
+                    key="f5_loss_disp_red_pct",
+                )
+            with p5:
                 elec_pct = st.number_input(
-                    "Pérdidas eléctricas (%)",
+                    "Eléctricas (%)",
                     min_value=0.0,
                     value=elec_default,
                     step=0.1,
                     format="%.2f",
                     key="f5_elec_pct",
                 )
-            with p5:
+            with p6:
                 otras_pct = st.number_input(
-                    "Otras pérdidas (%)",
+                    "Otras (%)",
                     min_value=0.0,
                     value=otras_default,
                     step=0.1,
@@ -2445,13 +2556,43 @@ with top_losses_col:
                     key="f5_otras_pct",
                 )
 
+            with st.expander("Pérdidas avanzadas", expanded=False):
+                ea1, ea2, ea3 = st.columns(3)
+                with ea1:
+                    loss_hielo_pct = st.number_input(
+                        "Hielo / Soiling (%)",
+                        min_value=0.0,
+                        value=loss_hielo_default,
+                        step=0.1,
+                        format="%.2f",
+                        key="f5_loss_hielo_pct",
+                    )
+                with ea2:
+                    loss_histeresis_pct = st.number_input(
+                        "Histéresis (%)",
+                        min_value=0.0,
+                        value=loss_histeresis_default,
+                        step=0.1,
+                        format="%.2f",
+                        key="f5_loss_histeresis_pct",
+                    )
+                with ea3:
+                    loss_curtailment_pct = st.number_input(
+                        "Curtailment (%)",
+                        min_value=0.0,
+                        value=loss_curtailment_default,
+                        step=0.1,
+                        format="%.2f",
+                        key="f5_loss_curtailment_pct",
+                    )
+
             st.markdown(
-                '<div class="f5-mini-note"><span class="f5-info-dot" style="width:1.2rem;height:1.2rem;font-size:0.72rem;">i</span>Las pérdidas se aplican de forma secuencial sobre el AEP bruto para obtener el AEP neto del parque.</div>',
+                '<div class="f5-mini-note"><span class="f5-info-dot" style="width:1.2rem;height:1.2rem;font-size:0.72rem;">i</span>Las pérdidas se aplican de forma secuencial sobre el AEP bruto. Si todas las avanzadas están en 0, se usa el cálculo 3-bucket legacy.</div>',
                 unsafe_allow_html=True,
             )
 
             st.form_submit_button("Actualizar pérdidas", use_container_width=True)
-    
+
     # Marcador de posición para colocar el resumen del perfil en esta columna
     profile_summary_placeholder = st.container()
 
@@ -2462,7 +2603,15 @@ guardar_config_values({
     "f5_disp_pct": st.session_state.get("f5_disp_pct", disp_default),
     "f5_elec_pct": st.session_state.get("f5_elec_pct", elec_default),
     "f5_otras_pct": st.session_state.get("f5_otras_pct", otras_default),
+    "f5_loss_disp_red_pct": st.session_state.get("f5_loss_disp_red_pct", loss_disp_red_default),
+    "f5_loss_hielo_pct": st.session_state.get("f5_loss_hielo_pct", loss_hielo_default),
+    "f5_loss_histeresis_pct": st.session_state.get("f5_loss_histeresis_pct", loss_histeresis_default),
+    "f5_loss_curtailment_pct": st.session_state.get("f5_loss_curtailment_pct", loss_curtailment_default),
 })
+
+factor_densidad_efectivo = factor_densidad_calc if densidad_correccion_aplicada_default else 1.0
+wake_model_lower = str(st.session_state.get("f5_wake_model", wake_model_default)).strip().lower()
+altura_hub_ui = float(st.session_state.get("f5_altura_deseada", altura_deseada_default))
 
 try:
     f5_energy_signature = (
@@ -2484,6 +2633,14 @@ try:
         float(disp_pct),
         float(elec_pct),
         float(otras_pct),
+        float(factor_densidad_efectivo),
+        wake_model_lower,
+        float(ambient_ti_default),
+        float(altura_hub_ui),
+        float(loss_disp_red_pct),
+        float(loss_hielo_pct),
+        float(loss_histeresis_pct),
+        float(loss_curtailment_pct),
     )
     energy_result = _session_cached_result(
         "f5_energy_result",
@@ -2507,6 +2664,14 @@ try:
             disp_pct=disp_pct,
             elec_pct=elec_pct,
             otras_pct=otras_pct,
+            factor_densidad=factor_densidad_efectivo,
+            wake_model=wake_model_lower,
+            ambient_ti=ambient_ti_default,
+            h_hub=altura_hub_ui,
+            loss_disp_red_pct=loss_disp_red_pct,
+            loss_hielo_pct=loss_hielo_pct,
+            loss_histeresis_pct=loss_histeresis_pct,
+            loss_curtailment_pct=loss_curtailment_pct,
         ),
     )
 except Exception as e:
@@ -2559,6 +2724,83 @@ with profile_summary_placeholder:
 
 if energy_result["wake_warning"]:
     st.warning(energy_result["wake_warning"])
+
+# A6 - TI + IEC 61400-1
+try:
+    _serie_hub = df_analisis["WS_ANALISIS"] if df_analisis is not None and "WS_ANALISIS" in df_analisis.columns else None
+    if _serie_hub is not None and len(_serie_hub) >= 30:
+        with st.container(border=True, key="f5_card_ti_iec"):
+            _render_f5_section_header(_f5_icon_svg("settings"), "Validación IEC 61400-1 + Turbulencia")
+
+            ic1, ic2, ic3, ic4 = st.columns([1, 1, 1.4, 1.4])
+            with ic1:
+                _init_widget_state("f5_iec_clase_declarada", iec_clase_default)
+                iec_clase_ui = st.selectbox(
+                    "Clase velocidad declarada",
+                    ["I", "II", "III", "S"],
+                    index=["I", "II", "III", "S"].index(iec_clase_default) if iec_clase_default in ["I", "II", "III", "S"] else 1,
+                    key="f5_iec_clase_declarada",
+                )
+            with ic2:
+                _init_widget_state("f5_iec_turb_declarada", iec_turb_default)
+                iec_turb_ui = st.selectbox(
+                    "Categoría turbulencia",
+                    ["A", "B", "C", "S"],
+                    index=["A", "B", "C", "S"].index(iec_turb_default) if iec_turb_default in ["A", "B", "C", "S"] else 1,
+                    key="f5_iec_turb_declarada",
+                )
+
+            _ti_res = calcular_ti_serie(_serie_hub)
+            _ti_15 = _ti_res.get("ti_15ms", float("nan"))
+            _v_mean = _ti_res.get("v_mean", float("nan"))
+            _iec_res = clasificar_iec_61400_1(_v_mean, _ti_15, iec_clase_ui, iec_turb_ui)
+
+            with ic3:
+                _ti_str = f"{_ti_15:.3f}" if _ti_15 == _ti_15 and _ti_15 is not None else "N/D"
+                _v_str = f"{_v_mean:.2f} m/s" if _v_mean == _v_mean else "N/D"
+                st.markdown(
+                    f'<div class="f5-mini-note">'
+                    f'TI(15 m/s) calc.: <b>{_ti_str}</b><br>'
+                    f'v media sitio: <b>{_v_str}</b><br>'
+                    f'TI límite clase {iec_turb_ui}: <b>{_iec_res["ti_clase"]:.2f}</b><br>'
+                    f'v_avg límite clase {iec_clase_ui}: <b>{_iec_res["v_avg_clase"]}</b> m/s'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            with ic4:
+                _cumple = _iec_res.get("cumple")
+                if _cumple is True:
+                    _badge_color = "#16a34a"
+                    _badge_txt = "Sitio CUMPLE con la clase declarada"
+                elif _cumple is False:
+                    _badge_color = "#dc2626"
+                    _badge_txt = "Sitio EXCEDE clase declarada — revisar turbina"
+                else:
+                    _badge_color = "#6b7280"
+                    _badge_txt = "Datos insuficientes para validación completa"
+                st.markdown(
+                    f'<div style="padding:0.7rem; border-radius:8px; background:{_badge_color}1a; '
+                    f'border:1px solid {_badge_color}; color:{_badge_color}; font-weight:600;">'
+                    f'{_badge_txt}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown(
+                '<div class="f5-mini-note" style="margin-top:0.4rem;font-size:0.78rem;color:#6b7280;">'
+                'Nota: TI se calcula desde la serie WS_ANALISIS (proxy a altura hub). '
+                'Método conservador, no reemplaza medición in-situ con torre meteorológica.'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+            guardar_config_values({
+                "f5_iec_clase_declarada": iec_clase_ui,
+                "f5_iec_turb_declarada": iec_turb_ui,
+                "f5_ti_15ms_calc": _ti_15 if _ti_15 == _ti_15 else "",
+                "f5_iec_cumple": "" if _cumple is None else ("True" if _cumple else "False"),
+            })
+except Exception as _exc:
+    pass
 
 guardar_config_values({
     "f5_aep_bruta_total_mwh": res["aep_bruta_total"],
@@ -2946,7 +3188,7 @@ with st.container(border=True, key="f5_card_sector"):
         unsafe_allow_html=True,
     )
     sector_table_col, sector_chart_col = st.columns([1.0, 1.0], gap="small")
-    
+
     with sector_table_col:
         table_html = _build_sector_table_html(df_aep_sector)
         with st.container(border=True, key="f5_sector_table_card"):
@@ -2954,11 +3196,11 @@ with st.container(border=True, key="f5_card_sector"):
                 f'<div class="f5-sector-table-inner">{table_html}</div>',
                 unsafe_allow_html=True,
             )
-    
+
     with sector_chart_col:
         with st.container(border=True, key="f5_sector_chart_card"):
             st.plotly_chart(fig_sectorial, use_container_width=True, key="f5_sector_chart_col", config=PLOTLY_PERF_CONFIG)
-            
+
     st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
 
 fig_wind_rose_export = None
@@ -3133,6 +3375,30 @@ with st.container(border=True, key="f5_card_econ_master"):
             with _lc2:
                 tasa_descuento_pct = st.number_input("Tasa de descuento (%)", min_value=0.0, value=tasa_descuento_default, step=0.1, format="%.2f")
                 valor_residual = st.number_input(f"Valor residual ({moneda_base})", min_value=0.0, value=valor_residual_default, step=100.0, format="%.2f")
+
+            _lc3, _lc4 = st.columns(2)
+            with _lc3:
+                precio_energia_mwh = st.number_input(
+                    f"Precio venta energía ({moneda_base}/MWh)",
+                    min_value=0.0,
+                    value=precio_energia_default,
+                    step=1.0,
+                    format="%.2f",
+                    key="f5_precio_energia_mwh",
+                    help="Precio de venta supuesto plano. Necesario para NPV/IRR/Payback.",
+                )
+            with _lc4:
+                sens_delta_pct = st.number_input(
+                    "Δ sensibilidad (±%)",
+                    min_value=1.0,
+                    max_value=50.0,
+                    value=sens_delta_default,
+                    step=1.0,
+                    format="%.1f",
+                    key="f5_sens_delta_pct",
+                    help="Variación aplicada a cada parámetro en el tornado LCOE.",
+                )
+
             lcoe = calcular_lcoe_descontado(capex_total=capex_result["capex_total"], opex_fijo_anual=opex_result["opex_fijo_anual"], opex_variable_por_mwh=opex_result["opex_variable_por_mwh"], energia_base_mwh_anio=metricas_base_economicas["aep_neta_mwh_anio"], vida_util_anios=vida_util_anios, tasa_descuento_pct=tasa_descuento_pct, degradacion_energia_pct=degradacion_energia_pct, valor_residual=valor_residual)
             _lcoe_html = ('<div class="f5-econ-lcoe-pair">'
                 + _econ_lcoe_kpi(_f5_icon_svg("money","#2563eb",14), "blue", f"Valor presente<br>de costos ({moneda_base})", f"{lcoe['valor_presente_costos']:,.0f}")
@@ -3142,6 +3408,35 @@ with st.container(border=True, key="f5_card_econ_master"):
                 + _econ_lcoe_kpi(_f5_icon_svg("chart","#7e22ce",14), "purple", f"LCOE base<br>({moneda_base}/kWh)", f"{lcoe['lcoe_kwh']:,.5f}")
                 + '</div>')
             st.markdown(_lcoe_html, unsafe_allow_html=True)
+
+            # A3 - NPV / IRR / Payback
+            metricas_fin = calcular_metricas_financieras(
+                capex_total=capex_result["capex_total"],
+                opex_fijo_anual=opex_result["opex_fijo_anual"],
+                opex_variable_por_mwh=opex_result["opex_variable_por_mwh"],
+                energia_base_mwh_anio=metricas_base_economicas["aep_neta_mwh_anio"],
+                vida_util_anios=vida_util_anios,
+                tasa_descuento_pct=tasa_descuento_pct,
+                degradacion_energia_pct=degradacion_energia_pct,
+                valor_residual=valor_residual,
+                precio_energia_mwh=precio_energia_mwh,
+            )
+            import math as _math
+            _npv_val = metricas_fin["npv"]
+            _irr_val = metricas_fin["irr_pct"]
+            _pb_s = metricas_fin["payback_simple_anios"]
+            _pb_d = metricas_fin["payback_descontado_anios"]
+            _fmt_money = lambda v: f"{v:,.0f}" if _math.isfinite(v) else "N/D"
+            _fmt_pct = lambda v: f"{v:,.2f}%" if _math.isfinite(v) else "N/D"
+            _fmt_yr = lambda v: f"{v:,.2f}" if _math.isfinite(v) else "N/D"
+            _fin_html = ('<div class="f5-econ-lcoe-sep"></div><div class="f5-econ-lcoe-pair">'
+                + _econ_lcoe_kpi(_f5_icon_svg("money","#2563eb",14), "blue", f"NPV ({moneda_base})", _fmt_money(_npv_val))
+                + _econ_lcoe_kpi(_f5_icon_svg("chart","#16a34a",14), "green", "IRR", _fmt_pct(_irr_val))
+                + '</div><div class="f5-econ-lcoe-pair">'
+                + _econ_lcoe_kpi(_f5_icon_svg("chart","#7e22ce",14), "purple", "Payback simple<br>(años)", _fmt_yr(_pb_s))
+                + _econ_lcoe_kpi(_f5_icon_svg("chart","#7e22ce",14), "purple", "Payback descontado<br>(años)", _fmt_yr(_pb_d))
+                + '</div>')
+            st.markdown(_fin_html, unsafe_allow_html=True)
             # ── 4 cards de resultados mostrados (2×2) ──────────────────────────
             # Se calculan aquí con los valores ya disponibles en el scope
             _econ_display_preview = convertir_resumen_economico(
@@ -3191,8 +3486,281 @@ with st.container(border=True, key="f5_card_econ_master"):
         "f5_lcoe_display_mwh": economic_display["lcoe_display_mwh"],
         "f5_lcoe_display_kwh": economic_display["lcoe_display_kwh"],
         "f5_lcoe_mwh": lcoe["lcoe_mwh"], "f5_lcoe_kwh": lcoe["lcoe_kwh"],
+        "f5_precio_energia_mwh": precio_energia_mwh,
+        "f5_npv": metricas_fin["npv"],
+        "f5_irr_pct": metricas_fin["irr_pct"],
+        "f5_payback_simple_anios": metricas_fin["payback_simple_anios"],
+        "f5_payback_descontado_anios": metricas_fin["payback_descontado_anios"],
+        "f5_sens_delta_pct": sens_delta_pct,
     })
 
+    # A4 - Tornado sensibilidad LCOE
+    with st.container(border=True, key="f5_card_sens_tornado"):
+        st.markdown(
+            f'<div class="f5-econ-col-title"><span class="f5-econ-col-title-icon purple">'
+            f'{_f5_icon_svg("chart","#7e22ce",18)}</span> Sensibilidad LCOE (tornado ±{sens_delta_pct:.0f}%)</div>',
+            unsafe_allow_html=True,
+        )
+        try:
+            base_sens_kwargs = {
+                "capex_total": capex_result["capex_total"],
+                "opex_fijo_anual": opex_result["opex_fijo_anual"],
+                "opex_variable_por_mwh": opex_result["opex_variable_por_mwh"],
+                "energia_base_mwh_anio": metricas_base_economicas["aep_neta_mwh_anio"],
+                "vida_util_anios": vida_util_anios,
+                "tasa_descuento_pct": tasa_descuento_pct,
+                "degradacion_energia_pct": degradacion_energia_pct,
+                "valor_residual": valor_residual,
+            }
+            df_sens, lcoe_base_val = calcular_sensibilidad_lcoe(base_sens_kwargs, variables_pct=sens_delta_pct)
+            import plotly.graph_objects as _go
+            fig_torn = _go.Figure()
+            fig_torn.add_trace(_go.Bar(
+                x=(df_sens["LCOE_minus"] - lcoe_base_val).tolist(),
+                y=df_sens["Variable"].tolist(),
+                orientation="h",
+                base=lcoe_base_val,
+                marker=dict(color="#2563eb"),
+                name=f"-{sens_delta_pct:.0f}%",
+                hovertemplate="%{y}<br>LCOE: %{x:.2f} + base<extra></extra>",
+            ))
+            fig_torn.add_trace(_go.Bar(
+                x=(df_sens["LCOE_plus"] - lcoe_base_val).tolist(),
+                y=df_sens["Variable"].tolist(),
+                orientation="h",
+                base=lcoe_base_val,
+                marker=dict(color="#dc2626"),
+                name=f"+{sens_delta_pct:.0f}%",
+                hovertemplate="%{y}<br>LCOE: %{x:.2f} + base<extra></extra>",
+            ))
+            fig_torn.add_vline(x=lcoe_base_val, line=dict(color="#7e22ce", width=2, dash="dash"))
+            fig_torn.update_layout(
+                template="plotly_white",
+                barmode="overlay",
+                height=350,
+                margin=dict(l=14, r=14, t=42, b=16),
+                xaxis_title=f"LCOE ({moneda_base}/MWh)",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            )
+            st.plotly_chart(fig_torn, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+        except Exception as _exc:
+            st.warning(f"No pude calcular tornado de sensibilidad: {_exc}")
+
+    # B1 - Monte Carlo P50/P75/P90/P99
+    with st.container(border=True, key="f5_card_montecarlo"):
+        _render_f5_section_header(_f5_icon_svg("chart"), "Monte Carlo · P50 / P75 / P90 / P99 (banca)")
+        st.markdown(
+            '<div class="f5-mini-note"><span class="f5-info-dot" style="width:1.2rem;height:1.2rem;font-size:0.72rem;">i</span>'
+            'Muestreo Monte Carlo de incertidumbres (Weibull, curva, pérdidas, wake) → bandas de confianza AEP. '
+            'Banca exige P90 mínimo para project finance.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        mc_n_default = int(float(config.get("f5_mc_n_samples") or 2000))
+        mc_sk_default = float(config.get("f5_mc_sigma_k_pct") or 3.0)
+        mc_sc_default = float(config.get("f5_mc_sigma_c_pct") or 4.0)
+        mc_scurva_default = float(config.get("f5_mc_sigma_curva_pct") or 3.0)
+        mc_sperd_default = float(config.get("f5_mc_sigma_perdidas_pct") or 20.0)
+        mc_swake_default = float(config.get("f5_mc_sigma_wake_pct") or 15.0)
+        mc_seed_default = int(float(config.get("f5_mc_seed") or 42))
+
+        mc_c1, mc_c2, mc_c3 = st.columns(3)
+        with mc_c1:
+            mc_n_samples = st.number_input("N muestras", min_value=200, max_value=20000, value=mc_n_default, step=200, key="f5_mc_n_samples")
+            mc_seed = st.number_input("Seed (reproducibilidad)", min_value=0, max_value=99999, value=mc_seed_default, step=1, key="f5_mc_seed")
+        with mc_c2:
+            mc_sigma_c = st.number_input("σ Weibull c (%)", min_value=0.0, max_value=30.0, value=mc_sc_default, step=0.5, format="%.1f", key="f5_mc_sigma_c_pct", help="Incertidumbre escala Weibull. Sat ~3-5%, torre ~2-3%")
+            mc_sigma_k = st.number_input("σ Weibull k (%)", min_value=0.0, max_value=30.0, value=mc_sk_default, step=0.5, format="%.1f", key="f5_mc_sigma_k_pct")
+        with mc_c3:
+            mc_sigma_curva = st.number_input("σ curva potencia (%)", min_value=0.0, max_value=20.0, value=mc_scurva_default, step=0.5, format="%.1f", key="f5_mc_sigma_curva_pct", help="Tolerancia certificación curva (IEC 61400-12-1 típico ±5%)")
+            mc_sigma_perd = st.number_input("σ pérdidas (% rel.)", min_value=0.0, max_value=100.0, value=mc_sperd_default, step=1.0, format="%.1f", key="f5_mc_sigma_perdidas_pct")
+
+        mc_sigma_wake = st.number_input("σ wake (% rel.)", min_value=0.0, max_value=100.0, value=mc_swake_default, step=1.0, format="%.1f", key="f5_mc_sigma_wake_pct")
+
+        if st.button("Ejecutar Monte Carlo", key="f5_btn_run_mc", use_container_width=True, type="primary"):
+            st.session_state["f5_mc_run_flag"] = True
+
+        if st.session_state.get("f5_mc_run_flag"):
+            with st.spinner(f"Muestreando {int(mc_n_samples)} casos…"):
+                try:
+                    _perd_tuple_mc = (
+                        ("disp_turb", float(disp_pct)),
+                        ("disp_red", float(loss_disp_red_pct)),
+                        ("elec", float(elec_pct)),
+                        ("hielo", float(loss_hielo_pct)),
+                        ("histeresis", float(loss_histeresis_pct)),
+                        ("curtailment", float(loss_curtailment_pct)),
+                        ("otras", float(otras_pct)),
+                    )
+                    mc_res = energia_calc.muestrear_aep_montecarlo(
+                        aep_bruta_total=float(res["aep_bruta_total"]),
+                        aep_con_estela_total=float(res["aep_con_estela_total"]),
+                        perdidas_dict_tuple=_perd_tuple_mc,
+                        sigma_k_pct=mc_sigma_k,
+                        sigma_c_pct=mc_sigma_c,
+                        sigma_curva_pct=mc_sigma_curva,
+                        sigma_perdidas_pct=mc_sigma_perd,
+                        sigma_wake_pct=mc_sigma_wake,
+                        n_samples=int(mc_n_samples),
+                        seed=int(mc_seed),
+                    )
+
+                    kpis_html = (
+                        '<div class="f5-econ-lcoe-pair">'
+                        + _econ_lcoe_kpi(_f5_icon_svg("chart","#16a34a",14), "green", "P50 (MWh/año)", f"{mc_res['p50']:,.0f}")
+                        + _econ_lcoe_kpi(_f5_icon_svg("chart","#2563eb",14), "blue", "P75 (MWh/año)", f"{mc_res['p75']:,.0f}")
+                        + '</div><div class="f5-econ-lcoe-pair">'
+                        + _econ_lcoe_kpi(_f5_icon_svg("chart","#ea580c",14), "purple", "P90 (banca)", f"{mc_res['p90']:,.0f}")
+                        + _econ_lcoe_kpi(_f5_icon_svg("chart","#dc2626",14), "purple", "P99 (stress)", f"{mc_res['p99']:,.0f}")
+                        + '</div>'
+                    )
+                    st.markdown(kpis_html, unsafe_allow_html=True)
+
+                    rel_p90 = mc_res["p90"] / mc_res["p50"] if mc_res["p50"] > 0 else 0.0
+                    rel_p99 = mc_res["p99"] / mc_res["p50"] if mc_res["p50"] > 0 else 0.0
+                    st.markdown(
+                        f'<div class="f5-mini-note">'
+                        f'Mean: <b>{mc_res["mean"]:,.0f}</b> · σ: <b>{mc_res["std"]:,.0f}</b> ({mc_res["std"]/mc_res["mean"]*100 if mc_res["mean"]>0 else 0:.1f}%) · '
+                        f'P90/P50: <b>{rel_p90:.3f}</b> · P99/P50: <b>{rel_p99:.3f}</b>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    import numpy as _np_mc
+                    import plotly.graph_objects as _go_mc
+                    edges = _np_mc.asarray(mc_res["histograma_edges"])
+                    centers = (edges[:-1] + edges[1:]) / 2.0
+                    fig_mc = _go_mc.Figure()
+                    fig_mc.add_trace(_go_mc.Bar(x=centers, y=mc_res["histograma_counts"], marker_color="#94a3b8", name="Frecuencia"))
+                    for p_name, p_val, color in [("P99", mc_res["p99"], "#dc2626"), ("P90", mc_res["p90"], "#ea580c"), ("P75", mc_res["p75"], "#2563eb"), ("P50", mc_res["p50"], "#16a34a")]:
+                        fig_mc.add_vline(x=p_val, line=dict(color=color, width=2, dash="dash"), annotation_text=p_name, annotation_position="top")
+                    fig_mc.update_layout(
+                        template="plotly_white",
+                        height=380,
+                        margin=dict(l=14, r=14, t=42, b=16),
+                        xaxis_title="AEP (MWh/año)",
+                        yaxis_title="Frecuencia",
+                        showlegend=False,
+                    )
+                    st.plotly_chart(fig_mc, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+
+                    guardar_config_values({
+                        "f5_aep_p50": mc_res["p50"], "f5_aep_p75": mc_res["p75"],
+                        "f5_aep_p90": mc_res["p90"], "f5_aep_p99": mc_res["p99"],
+                        "f5_aep_mc_mean": mc_res["mean"], "f5_aep_mc_std": mc_res["std"],
+                        "f5_mc_n_samples": mc_n_samples, "f5_mc_seed": mc_seed,
+                        "f5_mc_sigma_k_pct": mc_sigma_k, "f5_mc_sigma_c_pct": mc_sigma_c,
+                        "f5_mc_sigma_curva_pct": mc_sigma_curva, "f5_mc_sigma_perdidas_pct": mc_sigma_perd,
+                        "f5_mc_sigma_wake_pct": mc_sigma_wake,
+                    })
+                except Exception as _exc:
+                    st.error(f"Monte Carlo falló: {_exc}")
+
+    # B4 - AEP serie temporal horaria
+    with st.container(border=True, key="f5_card_aep_serie"):
+        _render_f5_section_header(_f5_icon_svg("energy"), "AEP por serie temporal horaria")
+        st.markdown(
+            '<div class="f5-mini-note"><span class="f5-info-dot" style="width:1.2rem;height:1.2rem;font-size:0.72rem;">i</span>'
+            'Calcula AEP hora-a-hora con la serie NASA POWER (no Weibull agregado). Habilita análisis de patrones estacionales, '
+            'horarios, y futura integración con PPA/curtailment dinámico.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Calcular AEP serie horaria", key="f5_btn_run_serie", use_container_width=True):
+            st.session_state["f5_serie_run_flag"] = True
+
+        if st.session_state.get("f5_serie_run_flag"):
+            with st.spinner("Calculando AEP horaria…"):
+                try:
+                    _perd_tuple_h = (
+                        ("disp_turb", float(disp_pct)),
+                        ("disp_red", float(loss_disp_red_pct)),
+                        ("elec", float(elec_pct)),
+                        ("hielo", float(loss_hielo_pct)),
+                        ("histeresis", float(loss_histeresis_pct)),
+                        ("curtailment", float(loss_curtailment_pct)),
+                        ("otras", float(otras_pct)),
+                    )
+                    _df_curva_prep = preparar_datos_curva(df_curva_raw)
+                    res_serie = energia_calc.calcular_aep_serie_horaria(
+                        df_analisis=df_analisis,
+                        df_curva=_df_curva_prep,
+                        n_turbinas=int(n_turbinas),
+                        factor_densidad=float(factor_densidad_efectivo),
+                        wake_losses_sector=wake_losses_sector,
+                        wake_mode=wake_mode,
+                        wake_manual_pct=float(wake_manual_pct),
+                        perdidas_dict_tuple=_perd_tuple_h,
+                    )
+
+                    aep_total_serie = res_serie["aep_total_mwh"]
+                    aep_weibull = float(res["aep_neta_total"])
+                    diff_pct = (aep_total_serie - aep_weibull) / aep_weibull * 100.0 if aep_weibull > 0 else 0.0
+
+                    kpis_serie = (
+                        '<div class="f5-econ-lcoe-pair">'
+                        + _econ_lcoe_kpi(_f5_icon_svg("energy","#16a34a",14), "green", "AEP serie horaria", f"{aep_total_serie:,.0f} MWh")
+                        + _econ_lcoe_kpi(_f5_icon_svg("energy","#2563eb",14), "blue", "AEP Weibull (ref)", f"{aep_weibull:,.0f} MWh")
+                        + '</div>'
+                    )
+                    st.markdown(kpis_serie, unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div class="f5-mini-note">'
+                        f'Diferencia serie vs Weibull: <b>{diff_pct:+.2f}%</b> · '
+                        f'Factor planta serie: <b>{res_serie["factor_planta_pct"]:.1f}%</b>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    # Heatmap mes x hora
+                    heatmap = res_serie["heatmap_mes_hora"]
+                    if len(heatmap) > 0:
+                        import plotly.graph_objects as _go_hm
+                        fig_hm = _go_hm.Figure(data=_go_hm.Heatmap(
+                            z=heatmap.values / 1e6,  # MW
+                            x=[f"{h:02d}h" for h in heatmap.columns],
+                            y=[["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1] for m in heatmap.index],
+                            colorscale="YlOrRd",
+                            colorbar=dict(title="MW medio"),
+                        ))
+                        fig_hm.update_layout(
+                            template="plotly_white",
+                            height=420,
+                            margin=dict(l=14, r=14, t=42, b=16),
+                            title="Producción media (MW) por mes y hora",
+                            xaxis_title="Hora del día",
+                            yaxis_title="Mes",
+                        )
+                        st.plotly_chart(fig_hm, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+
+                    # AEP por mes
+                    aep_por_mes = res_serie["aep_por_mes"]
+                    if len(aep_por_mes) > 0:
+                        import plotly.graph_objects as _go_mes
+                        fig_mes = _go_mes.Figure()
+                        fig_mes.add_trace(_go_mes.Bar(
+                            x=[["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1] for m in aep_por_mes.index],
+                            y=aep_por_mes.values,
+                            marker_color="#2563eb",
+                        ))
+                        fig_mes.update_layout(
+                            template="plotly_white",
+                            height=300,
+                            margin=dict(l=14, r=14, t=42, b=16),
+                            title="AEP mensual (MWh)",
+                            xaxis_title="Mes",
+                            yaxis_title="AEP (MWh)",
+                        )
+                        st.plotly_chart(fig_mes, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+
+                    guardar_config_values({
+                        "f5_aep_serie_horaria_total": aep_total_serie,
+                        "f5_factor_planta_serie_pct": res_serie["factor_planta_pct"],
+                        "f5_serie_horaria_calculada": "True",
+                    })
+                except Exception as _exc:
+                    st.error(f"AEP serie horaria falló: {_exc}")
 
 
 MASTER_DOCX_FILE_NAME = "informe_tecnico editado por mi.docx"
@@ -3289,7 +3857,7 @@ with st.container(border=True, key="f5_card_export"):
         '</div>',
         unsafe_allow_html=True,
     )
-    
+
     exp1, exp2, exp3, exp4, exp5 = st.columns(5, gap="medium")
     with exp1:
         st.page_link("pages/6_Fase_6_Exportar_y_guardar.py", label="Exportar PDF", icon=":material/picture_as_pdf:", use_container_width=True)

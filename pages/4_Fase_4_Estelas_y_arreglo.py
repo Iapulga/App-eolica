@@ -1,42 +1,41 @@
-import textwrap
 import base64
+import textwrap
 import unicodedata
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from pandas.util import hash_pandas_object
-from navigation import render_dropdown_visibility_fix, render_sidebar_navigation, _icon_svg
 import streamlit.components.v1 as components
-import calculos_energia as energia_calc
+from pandas.util import hash_pandas_object
 
+import calculos_energia as energia_calc
+from calculos import (
+    PROMEDIO_LOG_EXP_LABEL,
+    SECTOR_CENTERS_16,
+    SECTOR_LABELS_16,
+    calcular_estelas_jensen_direccion,
+    construir_serie_viento_analisis,
+    crear_figura_direccion_estela,
+    crear_figura_layout_parque,
+    generar_layout_parque,
+    normalizar_modelo_altura,
+)
 from db import (
-    init_db,
     cargar_config,
-    guardar_config_values,
+    cargar_escenario_parque,
+    cargar_layout_parque,
     cargar_nasa_hourly,
     cargar_tabla_curva,
-    cargar_layout_parque,
-    guardar_layout_parque,
-    guardar_escenario_parque,
-    listar_escenarios_parque,
-    cargar_escenario_parque,
     eliminar_escenario_parque,
+    guardar_config_values,
+    guardar_escenario_parque,
+    guardar_layout_parque,
+    init_db,
+    listar_escenarios_parque,
 )
-from widget_helpers import _init_widget_state, _safe_index
-from calculos import (
-    generar_layout_parque,
-    crear_figura_layout_parque,
-    analizar_estelas_parque_16,
-    crear_figura_direccion_estela,
-    calcular_estelas_jensen_direccion,
-    SECTOR_LABELS_16,
-    SECTOR_CENTERS_16,
-    construir_serie_viento_analisis,
-    normalizar_modelo_altura,
-    PROMEDIO_LOG_EXP_LABEL,
-)
+from navigation import _icon_svg, render_dropdown_visibility_fix, render_sidebar_navigation
+from widget_helpers import _init_widget_state
 
 st.set_page_config(page_title="Fase 4 · Estelas y arreglo", layout="wide")
 
@@ -865,7 +864,6 @@ def _render_phase4_css():
         .st-key-f4_card_config,
         .st-key-f4_card_edit_table,
         .st-key-f4_card_move_layout,
-        .st-key-f4_card_view_layout,
         .st-key-f4_card_geom_summary,
         .st-key-f4_card_wind_base,
         .st-key-f4_card_geom_analysis,
@@ -874,7 +872,15 @@ def _render_phase4_css():
         .st-key-f4_card_scenarios {
             background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
             border: 1px solid #cbd5e1 !important;
-            border-radius: 18px !important;
+            border-radius: 28px !important;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+            overflow: visible !important;
+        }
+
+        .st-key-f4_card_view_layout {
+            background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 28px !important;
             box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
             overflow: hidden !important;
         }
@@ -968,16 +974,24 @@ def _render_phase4_css():
         .st-key-f4_card_annual_analysis,
         .st-key-f4_card_detail_direction,
         .st-key-f4_card_scenarios,
-        .st-key-f4_card_compare_bars,
-        .st-key-f4_card_energy_bars,
         .st-key-f4_card_scenario_save,
         .st-key-f4_card_scenario_list,
-        .st-key-f4_card_scenario_compare {
+        .st-key-f4_card_scenario_compare,
+        .st-key-f4_card_gis_map {
             background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
             border: 1px solid #cbd5e1 !important;
-            border-radius: 25px !important;
+            border-radius: 28px !important;
             box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
             overflow: visible !important;
+        }
+
+        .st-key-f4_card_compare_bars,
+        .st-key-f4_card_energy_bars {
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 28px !important;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+            overflow: hidden !important;
         }
 
         .st-key-f4_card_geom_analysis div[data-testid="stVerticalBlockBorderWrapper"],
@@ -1491,21 +1505,38 @@ def _render_phase4_css():
 
         /* ── Ensure outer stVerticalBlockBorderWrapper has rounded blue border ──
            Handles both HTML structures Streamlit may use for keyed containers */
+        /* ── Ensure outer stVerticalBlockBorderWrapper has rounded blue border ──
+           Handles both HTML structures Streamlit may use for keyed containers */
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_config),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_edit_table),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_move_layout),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_view_layout),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_geom_summary),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_wind_base),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_geom_analysis),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_annual_analysis),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_detail_direction),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenarios),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_compare_bars),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_energy_bars),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_save),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_list),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_compare),
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_gis_map) {
+            border: 1.4px solid #cbd5e1 !important;
+            border-radius: 28px !important;
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+            overflow: visible !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_view_layout),
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_compare_bars),
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_energy_bars) {
+            border: 1.4px solid #cbd5e1 !important;
+            border-radius: 28px !important;
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+            overflow: hidden !important;
+        }
+
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_geom_rose_subcard),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_move_turbine_card),
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_move_park_card),
@@ -1516,6 +1547,7 @@ def _render_phase4_css():
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05) !important;
             overflow: hidden !important;
         }
+
         /* Reset inner div conflicting styles (when key class is inside the wrapper) */
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_config) > .st-key-f4_card_config,
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_edit_table) > .st-key-f4_card_edit_table,
@@ -1526,7 +1558,13 @@ def _render_phase4_css():
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_geom_analysis) > .st-key-f4_card_geom_analysis,
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_annual_analysis) > .st-key-f4_card_annual_analysis,
         div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_detail_direction) > .st-key-f4_card_detail_direction,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenarios) > .st-key-f4_card_scenarios {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenarios) > .st-key-f4_card_scenarios,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_compare_bars) > .st-key-f4_card_compare_bars,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_energy_bars) > .st-key-f4_card_energy_bars,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_save) > .st-key-f4_card_scenario_save,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_list) > .st-key-f4_card_scenario_list,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_compare) > .st-key-f4_card_scenario_compare,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_gis_map) > .st-key-f4_card_gis_map {
             border: none !important;
             background: transparent !important;
             box-shadow: none !important;
@@ -1791,7 +1829,7 @@ def _add_wake_visual_layers(fig: go.Figure, df_points: pd.DataFrame, direction_d
     # Enhanced Turbine visuals (SVG animations and hover layers)
     labels = df_plot[id_col].astype(str).tolist() if id_col else [f"T{i+1}" for i in range(n)]
     rotor_r_m = max(150.0, max(x_span, y_span) * 0.045)
-    
+
     # Calculate simple penalties for coloring
     penalties = {}
     theta = np.deg2rad(float(direction_deg) if pd.notna(direction_deg) else 0.0)
@@ -1799,7 +1837,7 @@ def _add_wake_visual_layers(fig: go.Figure, df_points: pd.DataFrame, direction_d
     px, py = -dy, dx
     wake_width = rotor_r_m * 2.0
     wake_length = rotor_r_m * 12.0
-    
+
     for row_a in df_plot.itertuples(index=False):
         penalty = 0.0
         x_a = float(getattr(row_a, x_col))
@@ -1827,14 +1865,14 @@ def _add_wake_visual_layers(fig: go.Figure, df_points: pd.DataFrame, direction_d
         y0 = float(getattr(row, y_col))
         id_a = str(getattr(row, id_col)) if id_col else str(x0)
         penalty_norm = penalties.get(id_a, 0.0) / max(max_penalty, 1e-6) if max_penalty > 0 else 0.0
-        
+
         if penalty_norm < 0.15: turbine_color = "#10B981"
         elif penalty_norm < 0.45: turbine_color = "#F59E0B"
         else: turbine_color = "#EF4444"
         ring_x.append(x0)
         ring_y.append(y0)
         ring_colors.append(turbine_color)
-            
+
         image_source = _build_animated_turbine_data_uri(None, color=turbine_color)
         fig.add_layout_image(
             dict(
@@ -2596,13 +2634,13 @@ def crear_rosa_geom(df_geom):
 
     scale_shapes = [dict(type="line", xref="paper", yref="paper", x0=0.08, x1=0.08, y0=0.15, y1=0.85, line=dict(color="#cbd5e1", width=2))]
     scale_annotations = [dict(xref="paper", yref="paper", x=0.08, y=0.92, text="<b>Escala Radial</b><br><span style='font-size:9px'>(Pérdida)</span>", showarrow=False, font=dict(size=11, color="#64748b"), align="center")]
-    
+
     vals = []
     v = 0.0
     while v <= max_r + 1e-9:
         vals.append(v)
         v += dtick
-        
+
     for v in vals:
         y_pos = 0.15 + 0.7 * (v / max_r)
         scale_shapes.append(dict(type="line", xref="paper", yref="paper", x0=0.08, x1=0.10, y0=y_pos, y1=y_pos, line=dict(color="#cbd5e1", width=2)))
@@ -2649,13 +2687,13 @@ def crear_rosa_anual(df_resumen):
 
     scale_shapes = [dict(type="line", xref="paper", yref="paper", x0=0.08, x1=0.08, y0=0.15, y1=0.85, line=dict(color="#cbd5e1", width=2))]
     scale_annotations = [dict(xref="paper", yref="paper", x=0.08, y=0.92, text="<b>Escala Radial</b><br><span style='font-size:9px'>(Pérdida)</span>", showarrow=False, font=dict(size=11, color="#64748b"), align="center")]
-    
+
     vals = []
     v = 0.0
     while v <= max_r + 1e-9:
         vals.append(v)
         v += dtick
-        
+
     for v in vals:
         y_pos = 0.15 + 0.7 * (v / max_r)
         scale_shapes.append(dict(type="line", xref="paper", yref="paper", x0=0.08, x1=0.10, y0=y_pos, y1=y_pos, line=dict(color="#cbd5e1", width=2)))
@@ -3084,12 +3122,28 @@ if len(df_nasa) == 0:
     st.stop()
 
 layout_type_default = config.get("f4_layout_type", "En línea")
-num_turbinas_default = int(float(config.get("f4_num_turbinas", "4")))
+# Sembrar el número de aerogeneradores desde el layout real cuando exista,
+# para que el input nunca quede desincronizado de la tabla T1..Tn editable.
+# Fix: ver QA del 2026-05-26 (input mostraba 4 con tabla de 5 turbinas).
+_layout_actual_para_count = cargar_layout_parque()
+_layout_size_actual = int(len(_layout_actual_para_count)) if _layout_actual_para_count is not None else 0
+_config_num_turbinas = int(float(config.get("f4_num_turbinas", "4")))
+num_turbinas_default = _layout_size_actual if _layout_size_actual > 0 else _config_num_turbinas
 dx_D_default = float(config.get("f4_dx_D", "5.0"))
 dy_D_default = float(config.get("f4_dy_D", "5.0"))
 rotation_default = float(config.get("f4_rotation_deg", "0.0"))
 ct_default = float(config.get("f4_ct", "0.80"))
 kw_default = float(config.get("f4_kw", "0.05"))
+wake_model_options_f4 = ["Jensen", "Larsen", "Frandsen", "Gaussian", "TurbOPark", "DWM"]
+try:
+    from calculos import _pywake_disponible
+    if _pywake_disponible():
+        wake_model_options_f4 += ["pyWake-NOJ", "pyWake-Bastankhah", "pyWake-Niayifar"]
+except Exception:
+    pass
+wake_model_default_f4 = str(config.get("f4_wake_model") or "Jensen").strip().capitalize()
+if wake_model_default_f4 not in wake_model_options_f4:
+    wake_model_default_f4 = "Jensen"
 sector_default = config.get("f4_selected_sector", "N")
 base_viento_default = str(config.get("f4_base_viento", "50 m") or "50 m").strip()
 if base_viento_default == "Altura deseada - Log B (z0 teórica)":
@@ -3141,6 +3195,18 @@ with st.container(border=True, key="f4_card_config"):
             kw = st.number_input("Constante de expansión kw", min_value=0.001, value=kw_default, step=0.005, format="%.3f")
         with c8:
             altura_deseada = st.number_input("Altura deseada (m)", min_value=0.10, value=altura_deseada_default, step=0.10, format="%.2f")
+
+        c9, c10 = st.columns([1, 3], gap="medium")
+        with c9:
+            wake_model_f4 = st.selectbox(
+                "Modelo de estela",
+                wake_model_options_f4,
+                index=wake_model_options_f4.index(wake_model_default_f4),
+                key="f4_wake_model",
+                help="Jensen (clásico) · Larsen (perfil 3/2, TI ambiente) · Frandsen (parques grandes) · Gaussian (Bastankhah-PA 2014, estándar moderno) · TurbOPark (Orsted 2020, industria 2024)",
+            )
+        with c10:
+            guardar_config_values({"f4_wake_model": wake_model_f4, "f5_wake_model": wake_model_f4})
 
         dx_m_preview = dx_D * diametro
         dy_m_preview = dy_D * diametro
@@ -3337,7 +3403,7 @@ with layout_edit_cols[0]:
             """,
             unsafe_allow_html=True,
         )
-        
+
         icon_table = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><line x1='3' y1='9' x2='21' y2='9'/><line x1='9' y1='9' x2='9' y2='21'/><line x1='15' y1='9' x2='15' y2='21'/></svg>"
         _render_section_header("Tabla editable del parque", icon_table)
         edited_layout = st.data_editor(
@@ -4213,7 +4279,7 @@ with st.container(border=True, key="f4_card_detail_direction"):
         for trace in fig_dir_geom.data:
             if hasattr(trace, "marker") and trace.marker is not None and hasattr(trace.marker, "colorbar") and trace.marker.colorbar is not None:
                 trace.marker.showscale = False
-        
+
         # Tight margins to reduce empty space
         fig_dir_geom.update_layout(
             title=None,
@@ -4305,7 +4371,7 @@ with st.container(border=True, key="f4_card_detail_direction"):
         for trace in fig_dir.data:
             if hasattr(trace, "marker") and trace.marker is not None and hasattr(trace.marker, "colorbar") and trace.marker.colorbar is not None:
                 trace.marker.showscale = False
-        
+
         # Tight margins to reduce empty space
         fig_dir.update_layout(
             title=None,
@@ -4548,7 +4614,8 @@ with st.container(border=True, key="f4_card_scenarios"):
             .st-key-f4_card_scenarios,
             .st-key-f4_card_scenario_save,
             .st-key-f4_card_scenario_list,
-            .st-key-f4_card_scenario_compare {
+            .st-key-f4_card_scenario_compare,
+            .st-key-f4_card_gis_map {
                 border: 1.4px solid #cbd5e1 !important;
                 border-radius: 28px !important;
                 background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
@@ -4573,7 +4640,8 @@ with st.container(border=True, key="f4_card_scenarios"):
             .st-key-f4_card_scenarios div[data-testid="stVerticalBlockBorderWrapper"],
             .st-key-f4_card_scenario_save div[data-testid="stVerticalBlockBorderWrapper"],
             .st-key-f4_card_scenario_list div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_scenario_compare div[data-testid="stVerticalBlockBorderWrapper"] {
+            .st-key-f4_card_scenario_compare div[data-testid="stVerticalBlockBorderWrapper"],
+            .st-key-f4_card_gis_map div[data-testid="stVerticalBlockBorderWrapper"] {
                 border: none !important;
                 box-shadow: none !important;
                 border-radius: 28px !important;
@@ -4599,7 +4667,8 @@ with st.container(border=True, key="f4_card_scenarios"):
             .st-key-f4_card_compare_bars,
             .st-key-f4_card_energy_bars,
             .st-key-f4_card_detail_direction,
-            .st-key-f4_card_scenarios {
+            .st-key-f4_card_scenarios,
+            .st-key-f4_card_gis_map {
                 border: 1px solid #cbd5e1 !important;
                 box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
             }
@@ -4608,5 +4677,76 @@ with st.container(border=True, key="f4_card_scenarios"):
             """,
             unsafe_allow_html=True,
         )
+
+
+# B8 - Mapa GIS turbinas (folium)
+with st.container(border=True, key="f4_card_gis_map"):
+    st.markdown("### 🗺️ Mapa GIS · turbinas geo-referenciadas (B8)")
+    st.caption("Visualiza el layout sobre mapa real usando lat/lon del sitio + posiciones x/y del parque.")
+
+    try:
+        lat_site = float(config.get("nasa_lat") or 0.0)
+        lon_site = float(config.get("nasa_lon") or 0.0)
+    except Exception:
+        lat_site, lon_site = 0.0, 0.0
+
+    if abs(lat_site) < 0.01 or abs(lon_site) < 0.01:
+        st.info("Configura latitud/longitud del sitio en Fase 2 (mapa NASA) para ver el layout geo-referenciado.")
+    elif df_layout is None or len(df_layout) == 0:
+        st.info("Sin layout del parque. Genera el arreglo arriba.")
+    else:
+        try:
+            import folium
+            from streamlit_folium import st_folium
+
+            from calculos import turbinas_xy_a_latlon
+
+            df_latlon = turbinas_xy_a_latlon(df_layout, lat_centro=lat_site, lon_centro=lon_site, rotation_deg=0.0)
+
+            if len(df_latlon) > 0:
+                lat_mean = float(df_latlon["lat"].mean())
+                lon_mean = float(df_latlon["lon"].mean())
+            else:
+                lat_mean, lon_mean = lat_site, lon_site
+
+            map_zoom_gis = st.slider("Zoom mapa", min_value=8, max_value=18, value=14, key="f4_map_zoom_gis")
+            map_tiles_gis = st.selectbox("Capa base", ["OpenStreetMap", "CartoDB positron", "CartoDB dark_matter"], key="f4_map_tiles_gis")
+
+            mapa_gis = folium.Map(location=[lat_mean, lon_mean], zoom_start=int(map_zoom_gis), tiles=map_tiles_gis)
+            folium.Marker(
+                location=[lat_site, lon_site],
+                popup=f"Centro del sitio<br>lat: {lat_site:.5f}<br>lon: {lon_site:.5f}",
+                icon=folium.Icon(color="purple", icon="star"),
+            ).add_to(mapa_gis)
+
+            for _, row in df_latlon.iterrows():
+                tid = row.get("turbina_id", "T?")
+                lat_t = float(row["lat"])
+                lon_t = float(row["lon"])
+                folium.CircleMarker(
+                    location=[lat_t, lon_t],
+                    radius=8,
+                    color="#2563eb",
+                    fill=True,
+                    fill_color="#2563eb",
+                    fill_opacity=0.85,
+                    tooltip=f"{tid} · ({lat_t:.5f}, {lon_t:.5f})",
+                    popup=f"<b>{tid}</b><br>lat: {lat_t:.6f}<br>lon: {lon_t:.6f}",
+                ).add_to(mapa_gis)
+
+            lats_gis = df_latlon["lat"].tolist()
+            lons_gis = df_latlon["lon"].tolist()
+            if len(lats_gis) >= 3:
+                pts = list(zip(lats_gis, lons_gis))
+                folium.PolyLine(pts + [pts[0]], color="#16a34a", weight=2, opacity=0.5, dash_array="5").add_to(mapa_gis)
+
+            st_folium(mapa_gis, width=1200, height=500, key="f4_mapa_gis_layout")
+            st.caption(f"Turbinas plotadas: {len(df_latlon)} · Centro del parque: lat {lat_mean:.5f}, lon {lon_mean:.5f}")
+
+        except ImportError:
+            st.warning("Necesita `folium` y `streamlit-folium`. Instalar: `pip install folium streamlit-folium`")
+        except Exception as exc:
+            st.error(f"Error generando mapa: {exc}")
+
 
 render_dropdown_visibility_fix()

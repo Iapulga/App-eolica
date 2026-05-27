@@ -2,30 +2,30 @@ import html
 
 import pandas as pd
 import streamlit as st
-from navigation import render_dropdown_visibility_fix, render_sidebar_navigation, _icon_svg
 
 from calculos_economicos import format_currency_amount, format_lcoe_value
 from db import (
-    init_db,
     cargar_config,
+    exportar_proyecto_json_texto,
     guardar_config_values,
     guardar_proyecto,
-    exportar_proyecto_json_texto,
+    init_db,
 )
+from navigation import _icon_svg, render_dropdown_visibility_fix, render_sidebar_navigation
 from reportes import get_project_context, get_report_context
 from reportes.fase5_export_helpers import (
-    RUNTIME_CONTEXT_STATE_KEY,
     HEAVY_EXPORT_STATE_KEY,
-    INFORME_TECNICO_PDF_STATE_KEY,
     INFORME_TECNICO_DOCX_STATE_KEY,
     INFORME_TECNICO_META_STATE_KEY,
+    INFORME_TECNICO_PDF_STATE_KEY,
+    RUNTIME_CONTEXT_STATE_KEY,
     build_basic_export_bundle,
     build_export_signature,
+    build_figure_download_key,
     build_informe_tecnico_signature,
+    dedupe_figure_export_artifacts,
     generate_heavy_export_artifacts,
     generate_informe_tecnico_exports,
-    dedupe_figure_export_artifacts,
-    build_figure_download_key,
 )
 
 st.set_page_config(page_title="Fase 6 · Exportar y guardar", layout="wide")
@@ -45,7 +45,7 @@ def _safe_icon(name: str, size: int = 22, color: str = "#2563eb") -> str:
     try:
         return _icon_svg(name, size, color)
     except Exception:
-        stroke = f'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"'
+        stroke = 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"'
         return (
             f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" '
             f'style="color:{color};display:block" xmlns="http://www.w3.org/2000/svg">'
@@ -150,11 +150,13 @@ border-radius:18px !important;border: 1px solid #cbd5e1 !important;background:li
 .f6-ref-save-title{color:#0a2444;font-size:18px;font-weight:900;margin-bottom:6px;display:flex;align-items:center;gap:10px}
 .f6-ref-save-sub{color:#5a7099;font-size:13px;font-weight:600;margin-bottom:18px}
 .f6-ref-alert{background:#fffbeb;border:1px solid #fde68a;color:#78350f;border-radius:16px;padding:14px 16px;font-weight:700;margin:12px 0 16px;font-size:13.5px}
-.st-key-f6_card_exec_summary,.st-key-f6_card_scenario,.st-key-f6_card_exports,.st-key-f6_save_section{border-radius:22px !important;border:1px solid #d9e8fb !important;background:#ffffff !important;box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;overflow:visible !important;margin-bottom:16px !important}
+.st-key-f6_card_exec_summary,.st-key-f6_card_scenario,.st-key-f6_card_exports,.st-key-f6_save_section,.st-key-f6_card_bankable,.st-key-f6_card_gis_export{border-radius:28px !important;border:1px solid #d9e8fb !important;background:#ffffff !important;box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;overflow:visible !important;margin-bottom:16px !important}
 .st-key-f6_card_exec_summary div[data-testid="stVerticalBlockBorderWrapper"],
 .st-key-f6_card_scenario div[data-testid="stVerticalBlockBorderWrapper"],
 .st-key-f6_card_exports div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_save_section div[data-testid="stVerticalBlockBorderWrapper"]{border:none !important;border-radius:22px !important;box-shadow:none !important;padding:1.1rem 1.2rem 1.1rem 1.2rem !important}
+.st-key-f6_save_section div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_bankable div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_gis_export div[data-testid="stVerticalBlockBorderWrapper"]{border:none !important;border-radius:28px !important;box-shadow:none !important;padding:1.1rem 1.2rem 1.1rem 1.2rem !important}
 .st-key-f6_save_section [data-testid="stButton"]>button{background:#dc2626 !important;border-color:#dc2626 !important;color:#fff !important}
 .st-key-f6_save_section [data-testid="stButton"]>button:hover{background:#b91c1c !important}
 .st-key-f6_save_section [data-testid="stDownloadButton"]>button{background:#fff !important;border:1.5px solid #86b7ff !important;color:#2563eb !important}
@@ -176,9 +178,11 @@ div[data-testid="stTextInput"] input,div[data-testid="stSelectbox"] div[data-bas
 .st-key-f6_card_exec_summary,
 .st-key-f6_card_scenario,
 .st-key-f6_card_exports,
-.st-key-f6_save_section {
+.st-key-f6_save_section,
+.st-key-f6_card_bankable,
+.st-key-f6_card_gis_export {
     border: 1px solid #cbd5e1 !important;
-    border-radius: 20px !important;
+    border-radius: 28px !important;
     background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
     box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
     overflow: visible !important;
@@ -194,7 +198,9 @@ div[data-testid="stTextInput"] input,div[data-testid="stSelectbox"] div[data-bas
 .st-key-f6_card_exec_summary div[data-testid="stVerticalBlockBorderWrapper"],
 .st-key-f6_card_scenario div[data-testid="stVerticalBlockBorderWrapper"],
 .st-key-f6_card_exports div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_save_section div[data-testid="stVerticalBlockBorderWrapper"] {
+.st-key-f6_save_section div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_bankable div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_gis_export div[data-testid="stVerticalBlockBorderWrapper"] {
     border: none !important;
     box-shadow: none !important;
     border-radius: 28px !important;
@@ -366,12 +372,42 @@ export_card.markdown(
 btn_disabled = not (runtime_context and basic_bundle)
 
 if btn_disabled:
-    export_card.markdown(
-        '<div style="color: #dc2626; font-size: 13.5px; font-weight: 700; text-align: center; margin-bottom: 8px; margin-top: 4px;">'
-        '⚠ Las exportaciones están deshabilitadas. Primero abra Fase 5, ejecute el cálculo actual y luego vuelva a Fase 6 para activarlas.'
-        '</div>',
-        unsafe_allow_html=True
+    # Si Fase 5 ya tiene resultados persistidos en config pero el runtime_context
+    # de sesión está vacío (p. ej. el usuario abre F6 tras cargar un proyecto
+    # guardado sin pasar primero por F5), guiamos con un botón directo en lugar
+    # del warning pasivo previo.
+    _f5_results_in_config = (
+        config.get("f5_aep_bruta_total_mwh") is not None
+        and config.get("f5_aep_neta_total_mwh") is not None
     )
+    _msg = (
+        "Los resultados existen en la base del proyecto pero esta sesión aún no "
+        "los ha cargado. Pulse el botón para regenerar el cálculo de Fase 5 "
+        "(toma unos segundos) y volver a Fase 6 con las exportaciones activas."
+        if _f5_results_in_config
+        else "Primero ejecute el cálculo en Fase 5 (botón «Aplicar configuración»). "
+             "Luego regrese a Fase 6 y las exportaciones quedarán habilitadas."
+    )
+    export_card.markdown(
+        f'<div style="color: #b45309; background:#fff7ed; border:1px solid #fed7aa; '
+        f'border-radius:10px; padding:10px 14px; font-size:13.5px; font-weight:600; '
+        f'margin:6px 0 12px 0;">⚠ Exportaciones inactivas. {_msg}</div>',
+        unsafe_allow_html=True,
+    )
+    _go_col_left, _go_col_btn, _go_col_right = export_card.columns([1, 2, 1])
+    with _go_col_btn:
+        if st.button(
+            "Ir a Fase 5 y activar exportaciones",
+            key="fase6_goto_fase5_activar",
+            use_container_width=True,
+            type="primary",
+            icon=":material/play_arrow:",
+        ):
+            try:
+                st.switch_page("pages/5_Fase_5_AEP_bruta_y_neta.py")
+            except Exception:
+                # Fallback si switch_page no disponible (Streamlit antiguo)
+                st.info("Abra la pestaña «Fase 5 · AEP bruta y neta» en la barra lateral.")
 
 # Cards visuales siempre presentes
 export_card.markdown(
@@ -543,6 +579,168 @@ with st.container(border=True, key="f6_save_section"):
             st.download_button("Descargar proyecto (.json)", data=proyecto_json.encode("utf-8"), file_name=f"{nombre_proyecto}.json", mime="application/json", use_container_width=True)
         except Exception as e:
             st.error(f"No pude preparar el archivo del proyecto: {e}")
+
+
+# C7 + i18n - Reporte BANKABLE multi-país, multi-idioma, con branding
+with st.container(border=True, key="f6_card_bankable"):
+    st.markdown("### 📑 Reporte BANKABLE (multi-país · multi-idioma)")
+    st.caption("Informe estructurado 30-50 páginas: cover + TOC + executive + P50/P90 + IEC + ambiental + económico (WACC/DSCR/PPA país-específico) + risk register + apéndices. Disclaimer obligatorio incluido.")
+
+    from i18n_paises import get_country_profile, listar_idiomas, listar_paises
+
+    col_b1, col_b2, col_b3 = st.columns([1.2, 1.2, 1])
+    with col_b1:
+        bk_project = st.text_input("Nombre del proyecto", value=config.get("project_name", "Wind Farm"), key="f6_bk_project")
+        bk_autor = st.text_input("Autor / Consultor", value=config.get("f6_bankable_autor", ""), key="f6_bk_autor")
+    with col_b2:
+        bk_cliente = st.text_input("Cliente / Promotor", value=config.get("f6_bankable_cliente", ""), key="f6_bk_cliente")
+        paises_options = listar_paises()
+        pais_labels = [f"{c} — {n}" for c, n in paises_options]
+        pais_default_code = config.get("f6_country_code", "OTRO")
+        idx_pais = next((i for i, (c, _) in enumerate(paises_options) if c == pais_default_code), len(paises_options) - 1)
+        pais_sel_label = st.selectbox("País del proyecto", pais_labels, index=idx_pais, key="f6_country_label")
+        pais_sel_code = pais_sel_label.split(" — ")[0]
+    with col_b3:
+        idiomas_options = listar_idiomas()
+        idioma_labels = [f"{c} — {n}" for c, n in idiomas_options]
+        idioma_default = config.get("f6_report_lang", "es")
+        idx_idioma = next((i for i, (c, _) in enumerate(idiomas_options) if c == idioma_default), 0)
+        idioma_sel_label = st.selectbox("Idioma reporte", idioma_labels, index=idx_idioma, key="f6_report_lang_label")
+        idioma_sel_code = idioma_sel_label.split(" — ")[0]
+        logo_upload = st.file_uploader("Logo cliente (PNG/JPG, opcional)", type=["png", "jpg", "jpeg"], key="f6_bk_logo")
+
+    # Mostrar perfil país detectado
+    perfil_pais = get_country_profile(pais_sel_code)
+    st.info(f"**País:** {perfil_pais['nombre']} · **Moneda local:** {perfil_pais['currency']} · "
+            f"**WACC típico:** {perfil_pais['wacc_tipico_pct']}% · "
+            f"**Tax rate:** {perfil_pais['tax_rate_pct']}% · "
+            f"**Mecanismo regulatorio:** {perfil_pais['mecanismo_descripcion']}")
+
+    if st.button("Generar reporte bankable (DOCX)", key="f6_btn_gen_bankable", use_container_width=True, type="primary"):
+        try:
+            from reportes.bankable import construir_contexto_bankable, generar_reporte_bankable_bytes
+            with st.spinner(f"Generando reporte bankable en {idioma_sel_code.upper()}…"):
+                ctx_bk = construir_contexto_bankable(
+                    config=config,
+                    project_metadata={
+                        "project_name": bk_project,
+                        "autor": bk_autor,
+                        "cliente": bk_cliente,
+                        "country_code": pais_sel_code,
+                        "country_nombre": perfil_pais["nombre"],
+                    },
+                )
+                logo_bytes = logo_upload.getvalue() if logo_upload else None
+                docx_bytes = generar_reporte_bankable_bytes(ctx_bk, lang=idioma_sel_code, logo_bytes=logo_bytes)
+                guardar_config_values({
+                    "f6_bankable_project_name": bk_project,
+                    "f6_bankable_autor": bk_autor,
+                    "f6_bankable_cliente": bk_cliente,
+                    "f6_country_code": pais_sel_code,
+                    "f6_report_lang": idioma_sel_code,
+                })
+                st.session_state["f6_bankable_docx_bytes"] = docx_bytes
+                st.success(f"Reporte generado ({len(docx_bytes)/1024:.1f} KB) en {idioma_sel_code.upper()} para {perfil_pais['nombre']}.")
+        except Exception as exc:
+            st.error(f"Error generando reporte: {exc}")
+
+    if st.session_state.get("f6_bankable_docx_bytes"):
+        st.download_button(
+            "⬇ Descargar informe bankable (.docx)",
+            data=st.session_state["f6_bankable_docx_bytes"],
+            file_name=f"{bk_project.replace(' ', '_')}_BANKABLE_{idioma_sel_code}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+            key="f6_dl_bankable",
+        )
+
+
+# GIS Export — KML/GeoJSON/CSV/ZIP
+with st.container(border=True, key="f6_card_gis_export"):
+    st.markdown("### 🗺️ GIS Export (KML Google Earth · GeoJSON · CSV coords)")
+    st.caption("Cierra gap vs WindPRO/OpenWind: exporta layout en formatos GIS estándar para QGIS, Google Earth, ArcGIS, AutoCAD.")
+
+    try:
+        from db import cargar_layout_parque
+        from reportes.gis_export import (
+            exportar_csv_coords,
+            exportar_geojson_layout,
+            exportar_kml_layout,
+            exportar_zip_paquete_gis,
+        )
+
+        df_layout_gis = cargar_layout_parque()
+        lat_site_gis = float(config.get("nasa_lat") or 0)
+        lon_site_gis = float(config.get("nasa_lon") or 0)
+
+        if len(df_layout_gis) == 0 or abs(lat_site_gis) < 0.01:
+            st.info("Necesita layout del parque (Fase 4) + lat/lon del sitio (Fase 2) configurados.")
+        else:
+            nombre_gis = (config.get("project_name") or "WindFarm").replace(" ", "_")
+            diametro_gis = float(config.get("diametro") or 100)
+            h_hub_gis = float(config.get("perfil_hhub") or 80)
+
+            col_g1, col_g2, col_g3, col_g4 = st.columns(4)
+            with col_g1:
+                if st.button("📍 KML (Google Earth)", key="f6_btn_kml", use_container_width=True):
+                    try:
+                        kml = exportar_kml_layout(df_layout_gis, lat_site_gis, lon_site_gis,
+                                                    nombre_parque=nombre_gis,
+                                                    diametro_rotor=diametro_gis, altura_buje=h_hub_gis)
+                        st.session_state["f6_kml_bytes"] = kml
+                        st.success(f"KML: {len(kml)/1024:.1f} KB")
+                    except Exception as exc:
+                        st.error(f"KML error: {exc}")
+            with col_g2:
+                if st.button("🌐 GeoJSON", key="f6_btn_geojson", use_container_width=True):
+                    try:
+                        gj = exportar_geojson_layout(df_layout_gis, lat_site_gis, lon_site_gis, nombre_gis)
+                        st.session_state["f6_geojson_bytes"] = gj
+                        st.success(f"GeoJSON: {len(gj)/1024:.1f} KB")
+                    except Exception as exc:
+                        st.error(f"GeoJSON error: {exc}")
+            with col_g3:
+                if st.button("📊 CSV coords", key="f6_btn_csv_coords", use_container_width=True):
+                    try:
+                        csv_c = exportar_csv_coords(df_layout_gis, lat_site_gis, lon_site_gis)
+                        st.session_state["f6_csv_coords_bytes"] = csv_c
+                        st.success(f"CSV: {len(csv_c)/1024:.1f} KB")
+                    except Exception as exc:
+                        st.error(f"CSV error: {exc}")
+            with col_g4:
+                if st.button("📦 ZIP completo (KML+GeoJSON+CSV)", key="f6_btn_zip_gis", use_container_width=True):
+                    try:
+                        zip_b = exportar_zip_paquete_gis(df_layout_gis, lat_site_gis, lon_site_gis, nombre_gis,
+                                                          diametro_rotor=diametro_gis, altura_buje=h_hub_gis)
+                        st.session_state["f6_zip_gis_bytes"] = zip_b
+                        st.success(f"ZIP: {len(zip_b)/1024:.1f} KB")
+                    except Exception as exc:
+                        st.error(f"ZIP error: {exc}")
+
+            dl_cols = st.columns(4)
+            with dl_cols[0]:
+                if st.session_state.get("f6_kml_bytes"):
+                    st.download_button("⬇ .kml", data=st.session_state["f6_kml_bytes"],
+                                       file_name=f"{nombre_gis}.kml", mime="application/vnd.google-earth.kml+xml",
+                                       use_container_width=True, key="f6_dl_kml")
+            with dl_cols[1]:
+                if st.session_state.get("f6_geojson_bytes"):
+                    st.download_button("⬇ .geojson", data=st.session_state["f6_geojson_bytes"],
+                                       file_name=f"{nombre_gis}.geojson", mime="application/geo+json",
+                                       use_container_width=True, key="f6_dl_geojson")
+            with dl_cols[2]:
+                if st.session_state.get("f6_csv_coords_bytes"):
+                    st.download_button("⬇ coords.csv", data=st.session_state["f6_csv_coords_bytes"],
+                                       file_name=f"{nombre_gis}_coords.csv", mime="text/csv",
+                                       use_container_width=True, key="f6_dl_csv_coords")
+            with dl_cols[3]:
+                if st.session_state.get("f6_zip_gis_bytes"):
+                    st.download_button("⬇ paquete GIS .zip", data=st.session_state["f6_zip_gis_bytes"],
+                                       file_name=f"{nombre_gis}_GIS.zip", mime="application/zip",
+                                       use_container_width=True, key="f6_dl_zip_gis")
+    except ImportError as ie:
+        st.warning(f"GIS export requiere `simplekml`. Instalar: `pip install simplekml`. Error: {ie}")
+
 
 # Alerta de contexto Fase 5 al final
 if not runtime_context:

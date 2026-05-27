@@ -88,7 +88,7 @@ def parchar_streamlit_index():
         if r.returncode == 0:
             print(f"    [OK] {r.stdout.strip() or 'parche aplicado'}")
         else:
-            print(f"    [!] El parche devolvió error pero el build continúa:")
+            print("    [!] El parche devolvió error pero el build continúa:")
             print(f"        stdout: {r.stdout.strip()}")
             print(f"        stderr: {r.stderr.strip()}")
     except Exception as e:
@@ -168,7 +168,7 @@ def verificar_archivos_clave_empaquetados():
     ]
     faltantes = [name for name, path in requeridos if not path.exists()]
     if faltantes:
-        print(f"    [X] Faltan archivos críticos en el bundle:")
+        print("    [X] Faltan archivos críticos en el bundle:")
         for n in faltantes:
             print(f"        - {n}")
         print("    El .exe puede tener comportamiento errático. NO distribuir.")
@@ -191,7 +191,7 @@ def verificar_archivos_clave_empaquetados():
         except Exception as e:
             fallos.append(f"no se pudo leer {path}: {e}")
     if fallos:
-        print(f"    [X] El bundle parece estar usando código viejo:")
+        print("    [X] El bundle parece estar usando código viejo:")
         for f in fallos:
             print(f"        - {f}")
         sys.exit(1)
@@ -211,6 +211,6 @@ if __name__ == "__main__":
     verificar_archivos_clave_empaquetados()
     exe = DIST / "Alfa App" / "Alfa App.exe"
     print(f"\n{'='*55}")
-    print(f"  LISTO. Tu .exe está en:")
+    print("  LISTO. Tu .exe está en:")
     print(f"  {exe.parent}")
     print(f"{'='*55}\n")

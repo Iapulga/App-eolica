@@ -5,6 +5,13 @@ __pycache__/
 *.pyd
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
 
 # ── Entornos virtuales ──────────────────────────────────────
 venv/
@@ -59,3 +66,17 @@ Alfa app/
 
 # ── Claude Code config local ────────────────────────────────
 .claude/settings.local.json
+.claude/worktrees/
+
+# ── Docs (Sphinx build output) ──────────────────────────────
+docs/_build/
+docs/_autosummary/
+
+# ── Jupyter / notebooks ─────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── Plan / scratch personal ─────────────────────────────────
+.plan.md
+*.todo
+

@@ -1,4 +1,3 @@
-import re
 from math import pi
 
 import numpy as np
@@ -133,7 +132,16 @@ def _build_informe_tecnico_phase2_section(config=None, project_name="", df_nasa=
     if len(df_nasa) == 0:
         return None
 
-    from calculos import KAPPA, ajustar_logaritmico_dos_puntos, calcular_alpha_desde_dos_alturas, calcular_perfil_exponencial, calcular_perfil_logaritmico, calcular_velocidad_friccion, crear_grafica_nasa_hourly, crear_grafica_perfil_individual, velocidad_logaritmica_en_altura
+    from calculos import (
+        KAPPA,
+        ajustar_logaritmico_dos_puntos,
+        calcular_alpha_desde_dos_alturas,
+        calcular_perfil_exponencial,
+        calcular_perfil_logaritmico,
+        crear_grafica_nasa_hourly,
+        crear_grafica_perfil_individual,
+        velocidad_logaritmica_en_altura,
+    )
     from reportes.figuras import build_site_map_bundle
 
     latitude = config.get("nasa_lat")
@@ -215,8 +223,8 @@ def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None,
     config = config or {}
     project_name = str(project_name or config.get("project_name") or "Proyecto eolico").strip() or "Proyecto eolico"
 
-    from reportes.docx import load_informe_tecnico_master_docx
     from calculos import calcular_cp, crear_grafica_curva, preparar_datos_curva
+    from reportes.docx import load_informe_tecnico_master_docx
     from reportes.figuras import export_plotly_figure_artifact
 
     word_master = load_informe_tecnico_master_docx(master_docx_bytes, file_name=master_docx_name)
@@ -254,8 +262,8 @@ def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None,
     config = config or {}
     project_name = str(project_name or config.get("project_name") or "Proyecto eolico").strip() or "Proyecto eolico"
 
-    from reportes.docx import load_informe_tecnico_master_docx
     from calculos import calcular_cp, crear_grafica_curva, preparar_datos_curva
+    from reportes.docx import load_informe_tecnico_master_docx
     from reportes.figuras import export_plotly_figure_artifact
 
     word_master = load_informe_tecnico_master_docx(master_docx_bytes, file_name=master_docx_name)
@@ -287,9 +295,6 @@ def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None,
     if phase2_section:
         sections.append(phase2_section)
     return {"document_id": "informe_tecnico", "title": _normalize_spanish_text("Informe tÃ©cnico"), "project_name": _normalize_spanish_text(project_name), "intro_paragraphs": [_normalize_spanish_text("Este documento presenta la configuraciÃ³n tÃ©cnica inicial del proyecto eÃ³lico y comienza con la definiciÃ³n del aerogenerador seleccionado y su base de desempeÃ±o.")], "sections": sections, "base_blocks": [], "word_master": {"available": False, "docx_bytes": None, "file_name": master_docx_name}, "appended_sections": [phase2_section] if phase2_section else [], "master_source_name": master_docx_name, "master_source_used": False}
-    if note:
-        table["note"] = _normalize_spanish_text(note)
-    return table
 
 
 def _format_coordinate_pair(latitude, longitude):

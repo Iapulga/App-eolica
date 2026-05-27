@@ -3,20 +3,20 @@ import textwrap
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import streamlit as st
-from navigation import render_dropdown_visibility_fix, render_sidebar_navigation, _icon_svg
 import streamlit.components.v1 as components
+from plotly.subplots import make_subplots
 
+from calculos import calcular_cp, preparar_datos_curva
 from db import (
-    init_db,
     cargar_config,
-    guardar_config_values,
     cargar_tabla_curva,
+    guardar_config_values,
     guardar_tabla_curva,
+    init_db,
     tabla_vacia_curva,
 )
-from calculos import preparar_datos_curva, calcular_cp
+from navigation import _icon_svg, render_dropdown_visibility_fix, render_sidebar_navigation
 
 st.set_page_config(page_title="Fase 1 Aerogenerador", layout="wide")
 
@@ -1158,7 +1158,8 @@ st.markdown(
     .st-key-f1_card_d,
     .st-key-f1_card_e,
     .st-key-f1_card_f,
-    .st-key-f1_card_g {
+    .st-key-f1_card_g,
+    .st-key-f1_card_multi_curvas {
         border: 1.4px solid #cbd5e1 !important;
         border-radius: 28px !important;
         overflow: visible !important;
@@ -1172,7 +1173,8 @@ st.markdown(
     .st-key-f1_card_d div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f1_card_e div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f1_card_f div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f1_card_g div[data-testid="stVerticalBlockBorderWrapper"] {
+    .st-key-f1_card_g div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f1_card_multi_curvas div[data-testid="stVerticalBlockBorderWrapper"] {
         border: none !important;
         box-shadow: none !important;
         border-radius: 28px !important;
@@ -1566,6 +1568,93 @@ with _phase_card("f1_card_g"):
         else:
             st.info("Todavía no hay filas válidas para calcular Cp.")
     st.markdown("</div>", unsafe_allow_html=True)
+
+
+# B6 - Catálogo multi-curva potencia (MVP gestor)
+with st.container(border=True, key="f1_card_multi_curvas"):
+    st.markdown("### 📚 Catálogo de curvas de potencia (B6)")
+    st.caption("Guarda múltiples modelos de turbina como curvas catalogadas. La curva activa es la usada por el cálculo AEP/wake actual (default).")
+    from db import cargar_power_curves as _cpc
+    from db import eliminar_power_curve as _epc
+    from db import guardar_power_curve as _gpc
+
+    curves_dict = _cpc()
+    if curves_dict:
+        st.markdown(f"**Curvas guardadas:** {len(curves_dict)}")
+        rows_curves = []
+        for cid, info in curves_dict.items():
+            df_c = info.get("df_curva", pd.DataFrame())
+            p_nom = float(info.get("potencia_nominal_W") or 0.0)
+            rows_curves.append({
+                "ID": cid,
+                "Nombre": info.get("nombre", ""),
+                "Diámetro (m)": info.get("diametro"),
+                "Potencia nominal (kW)": p_nom / 1000.0 if p_nom else None,
+                "Ct": info.get("ct"),
+                "N puntos": len(df_c),
+                "Creada": (info.get("created_at") or "")[:19],
+            })
+        st.dataframe(pd.DataFrame(rows_curves), use_container_width=True, hide_index=True)
+    else:
+        st.info("Aún sin curvas en catálogo. Guarda la curva editada arriba con un nombre.")
+
+    with st.expander("Guardar curva actual al catálogo", expanded=False):
+        col_n1, col_n2, col_n3 = st.columns([1.2, 1, 1])
+        with col_n1:
+            new_curve_id = st.text_input("ID único (sin espacios)", value="", key="f1_new_curve_id", placeholder="vestas_v126_3p45mw")
+            new_curve_nombre = st.text_input("Nombre / modelo", value="", key="f1_new_curve_nombre", placeholder="Vestas V126 3.45 MW")
+        with col_n2:
+            new_curve_diametro = st.number_input("Diámetro (m)", min_value=0.0, value=float(config.get("diametro", 100.0)), step=1.0, key="f1_new_curve_diametro")
+            new_curve_ct = st.number_input("Ct", min_value=0.0, max_value=1.0, value=0.80, step=0.01, format="%.2f", key="f1_new_curve_ct")
+        with col_n3:
+            current_df = _tabla_curva_kw_a_w(st.session_state.get("f1_tabla_raw", tabla_vacia_curva()))
+            current_pnom = 0.0
+            try:
+                vals_w = pd.to_numeric(current_df["Potencia (W)"], errors="coerce")
+                current_pnom = float(vals_w.max()) if len(vals_w) > 0 else 0.0
+            except Exception:
+                current_pnom = 0.0
+            st.metric("Potencia nominal detectada (kW)", f"{current_pnom / 1000.0:,.1f}")
+            if st.button("Guardar al catálogo", key="f1_btn_save_curve", use_container_width=True):
+                if not new_curve_id.strip() or not new_curve_nombre.strip():
+                    st.warning("ID y nombre son obligatorios.")
+                else:
+                    try:
+                        _gpc(
+                            curve_id=new_curve_id.strip(),
+                            nombre=new_curve_nombre.strip(),
+                            diametro=new_curve_diametro,
+                            potencia_nominal_W=current_pnom,
+                            ct=new_curve_ct,
+                            df_curva=current_df,
+                        )
+                        st.success(f"Curva '{new_curve_id}' guardada.")
+                        st.rerun()
+                    except Exception as exc:
+                        st.error(f"Error guardando: {exc}")
+
+    if curves_dict:
+        with st.expander("Eliminar / cargar curva del catálogo", expanded=False):
+            curve_ids = list(curves_dict.keys())
+            target_id = st.selectbox("Seleccionar curva", curve_ids, key="f1_target_curve_id")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("Cargar como curva activa", key="f1_btn_load_curve", use_container_width=True):
+                    info = curves_dict[target_id]
+                    df_load = info.get("df_curva", pd.DataFrame())
+                    if len(df_load) > 0:
+                        st.session_state["f1_tabla_raw"] = _tabla_curva_a_kw(df_load)
+                        guardar_tabla_curva(_tabla_curva_kw_a_w(st.session_state["f1_tabla_raw"]))
+                        st.success(f"Curva '{target_id}' cargada como activa.")
+                        st.rerun()
+                    else:
+                        st.warning("Curva sin datos.")
+            with col_b:
+                if st.button("Eliminar del catálogo", key="f1_btn_del_curve", use_container_width=True):
+                    _epc(target_id)
+                    st.success(f"Curva '{target_id}' eliminada.")
+                    st.rerun()
+
 
 render_dropdown_visibility_fix()
 

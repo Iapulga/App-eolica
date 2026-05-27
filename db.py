@@ -1,13 +1,14 @@
-import sqlite3
-import json
 import io
+import json
 import os
-import sys
 import shutil
+import sqlite3
+import sys
 from pathlib import Path
+
+import numpy as np
 import pandas as pd
 import streamlit as st
-
 
 APP_DIR_NAME = "AppEolica"
 DB_BASENAME = "app_eolica.db"
@@ -199,6 +200,91 @@ DEFAULT_CONFIG = {
     "f5_lcoe_display_kwh": "",
     "f5_lcoe_mwh": "",
     "f5_lcoe_kwh": "",
+
+    # A1 - Corrección densidad aire
+    "f5_altitud_sitio_m": "0",
+    "f5_temperatura_media_c": "15.0",
+    "f5_densidad_sitio": "",
+    "f5_densidad_correccion_aplicada": "True",
+
+    # A2 - Pérdidas desglosadas
+    "f5_loss_disp_turb_pct": "",
+    "f5_loss_disp_red_pct": "0.0",
+    "f5_loss_hielo_pct": "0.0",
+    "f5_loss_histeresis_pct": "0.0",
+    "f5_loss_curtailment_pct": "0.0",
+
+    # A3 - NPV / IRR / Payback
+    "f5_precio_energia_mwh": "60.0",
+    "f5_npv": "",
+    "f5_irr_pct": "",
+    "f5_payback_simple_anios": "",
+    "f5_payback_descontado_anios": "",
+
+    # A4 - Sensibilidad tornado
+    "f5_sens_delta_pct": "15.0",
+
+    # A5 - Wake models
+    "f4_wake_model": "Jensen",
+    "f5_wake_model": "Jensen",
+    "f5_ambient_ti": "0.10",
+
+    # A6 - TI + IEC
+    "f5_iec_clase_declarada": "II",
+    "f5_iec_turb_declarada": "B",
+    "f5_ti_15ms_calc": "",
+    "f5_iec_cumple": "",
+
+    # A7 - Shear desde datos
+    "f2_alpha_calc_mediana": "",
+    "f2_alpha_calc_p25": "",
+    "f2_alpha_calc_p75": "",
+    "f2_alpha_calc_n": "",
+
+    # B1 - Monte Carlo P50/P90
+    "f5_mc_n_samples": "2000",
+    "f5_mc_sigma_k_pct": "3.0",
+    "f5_mc_sigma_c_pct": "4.0",
+    "f5_mc_sigma_curva_pct": "3.0",
+    "f5_mc_sigma_perdidas_pct": "20.0",
+    "f5_mc_sigma_wake_pct": "15.0",
+    "f5_mc_seed": "42",
+    "f5_aep_p50": "",
+    "f5_aep_p75": "",
+    "f5_aep_p90": "",
+    "f5_aep_p99": "",
+    "f5_aep_mc_mean": "",
+    "f5_aep_mc_std": "",
+
+    # B4 - Serie temporal horaria
+    "f5_aep_serie_horaria_total": "",
+    "f5_factor_planta_serie_pct": "",
+    "f5_serie_horaria_calculada": "False",
+
+    # B5 - Gaussian + TurbOPark
+    "f5_gaussian_kstar": "0.038",
+    "f5_turbopark_A": "0.04",
+
+    # B7 - Densidad mensual
+    "f5_densidad_modo": "anual",
+
+    # B2 - Torre met
+    "f2_mast_disponible": "False",
+    "f2_mast_source_file": "",
+    "f2_mast_recovery_pct": "",
+    "f2_mast_altura_sensor": "",
+
+    # B3 - MCP
+    "f2_mcp_calculado": "False",
+    "f2_mcp_r2": "",
+    "f2_mcp_rmse": "",
+    "f2_mcp_slope_global": "",
+    "f2_serie_uso": "nasa",
+    "mcp_coefs_json": "",
+
+    # B6 - Multi-curva
+    "f1_curves_activas_count": "1",
+    "f1_default_curve_id": "default",
 }
 
 
@@ -298,6 +384,54 @@ def _init_db_once():
             source TEXT
         )
     """)
+
+    # Migración: añadir T2M, PS, WS_MCP si no existen (Fase B7, B3)
+    try:
+        cur.execute("PRAGMA table_info(nasa_hourly)")
+        cols_nasa = {row[1] for row in cur.fetchall()}
+        if "T2M" not in cols_nasa:
+            cur.execute("ALTER TABLE nasa_hourly ADD COLUMN T2M REAL")
+        if "PS" not in cols_nasa:
+            cur.execute("ALTER TABLE nasa_hourly ADD COLUMN PS REAL")
+        if "WS_MCP" not in cols_nasa:
+            cur.execute("ALTER TABLE nasa_hourly ADD COLUMN WS_MCP REAL")
+    except Exception:
+        pass
+
+    # B2 - Torre meteorológica
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS mast_data (
+            timestamp TEXT PRIMARY KEY,
+            ws_10min REAL,
+            ws_std REAL,
+            wd_10min REAL,
+            altura_sensor REAL,
+            temp_c REAL,
+            source_file TEXT,
+            sector TEXT
+        )
+    """)
+
+    # B6 - Multi-curva potencia
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS power_curves (
+            curve_id TEXT PRIMARY KEY,
+            nombre TEXT NOT NULL,
+            diametro REAL,
+            potencia_nominal_W REAL,
+            ct REAL,
+            curve_json TEXT NOT NULL,
+            created_at TEXT
+        )
+    """)
+
+    try:
+        cur.execute("PRAGMA table_info(park_layout)")
+        cols_layout = {row[1] for row in cur.fetchall()}
+        if "curve_id" not in cols_layout:
+            cur.execute("ALTER TABLE park_layout ADD COLUMN curve_id TEXT")
+    except Exception:
+        pass
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS park_layout (
@@ -600,11 +734,15 @@ def guardar_nasa_hourly(df, latitude, longitude, source, start_date="", end_date
 
     cur.execute("DELETE FROM nasa_hourly")
 
-    columnas = ["timestamp", "YEAR", "MO", "DY", "HR", "WS10M", "WS50M", "WD10M", "WD50M"]
-    df = df[columnas].copy()
+    columnas_min = ["timestamp", "YEAR", "MO", "DY", "HR", "WS10M", "WS50M", "WD10M", "WD50M"]
+    df_in = df.copy()
+    for opt in ("T2M", "PS"):
+        if opt not in df_in.columns:
+            df_in[opt] = np.nan
+    df_in = df_in[columnas_min + ["T2M", "PS"]].copy()
 
     datos = []
-    for _, row in df.iterrows():
+    for _, row in df_in.iterrows():
         datos.append((
             str(row["timestamp"]),
             int(row["YEAR"]),
@@ -617,13 +755,15 @@ def guardar_nasa_hourly(df, latitude, longitude, source, start_date="", end_date
             float(row["WD50M"]) if pd.notna(row["WD50M"]) else None,
             float(latitude),
             float(longitude),
-            str(source)
+            str(source),
+            float(row["T2M"]) if pd.notna(row["T2M"]) else None,
+            float(row["PS"]) if pd.notna(row["PS"]) else None,
         ))
 
     cur.executemany("""
         INSERT INTO nasa_hourly (
-            timestamp, YEAR, MO, DY, HR, WS10M, WS50M, WD10M, WD50M, latitude, longitude, source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            timestamp, YEAR, MO, DY, HR, WS10M, WS50M, WD10M, WD50M, latitude, longitude, source, T2M, PS
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, datos)
 
     conn.commit()
@@ -675,6 +815,131 @@ def cargar_layout_parque():
         return pd.DataFrame(columns=["turbina_id", "x_m", "y_m"])
 
     return df[["turbina_id", "x_m", "y_m"]].copy()
+
+
+# B2 - Torre meteorológica
+def guardar_mast_data(df, source_file=""):
+    if df is None or len(df) == 0:
+        return
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM mast_data")
+    datos = []
+    for _, row in df.iterrows():
+        datos.append((
+            str(row["timestamp"]),
+            float(row["ws_10min"]) if pd.notna(row.get("ws_10min")) else None,
+            float(row["ws_std"]) if pd.notna(row.get("ws_std")) else None,
+            float(row["wd_10min"]) if pd.notna(row.get("wd_10min")) else None,
+            float(row["altura_sensor"]) if pd.notna(row.get("altura_sensor")) else None,
+            float(row["temp_c"]) if pd.notna(row.get("temp_c")) else None,
+            str(source_file),
+            None,
+        ))
+    cur.executemany("""
+        INSERT INTO mast_data (timestamp, ws_10min, ws_std, wd_10min, altura_sensor, temp_c, source_file, sector)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, datos)
+    conn.commit()
+    conn.close()
+    _clear_cached_reads()
+
+
+def cargar_mast_data():
+    return _read_sql("SELECT timestamp, ws_10min, ws_std, wd_10min, altura_sensor, temp_c, source_file, sector FROM mast_data ORDER BY timestamp")
+
+
+def existe_mast_data():
+    df = _read_sql("SELECT COUNT(*) AS n FROM mast_data")
+    if df.empty:
+        return False
+    return int(df.iloc[0]["n"]) > 0
+
+
+def borrar_mast_data():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM mast_data")
+    conn.commit()
+    conn.close()
+    _clear_cached_reads()
+
+
+# B6 - Multi-curva potencia
+def guardar_power_curve(curve_id, nombre, diametro, potencia_nominal_W, ct, df_curva, created_at=None):
+    from datetime import UTC, datetime
+    if created_at is None:
+        created_at = datetime.now(UTC).isoformat()
+    curve_json = df_curva[["Velocidad (m/s)", "Potencia (W)"]].to_json(orient="records") if df_curva is not None and len(df_curva) > 0 else "[]"
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT OR REPLACE INTO power_curves (curve_id, nombre, diametro, potencia_nominal_W, ct, curve_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (str(curve_id), str(nombre), float(diametro) if diametro else None,
+          float(potencia_nominal_W) if potencia_nominal_W else None,
+          float(ct) if ct else None, curve_json, created_at))
+    conn.commit()
+    conn.close()
+    _clear_cached_reads()
+
+
+def cargar_power_curves():
+    df = _read_sql("SELECT curve_id, nombre, diametro, potencia_nominal_W, ct, curve_json, created_at FROM power_curves ORDER BY created_at")
+    result = {}
+    for _, row in df.iterrows():
+        try:
+            curve_records = json.loads(row["curve_json"] or "[]")
+            df_curva = pd.DataFrame(curve_records)
+        except Exception:
+            df_curva = pd.DataFrame(columns=["Velocidad (m/s)", "Potencia (W)"])
+        result[row["curve_id"]] = {
+            "nombre": row["nombre"],
+            "diametro": row["diametro"],
+            "potencia_nominal_W": row["potencia_nominal_W"],
+            "ct": row["ct"],
+            "df_curva": df_curva,
+            "created_at": row["created_at"],
+        }
+    return result
+
+
+def eliminar_power_curve(curve_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM power_curves WHERE curve_id = ?", (str(curve_id),))
+    conn.commit()
+    conn.close()
+    _clear_cached_reads()
+
+
+def asignar_curva_turbina(turbina_id, curve_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE park_layout SET curve_id = ? WHERE turbina_id = ?", (str(curve_id) if curve_id else None, str(turbina_id)))
+    conn.commit()
+    conn.close()
+    _clear_cached_reads()
+
+
+# B3 - MCP guardar WS_MCP en nasa_hourly
+def guardar_ws_mcp(serie_mcp):
+    """serie_mcp: pd.Series indexada por timestamp (ISO) con velocidad MCP corregida."""
+    if serie_mcp is None or len(serie_mcp) == 0:
+        return
+    conn = get_connection()
+    cur = conn.cursor()
+    datos = []
+    for ts, val in serie_mcp.items():
+        try:
+            v = float(val) if pd.notna(val) else None
+        except Exception:
+            v = None
+        datos.append((v, str(ts)))
+    cur.executemany("UPDATE nasa_hourly SET WS_MCP = ? WHERE timestamp = ?", datos)
+    conn.commit()
+    conn.close()
+    _clear_cached_reads()
 
 
 def guardar_escenario_parque(name, df_layout, settings_dict, metrics_dict):
@@ -821,8 +1086,8 @@ def cargar_proyecto(nombre_proyecto):
     for item in project_data.get("nasa_hourly", []):
         cur.execute("""
             INSERT INTO nasa_hourly (
-                timestamp, YEAR, MO, DY, HR, WS10M, WS50M, WD10M, WD50M, latitude, longitude, source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                timestamp, YEAR, MO, DY, HR, WS10M, WS50M, WD10M, WD50M, latitude, longitude, source, T2M, PS, WS_MCP
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             item.get("timestamp"),
             item.get("YEAR"),
@@ -836,6 +1101,9 @@ def cargar_proyecto(nombre_proyecto):
             item.get("latitude"),
             item.get("longitude"),
             item.get("source"),
+            item.get("T2M"),
+            item.get("PS"),
+            item.get("WS_MCP"),
         ))
 
     for item in project_data.get("park_layout", []):
@@ -906,8 +1174,8 @@ def importar_proyecto_desde_json_texto(json_texto):
     for item in project_data.get("nasa_hourly", []):
         cur.execute("""
             INSERT INTO nasa_hourly (
-                timestamp, YEAR, MO, DY, HR, WS10M, WS50M, WD10M, WD50M, latitude, longitude, source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                timestamp, YEAR, MO, DY, HR, WS10M, WS50M, WD10M, WD50M, latitude, longitude, source, T2M, PS, WS_MCP
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             item.get("timestamp"),
             item.get("YEAR"),
@@ -921,6 +1189,9 @@ def importar_proyecto_desde_json_texto(json_texto):
             item.get("latitude"),
             item.get("longitude"),
             item.get("source"),
+            item.get("T2M"),
+            item.get("PS"),
+            item.get("WS_MCP"),
         ))
 
     for item in project_data.get("park_layout", []):

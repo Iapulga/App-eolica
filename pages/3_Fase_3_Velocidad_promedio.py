@@ -1,40 +1,40 @@
 import textwrap
-from pandas.util import hash_pandas_object
+from urllib.parse import quote
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from navigation import render_dropdown_visibility_fix, render_sidebar_navigation, _icon_svg
-from urllib.parse import quote
 import streamlit.components.v1 as components
+from pandas.util import hash_pandas_object
 from plotly.subplots import make_subplots
 
-from db import (
-    init_db,
-    cargar_nasa_hourly,
-    cargar_config,
-    guardar_config_values,
-    cargar_tabla_curva,
-)
-from widget_helpers import _init_widget_state, _safe_index
 from calculos import (
-    preparar_datos_rosa,
-    resumir_sectores_rosa,
-    crear_rosa_vientos_16,
-    crear_histograma_sector_con_ajustes,
-    construir_serie_viento_analisis,
-    preparar_datos_curva,
-    inferir_puntos_operacion_curva,
-    weibull_cdf,
-    rayleigh_cdf,
-    weibull_interval_prob,
-    rayleigh_interval_prob,
-    calidad_weibull,
-    SECTOR_LABELS_16,
-    normalizar_modelo_altura,
     PROMEDIO_LOG_EXP_LABEL,
+    SECTOR_LABELS_16,
+    calidad_weibull,
+    construir_serie_viento_analisis,
+    crear_histograma_sector_con_ajustes,
+    crear_rosa_vientos_16,
+    inferir_puntos_operacion_curva,
+    normalizar_modelo_altura,
+    preparar_datos_curva,
+    preparar_datos_rosa,
+    rayleigh_cdf,
+    rayleigh_interval_prob,
+    resumir_sectores_rosa,
+    weibull_cdf,
+    weibull_interval_prob,
 )
+from db import (
+    cargar_config,
+    cargar_nasa_hourly,
+    cargar_tabla_curva,
+    guardar_config_values,
+    init_db,
+)
+from navigation import _icon_svg, render_dropdown_visibility_fix, render_sidebar_navigation
+from widget_helpers import _init_widget_state, _safe_index
 
 st.set_page_config(page_title="Fase 3 · Velocidad promedio", layout="wide")
 
@@ -2489,6 +2489,23 @@ with config_cols[0]:
                         key="f3_modelo_altura",
                         label_visibility="collapsed",
                     )
+                    # A7 - sugerencia α calculado desde datos
+                    _alpha_calc_med = config.get("f2_alpha_calc_mediana", "")
+                    if _alpha_calc_med and str(_alpha_calc_med).strip():
+                        try:
+                            _alpha_calc_med_f = float(_alpha_calc_med)
+                            _alpha_p25 = config.get("f2_alpha_calc_p25", "")
+                            _alpha_p75 = config.get("f2_alpha_calc_p75", "")
+                            _hint = f"α calc. (Fase 2): **{_alpha_calc_med_f:.3f}**"
+                            if _alpha_p25 and _alpha_p75:
+                                _hint += f" (IQR {float(_alpha_p25):.3f}–{float(_alpha_p75):.3f})"
+                            st.caption(_hint)
+                            if st.button("Usar α calculado", key="f3_use_alpha_calc"):
+                                guardar_config_values({"perfil_alpha": _alpha_calc_med_f, "perfil_alpha_usuario": _alpha_calc_med_f})
+                                st.success(f"α actualizado a {_alpha_calc_med_f:.3f}. Recarga la fase para ver el efecto.")
+                                st.rerun()
+                        except (TypeError, ValueError):
+                            pass
             g3, g4 = st.columns(2, gap="small")
             with g3:
                 with st.container(border=True, key="f3_pg_vmax"):

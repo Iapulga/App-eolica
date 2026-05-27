@@ -3,12 +3,10 @@ import os
 import re
 import unicodedata
 import zipfile
-from copy import deepcopy
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 
 from .texto import normalize_headers, normalize_spanish_text
-
 
 DOCX_NS = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",

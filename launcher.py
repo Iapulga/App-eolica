@@ -1,8 +1,8 @@
 import os
-import sys
-import time
 import socket
+import sys
 import threading
+import time
 import webbrowser
 from pathlib import Path
 
@@ -31,8 +31,8 @@ os.environ["STREAMLIT_THEME_BACKGROUND_COLOR"] = "#F5F9FF"
 os.environ["STREAMLIT_THEME_SECONDARY_BACKGROUND_COLOR"] = "#F3F8FF"
 os.environ["STREAMLIT_THEME_TEXT_COLOR"] = "#0F172A"
 
-from streamlit.web import bootstrap
 from streamlit import config as st_config
+from streamlit.web import bootstrap
 
 
 def _ensure_streamlit_index_patched() -> None:
@@ -77,16 +77,16 @@ def _preload_heavy_modules() -> None:
     try:
         import numpy  # noqa: F401
         import pandas  # noqa: F401
-        import plotly.graph_objects  # noqa: F401
         import plotly.express  # noqa: F401
+        import plotly.graph_objects  # noqa: F401
     except Exception:
         pass
     try:
         # Imports del proyecto (deben funcionar desde sys.path normal)
-        import db  # noqa: F401
         import calculos  # noqa: F401
-        import calculos_energia  # noqa: F401
         import calculos_economicos  # noqa: F401
+        import calculos_energia  # noqa: F401
+        import db  # noqa: F401
     except Exception:
         pass
 

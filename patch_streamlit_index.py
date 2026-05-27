@@ -10,8 +10,8 @@ Usage:
 """
 
 import os
-import sys
 import re
+import sys
 
 
 def find_index_html() -> str:
@@ -63,7 +63,7 @@ MARKER = "SMA 2.0 anti-FOUC"
 
 
 def patch(path: str) -> None:
-    content = open(path, "r", encoding="utf-8").read()
+    content = open(path, encoding="utf-8").read()
 
     if MARKER in content:
         # Remove existing patch before re-applying (idempotent)

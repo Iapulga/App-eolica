@@ -5,9 +5,6 @@ del script y limpiar claves de sesión pertenecientes a otras fases.
 """
 from __future__ import annotations
 
-import re
-import streamlit as st
-
 PHASE_PREFIXES = ["f1_", "f2_", "f3_", "f4_", "f5_", "f6_"]
 
 

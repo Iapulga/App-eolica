@@ -604,5 +604,5 @@ def build_figure_download_key(item, loop_index):
     export_id = str(item.get("id") or "figura").strip().lower() or "figura"
     file_name = str(item.get("file_name") or "").strip().lower()
     path = str(item.get("path") or "").replace("\\", "/").strip().lower()
-    fingerprint = hashlib.md5(f"{file_name}|{path}".encode("utf-8")).hexdigest()[:10]
+    fingerprint = hashlib.md5(f"{file_name}|{path}".encode()).hexdigest()[:10]
     return f"figure_export_{phase_hint}_{export_id}_{fingerprint}_{loop_index}"

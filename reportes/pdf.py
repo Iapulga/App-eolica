@@ -6,7 +6,6 @@ from pathlib import Path
 
 from .texto import normalize_spanish_text
 
-
 LATEX_COMPILERS = ["pdflatex", "xelatex", "lualatex"]
 PDF_PAGE_SIZE = (8.5, 11.0)
 PDF_FAMILY = "DejaVu Serif"

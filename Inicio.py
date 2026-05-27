@@ -1,28 +1,28 @@
 import html
-from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-from assets_loader import load_global_css
-from perf import timed
+
+from db import (
+    cargar_config,
+    cargar_layout_parque,
+    cargar_nasa_hourly,
+    cargar_proyecto,
+    cargar_tabla_curva,
+    eliminar_proyecto,
+    guardar_config_values,
+    importar_proyecto_desde_json_texto,
+    init_db,
+    listar_proyectos_guardados,
+)
+from navigation import (
+    _icon_svg as nav_icon_svg,
+)
 from navigation import (
     render_dropdown_visibility_fix,
     render_sidebar_navigation,
-    _icon_svg as nav_icon_svg,
 )
-from db import (
-    init_db,
-    cargar_config,
-    cargar_tabla_curva,
-    cargar_nasa_hourly,
-    cargar_layout_parque,
-    guardar_config_values,
-    listar_proyectos_guardados,
-    cargar_proyecto,
-    eliminar_proyecto,
-    importar_proyecto_desde_json_texto,
-)
+from perf import timed
 from reportes import (
     get_project_context,
     get_project_profile_options,
@@ -78,9 +78,9 @@ def precargar_todo() -> bool:
         # Pre-render rosa de vientos para que primer click en Fase 3 sea cache hit.
         try:
             from calculos import (
+                crear_rosa_vientos_16,
                 preparar_datos_rosa,
                 resumir_sectores_rosa,
-                crear_rosa_vientos_16,
             )
             nasa_df = cargar_nasa_hourly()
             if nasa_df is not None and not nasa_df.empty:
@@ -129,7 +129,7 @@ def _format_datetime(value) -> str:
 
 
 def _svg_icon(name: str, size: int = 22, color: str = "#2563eb") -> str:
-    stroke = f'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"'
+    stroke = 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"'
     if name == "info":
         body = (
             f'<circle cx="12" cy="12" r="10" {stroke}/>'
