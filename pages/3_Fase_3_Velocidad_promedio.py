@@ -117,12 +117,20 @@ def _bool_config_value(config, primary_key, fallback_keys, default=False):
 
 
 def _render_plotly_iframe(fig: go.Figure, height: int, key_suffix: str) -> None:
+    # Copia defensiva: no mutar la figura cacheada (@st.cache_data) que también
+    # usan las exportaciones. Sobre la copia quitamos width/height fijos y
+    # activamos autosize, para que con responsive=True plotly SIEMPRE se ajuste
+    # al tamaño real del contenedor — incluido al hacer zoom de página a 150% en
+    # pantallas grandes. Sin esto, la figura conserva su ancho original y queda
+    # recortada por el overflow:hidden del marco.
+    fig = go.Figure(fig)
+    fig.update_layout(width=None, height=None, autosize=True)
     html = fig.to_html(
         full_html=False,
         include_plotlyjs="inline",
         config={
             "displayModeBar": False,
-            "responsive": False,
+            "responsive": True,
         },
         default_width="100%",
         default_height=f"{height}px",
@@ -141,19 +149,35 @@ def _render_plotly_iframe(fig: go.Figure, height: int, key_suffix: str) -> None:
           .f3-plot-frame {{
             width: 100%;
             height: {height}px;
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
             background: #ffffff;
             overflow: hidden;
           }}
           .f3-plot-frame .plotly-graph-div {{
-            margin: 0 auto !important;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
           }}
         </style>
       </head>
       <body>
         <div class="f3-plot-frame">{html}</div>
+        <script>
+          (function(){{
+            function fit(){{
+              try{{
+                var gd = document.querySelector('.plotly-graph-div');
+                if (gd && window.Plotly) {{ window.Plotly.Plots.resize(gd); }}
+              }} catch (e) {{}}
+            }}
+            window.addEventListener('resize', fit);
+            if (window.ResizeObserver) {{
+              try {{ new ResizeObserver(fit).observe(document.documentElement); }} catch (e) {{}}
+            }}
+            // Re-ajustes diferidos: cubren el momento en que Streamlit fija el
+            // ancho real del iframe (tras el render) y cualquier cambio de zoom.
+            setTimeout(fit, 50); setTimeout(fit, 250); setTimeout(fit, 600);
+          }})();
+        </script>
       </body>
     </html>
     """
@@ -445,10 +469,10 @@ def _render_phase3_css():
             margin-bottom: 0.28rem;
         }
         .f3-hero__subtitle {
-            color: #64748b;
+            color: #000000;
             font-size: 0.94rem;
             line-height: 1.42;
-            font-weight: 700;
+            font-weight: 400;
             max-width: 74rem;
         }
         .fase-hero-title {
@@ -461,10 +485,10 @@ def _render_phase3_css():
             z-index: 2;
         }
         .fase-hero-subtitle {
-            color: #64748b;
+            color: #000000;
             font-size: 0.94rem;
             line-height: 1.42;
-            font-weight: 700;
+            font-weight: 400;
             margin: 0;
             max-width: 74rem;
             position: relative;
@@ -500,7 +524,7 @@ def _render_phase3_css():
             line-height: 1.08;
         }
         .f3-card-heading__subtitle {
-            color: #64748b;
+            color: #000000;
             font-size: 0.84rem;
             margin-top: 0.12rem;
         }
@@ -544,7 +568,7 @@ def _render_phase3_css():
         .f3-kpi-card__label {
             font-size: 0.86rem !important;
             font-weight: 800 !important;
-            color: #334155 !important;
+            color: #000000 !important;
             line-height: 1.05 !important;
             margin: 0 0 0.28rem 0 !important;
         }
@@ -568,7 +592,7 @@ def _render_phase3_css():
             background: linear-gradient(180deg, #f8fbff 0%, #f1f7ff 100%);
             padding: 0.72rem 0.95rem;
             color: #1d4ed8;
-            font-weight: 700;
+            font-weight: 400;
             display: flex;
             align-items: center;
             gap: 0.7rem;
@@ -577,7 +601,7 @@ def _render_phase3_css():
         .f3-soft-note__text {
             color: #1d4ed8;
             font-size: 0.92rem;
-            font-weight: 750;
+            font-weight: 400;
             line-height: 1.34;
         }
         .f3-summary-card {
@@ -605,9 +629,9 @@ def _render_phase3_css():
             padding-bottom: 0;
         }
         .f3-summary-row__label {
-            color: #475569;
+            color: #000000;
             font-size: 0.82rem;
-            font-weight: 700;
+            font-weight: 400;
         }
         .f3-summary-row__value {
             color: #0f172a;
@@ -630,9 +654,9 @@ def _render_phase3_css():
             min-height: 78px;
         }
         .f3-mini-stat__label {
-            color: #64748b;
+            color: #000000;
             font-size: 0.76rem;
-            font-weight: 700;
+            font-weight: 400;
             margin-bottom: 0.12rem;
         }
         .f3-mini-stat__value {
@@ -945,8 +969,8 @@ def _render_phase3_css():
         .st-key-f3_pg_vmax label,
         .st-key-f3_pg_binwidth label {
             font-size: 0.83rem !important;
-            font-weight: 750 !important;
-            color: #475569 !important;
+            font-weight: 400 !important;
+            color: #000000 !important;
             line-height: 1.15 !important;
             margin-bottom: 0.18rem !important;
         }
@@ -981,7 +1005,7 @@ def _render_phase3_css():
         .st-key-f3_pg_modelo [data-baseweb="select"] span,
         .st-key-f3_pg_vmax [data-baseweb="input"] input,
         .st-key-f3_pg_binwidth [data-baseweb="input"] input {
-            font-weight: 700 !important;
+            font-weight: 600 !important;
             color: #0f172a !important;
             line-height: 1.1 !important;
             background: #ffffff !important;
@@ -999,7 +1023,7 @@ def _render_phase3_css():
             align-items: center !important;
         }
         .st-key-f3_pg_modelo [data-baseweb="select"] svg {
-            color: #64748b !important;
+            color: #000000 !important;
         }
         .st-key-f3_pg_altura [data-testid="stNumberInput"] [data-baseweb="input"] > div:last-child,
         .st-key-f3_pg_vmax [data-testid="stNumberInput"] [data-baseweb="input"] > div:last-child,
@@ -1184,9 +1208,9 @@ def _render_phase3_css():
         .st-key-f3_cfg_general .f3-header-subtitle-fixed,
         .st-key-f3_cfg_cuts .f3-header-subtitle-fixed,
         .st-key-f3_cfg_sector .f3-header-subtitle-fixed {
-            color: #64748b !important;
+            color: #000000 !important;
             font-size: 0.84rem !important;
-            font-weight: 600 !important;
+            font-weight: 400 !important;
             line-height: 1.2 !important;
             margin-top: 0.18rem !important;
         }
@@ -1934,7 +1958,7 @@ def _render_phase3_css():
         .st-key-f3_cfg_sector .f3-note-card * {
             font-size: 0.68rem !important;
             line-height: 1.12 !important;
-            font-weight: 750 !important;
+            font-weight: 400 !important;
         }
 
         .st-key-f3_cfg_sector .f3-soft-note svg,
@@ -2174,6 +2198,93 @@ st.markdown(
 
     .st-key-f3_card_heatmap [data-testid="stPlotlyChart"] {
         min-height: 470px !important;
+    }
+
+    /* ── Botón "Usar α calculado" en header ── */
+    .st-key-f3_use_alpha_calc button {
+        background: transparent !important;
+        border: 1px solid #bfdbfe !important;
+        border-radius: 20px !important;
+        color: #2563eb !important;
+        font-weight: 700 !important;
+        font-size: 0.83rem !important;
+        padding: 0.26rem 0.85rem !important;
+        min-height: 32px !important;
+        height: 32px !important;
+        box-shadow: none !important;
+        width: 100% !important;
+    }
+    .st-key-f3_use_alpha_calc button:hover {
+        background: #eff6ff !important;
+        border-color: #93c5fd !important;
+        color: #1d4ed8 !important;
+    }
+    /* Hint text encima del botón alpha */
+    .f3-alpha-hint {
+        font-size: 0.74rem !important;
+        color:#000000 !important;
+        font-weight: 400 !important;
+        line-height: 1.2 !important;
+        margin-bottom: 0.28rem !important;
+        text-align: right !important;
+    }
+    /* Columna derecha del header: alinear contenido a la derecha/centro */
+    .st-key-f3_cfg_general > div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stHorizontalBlock"]:first-child > div[data-testid="stColumn"]:last-child {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-end !important;
+        justify-content: center !important;
+    }
+
+    /* ── Fix: mini-stats en Análisis por sector ── */
+    .st-key-f3_sector_mini_frecuencia div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f3_sector_mini_horas div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f3_sector_mini_horas_eq div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f3_sector_mini_k_weibull div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f3_sector_mini_c_weibull div[data-testid="stVerticalBlockBorderWrapper"] {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        min-height: 64px !important;
+        padding: 0.55rem 0.6rem !important;
+    }
+    .st-key-f3_sector_mini_frecuencia div[data-testid="stVerticalBlock"],
+    .st-key-f3_sector_mini_horas div[data-testid="stVerticalBlock"],
+    .st-key-f3_sector_mini_horas_eq div[data-testid="stVerticalBlock"],
+    .st-key-f3_sector_mini_k_weibull div[data-testid="stVerticalBlock"],
+    .st-key-f3_sector_mini_c_weibull div[data-testid="stVerticalBlock"] {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 2px !important;
+        width: 100% !important;
+    }
+    .st-key-f3_sector_mini_frecuencia .f3-mini-stat__label,
+    .st-key-f3_sector_mini_horas .f3-mini-stat__label,
+    .st-key-f3_sector_mini_horas_eq .f3-mini-stat__label,
+    .st-key-f3_sector_mini_k_weibull .f3-mini-stat__label,
+    .st-key-f3_sector_mini_c_weibull .f3-mini-stat__label,
+    .st-key-f3_sector_mini_frecuencia .f3-mini-stat__value,
+    .st-key-f3_sector_mini_horas .f3-mini-stat__value,
+    .st-key-f3_sector_mini_horas_eq .f3-mini-stat__value,
+    .st-key-f3_sector_mini_k_weibull .f3-mini-stat__value,
+    .st-key-f3_sector_mini_c_weibull .f3-mini-stat__value {
+        transform: none !important;
+        text-align: center !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+    .st-key-f3_sector_mini_frecuencia [data-testid="stMarkdown"],
+    .st-key-f3_sector_mini_horas [data-testid="stMarkdown"],
+    .st-key-f3_sector_mini_horas_eq [data-testid="stMarkdown"],
+    .st-key-f3_sector_mini_k_weibull [data-testid="stMarkdown"],
+    .st-key-f3_sector_mini_c_weibull [data-testid="stMarkdown"] {
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
     }
 
     </style>
@@ -2456,10 +2567,35 @@ with _phase_card("f3_card_header"):
         unsafe_allow_html=True,
     )
 
+# Pre-compute alpha button state for header
+_alpha_calc_med = config.get("f2_alpha_calc_mediana", "")
+_alpha_show = False
+_alpha_val = None
+_alpha_hint = ""
+if _alpha_calc_med and str(_alpha_calc_med).strip():
+    try:
+        _alpha_val = float(_alpha_calc_med)
+        _alpha_p25 = config.get("f2_alpha_calc_p25", "")
+        _alpha_p75 = config.get("f2_alpha_calc_p75", "")
+        _alpha_hint = f"α calc. (Fase 2): {_alpha_val:.3f}"
+        if _alpha_p25 and _alpha_p75:
+            _alpha_hint += f" (IQR {float(_alpha_p25):.3f}–{float(_alpha_p75):.3f})"
+        _alpha_show = True
+    except (TypeError, ValueError):
+        pass
+
 config_cols = st.columns([1.12, 1.2, 0.94], gap="small")
 with config_cols[0]:
     with _phase_card("f3_cfg_general"):
-        _render_card_header_native("Parámetros generales", "controls")
+        _hdr_left, _hdr_right = st.columns([0.62, 0.38], gap="small")
+        with _hdr_left:
+            _render_card_header_native("Parámetros generales", "controls")
+        with _hdr_right:
+            if _alpha_show:
+                if st.button("Usar α calculado", key="f3_use_alpha_calc"):
+                    guardar_config_values({"perfil_alpha": _alpha_val, "perfil_alpha_usuario": _alpha_val})
+                    st.success(f"α actualizado a {_alpha_val:.3f}. Recarga la fase para ver el efecto.")
+                    st.rerun()
         if True:
             st.markdown(
                 '<div class="f3-pg-content-down-spacer"></div>',
@@ -2489,23 +2625,6 @@ with config_cols[0]:
                         key="f3_modelo_altura",
                         label_visibility="collapsed",
                     )
-                    # A7 - sugerencia α calculado desde datos
-                    _alpha_calc_med = config.get("f2_alpha_calc_mediana", "")
-                    if _alpha_calc_med and str(_alpha_calc_med).strip():
-                        try:
-                            _alpha_calc_med_f = float(_alpha_calc_med)
-                            _alpha_p25 = config.get("f2_alpha_calc_p25", "")
-                            _alpha_p75 = config.get("f2_alpha_calc_p75", "")
-                            _hint = f"α calc. (Fase 2): **{_alpha_calc_med_f:.3f}**"
-                            if _alpha_p25 and _alpha_p75:
-                                _hint += f" (IQR {float(_alpha_p25):.3f}–{float(_alpha_p75):.3f})"
-                            st.caption(_hint)
-                            if st.button("Usar α calculado", key="f3_use_alpha_calc"):
-                                guardar_config_values({"perfil_alpha": _alpha_calc_med_f, "perfil_alpha_usuario": _alpha_calc_med_f})
-                                st.success(f"α actualizado a {_alpha_calc_med_f:.3f}. Recarga la fase para ver el efecto.")
-                                st.rerun()
-                        except (TypeError, ValueError):
-                            pass
             g3, g4 = st.columns(2, gap="small")
             with g3:
                 with st.container(border=True, key="f3_pg_vmax"):

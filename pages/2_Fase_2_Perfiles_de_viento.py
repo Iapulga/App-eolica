@@ -751,14 +751,14 @@ st.markdown(
     }
     .sidebar-help__title {
         font-size: 0.92rem;
-        font-weight: 700;
+        font-weight: 600;
         color: #0f172a;
         line-height: 1.15;
         margin-bottom: 0.14rem;
     }
     .sidebar-help__subtitle {
         font-size: 0.84rem;
-        color: #64748b;
+        color: #000000;
         line-height: 1.2;
     }
     div[data-testid="stButton"] > button,
@@ -815,10 +815,10 @@ st.markdown(
         z-index: 2;
     }
     .fase-hero-subtitle {
-        color: #64748b;
+        color: #000000;
         font-size: 0.94rem;
         line-height: 1.42;
-        font-weight: 700;
+        font-weight: 400;
         margin: 0;
         max-width: 74rem;
         position: relative;
@@ -891,9 +891,9 @@ st.markdown(
     }
     .section-subtitle,
     .muted-text {
-        color: #64748b;
+        color: #000000;
         font-size: 0.94rem;
-        font-weight: 700;
+        font-weight: 400;
     }
     .section-icon {
         display: inline-flex;
@@ -940,7 +940,7 @@ st.markdown(
     }
     .metric-label {
         font-size: 0.82rem;
-        color: #64748b;
+        color: #000000;
         margin-bottom: 0.16rem;
     }
     .metric-value {
@@ -1017,7 +1017,7 @@ st.markdown(
     .summary-strip--featured .metric-label {
         font-size: 0.92rem;
         font-weight: 900;
-        color: #475569;
+        color: #000000;
         margin-bottom: 0.24rem;
         line-height: 1.2;
         letter-spacing: -0.01em;
@@ -1059,8 +1059,8 @@ st.markdown(
     }
     .st-key-f2_card_e .section-subtitle {
         font-size: 0.93rem;
-        font-weight: 700;
-        color: #64748b;
+        font-weight: 400;
+        color: #000000;
         line-height: 1.35;
     }
     .st-key-f2_card_e .metric-card--profile,
@@ -1131,7 +1131,7 @@ st.markdown(
     .st-key-f2_card_e .metric-card--profile-speed .metric-label {
         font-size: 0.96rem;
         font-weight: 900;
-        color: #475569;
+        color: #000000;
         margin-bottom: 0.16rem;
         line-height: 1.18;
         letter-spacing: -0.01em;
@@ -1345,15 +1345,15 @@ st.markdown(
         margin-bottom: 0.15rem;
     }
     .upload-dropzone__subtitle {
-        color: #64748b;
+        color: #000000;
         font-size: 0.85rem;
-        font-weight: 700;
+        font-weight: 400;
     }
     .upload-dropzone-bottom {
         text-align: center;
-        color: #64748b;
+        color: #000000;
         font-size: 0.85rem;
-        font-weight: 700;
+        font-weight: 400;
         margin-top: 0.45rem;
         margin-bottom: 0.35rem;
     }
@@ -1685,13 +1685,13 @@ st.markdown(
     }
     .f2-g-chart-caption {
         text-align: center;
-        color: #64748b;
+        color: #000000;
         font-size: 0.9rem;
         margin: 0.15rem 0 0.2rem 0;
-        font-weight: 600;
+        font-weight: 400;
     }
     .comparison-caption {
-        color: #64748b;
+        color: #000000;
         font-size: 0.92rem;
         margin-bottom: 0.35rem;
     }
@@ -1732,7 +1732,7 @@ st.markdown(
     }
     .final-expanders [data-testid="stExpander"] summary p,
     .final-expanders [data-testid="stExpander"] summary span {
-        color: #243b5a !important;
+        color: #000000 !important;
         font-weight: 900 !important;
         font-size: 0.98rem !important;
     }
@@ -1766,9 +1766,9 @@ st.markdown(
         letter-spacing: -0.01em;
     }
     .f2-table-subtitle {
-        color: #526a88;
+        color: #000000;
         font-size: 0.82rem;
-        font-weight: 700;
+        font-weight: 400;
         line-height: 1.25;
         margin-top: 0.12rem;
     }
@@ -1809,7 +1809,7 @@ st.markdown(
         min-width: 0;
     }
     .f2-table-summary-label {
-        color: #64748b;
+        color: #000000;
         font-size: 0.76rem;
         font-weight: 800;
         margin-bottom: 0.14rem;
@@ -1854,7 +1854,7 @@ st.markdown(
     }
     .final-expanders [data-testid="stDataFrame"] [role="columnheader"] {
         background: #f1f7ff !important;
-        color: #31527a !important;
+        color: #000000 !important;
         font-weight: 800 !important;
         border-bottom: 1px solid #d7e7fb !important;
     }
@@ -1878,7 +1878,7 @@ st.markdown(
     .st-key-f2_nasa_preview_controls_white [data-testid="stNumberInput"] label,
     .st-key-f2_profiles_preview_controls_white [data-testid="stSelectbox"] label,
     .st-key-f2_profiles_preview_controls_white [data-testid="stNumberInput"] label {
-        color: #475569 !important;
+        color: #000000 !important;
         font-weight: 800 !important;
         font-size: 0.82rem !important;
     }
@@ -2000,7 +2000,7 @@ st.markdown(
     }
     .st-key-f2_card_gwa_a a[data-testid="baseLinkButton-secondary"] p {
         color: #ffffff !important;
-        font-weight: 700 !important;
+        font-weight: 400 !important;
     }
     /* ── GWA Lat/Lon inputs: mirror NASA styling ── */
     .st-key-f2_card_gwa_a .st-key-f2_gwa_latitude  [data-testid="stNumberInput"],
@@ -2165,7 +2165,7 @@ st.markdown(
     }
     /* Subtítulo hero */
     .hero-card .muted-text {
-        font-weight: 700 !important;
+        font-weight: 400 !important;
     }
     /* Títulos de secciones A, B, etc. */
     .section-title, .section-badge {
@@ -2173,7 +2173,7 @@ st.markdown(
     }
     /* Subtítulos de secciones */
     .section-subtitle {
-        font-weight: 700 !important;
+        font-weight: 400 !important;
     }
     /* Labels de todos los widgets Streamlit */
     label p,
@@ -2209,7 +2209,7 @@ st.markdown(
     }
     .upload-dropzone__subtitle,
     .upload-dropzone__hint {
-        font-weight: 700 !important;
+        font-weight: 400 !important;
     }
     /* Metric cards y subpanels */
     .metric-card-label {
@@ -2222,7 +2222,7 @@ st.markdown(
         font-weight: 800 !important;
     }
     .comparison-caption {
-        font-weight: 700 !important;
+        font-weight: 400 !important;
     }
     /* Captions de Streamlit */
     [data-testid="stCaptionContainer"] p {
@@ -2232,7 +2232,7 @@ st.markdown(
     .st-key-f2_card_header p,
     .st-key-f2_card_a p,
     .st-key-f2_card_b p {
-        font-weight: 700 !important;
+        font-weight: 400 !important;
     }
     /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     /* â”€â”€ BLOQUE A: Inputs premium (Lat, Lon, Fechas) â”€â”€ */
@@ -3081,13 +3081,13 @@ if _f2_show_nasa:
                     font-weight: 700 !important;
                 }
                 .st-key-f2_card_a label p {
-                    font-weight: 600 !important;
+                    font-weight: 400 !important;
                 }
                 .st-key-f2_card_a [data-testid="stExpander"] summary p {
-                    font-weight: 600 !important;
+                    font-weight: 400 !important;
                 }
                 .st-key-btn_consultar_nasa_power [data-testid="stButton"] > button p {
-                    font-weight: 600 !important;
+                    font-weight: 400 !important;
                 }
             
                 /* Center content inside the NASA POWER button */
@@ -3416,7 +3416,7 @@ if len(df_nasa) > 0:
             _section_title_html("D", "chart", "Serie horaria de velocidades", "Comportamiento temporal de WS10M y WS50M en la serie almacenada."),
             unsafe_allow_html=True,
         )
-        fig_nasa = crear_grafica_nasa_hourly(df_nasa)
+        fig_nasa = crear_grafica_nasa_hourly(df_nasa, webgl=True)
         st.markdown('<div class="chart-surface">', unsafe_allow_html=True)
         st.plotly_chart(fig_nasa, use_container_width=True, config=PLOTLY_PERF_CONFIG)
         st.markdown("</div>", unsafe_allow_html=True)

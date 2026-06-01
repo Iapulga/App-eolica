@@ -154,6 +154,33 @@ div[data-testid="stSelectbox"] [data-baseweb="select"] {
     box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045) !important;
 }
 
+/* ───────────────────────────────────────────────────────────────────
+   Legibilidad: texto NATIVO de Streamlit que sale gris/opaco
+   (captions, instrucciones del file-uploader, etiquetas de widgets,
+   labels de métricas, cabeceras de expander) → negro + negrilla.
+   Solo afecta widgets nativos; los <span> con color inline (acentos
+   azules, estados verde/rojo) conservan su color porque no se tocan.
+   NOTA: las cabeceras/celdas de st.data_editor y st.dataframe se pintan
+   sobre <canvas> y NO pueden recolorearse por CSS (las controla el tema).
+   ─────────────────────────────────────────────────────────────────── */
+#root [data-testid="stCaptionContainer"],
+#root [data-testid="stCaptionContainer"] *,
+#root [data-testid="stFileUploaderDropzoneInstructions"],
+#root [data-testid="stFileUploaderDropzoneInstructions"] *,
+#root [data-testid="stWidgetLabel"],
+#root [data-testid="stWidgetLabel"] *,
+#root [data-testid="stMetricLabel"],
+#root [data-testid="stMetricLabel"] *,
+#root [data-testid="stExpander"] summary,
+#root [data-testid="stExpander"] summary span,
+#root [data-testid="stExpander"] summary p,
+#root [data-testid="stSliderTickBar"],
+#root [data-testid="stSliderTickBar"] *,
+#root [data-testid="stThumbValue"],
+#root [data-testid="stThumbValue"] * {
+    color: #000000 !important;
+}
+
 @keyframes sma-spinner-spin {
     to {
         transform: rotate(360deg);

@@ -4,54 +4,68 @@
 #  Ejecutar:  python build_exe.py   (o:  python -m PyInstaller AppEolica.spec)
 # ============================================================
 from PyInstaller.utils.hooks import collect_all, copy_metadata
+import glob
 import os
 
 # ── 1. Archivos del proyecto ─────────────────────────────────
-datas = [
-    ('pages',               'pages'),
-    ('reportes',            'reportes'),
-    ('assets',              'assets'),
-    ('Inicio.py',           '.'),
-    ('calculos.py',         '.'),
-    ('calculos_economicos.py', '.'),
-    ('calculos_energia.py', '.'),
-    ('db.py',               '.'),
-    ('assets_loader.py',    '.'),
-    ('perf.py',             '.'),
-    ('navigation.py',       '.'),
-    ('data_helpers.py',     '.'),
-    ('session_helpers.py',  '.'),
-    ('widget_helpers.py',   '.'),
-    ('patch_streamlit_index.py', '.'),
+# Se incluyen AUTOMÁTICAMENTE todos los .py de la raíz (excepto el script de
+# build y el entry-point), para que el .exe tenga EXACTAMENTE los mismos módulos
+# que el entorno de desarrollo (VS Code). Las páginas y `reportes` importan en
+# runtime muchos de estos módulos (i18n_paises, gis_helpers, calculos_iec_site,
+# calculos_uncertainty, shadow_flicker, ruido_iso9613, etc.); si falta alguno,
+# la función que lo usa rompe en el .exe aunque funcione en VS Code.
+_EXCLUDE_ROOT_PY = {'build_exe.py', 'launcher.py'}  # launcher = entry; build_exe = herramienta de build
+_root_py = sorted(f for f in glob.glob('*.py') if f not in _EXCLUDE_ROOT_PY)
+
+datas = [(f, '.') for f in _root_py]
+datas += [
+    ('pages',    'pages'),
+    ('reportes', 'reportes'),
+    ('assets',   'assets'),
 ]
 
 # Incluir config de Streamlit si existe
 if os.path.isdir('.streamlit'):
     datas.append(('.streamlit', '.streamlit'))
 
+# ── 2. Hidden imports ────────────────────────────────────────
+# Módulos locales de la raíz: agregarlos al import frozen garantiza que estén
+# disponibles y que PyInstaller analice sus dependencias. Se excluyen los
+# scripts/utilidades que NO deben ejecutarse durante el análisis (siguen
+# empaquetados como datos, importables si hiciera falta).
+_NO_HIDDENIMPORT = {'_verify_and_patch', 'pre_audit_checklist'}
+_root_modules = [
+    os.path.splitext(f)[0] for f in _root_py
+    if os.path.splitext(f)[0] not in _NO_HIDDENIMPORT
+]
+
 binaries = []
 hiddenimports = [
-    # Módulos del proyecto
-    'assets_loader', 'perf', 'navigation', 'db', 'calculos',
-    'calculos_economicos', 'calculos_energia', 'data_helpers',
-    'session_helpers', 'widget_helpers', 'patch_streamlit_index',
-    'reportes',
     # Streamlit internals necesarios
     'streamlit.web.bootstrap',
     'streamlit.web.cli',
     'streamlit.runtime.scriptrunner',
     'streamlit.runtime.caching',
-    # Otros
-    'requests',
-    'sqlite3',
-    'xml.etree.ElementTree',
-]
+    # Terceros usados de forma PEREZOSA (imports dentro de funciones), que el
+    # análisis estático no detecta: exportación Word/bankable (python-docx +
+    # lxml), Excel (openpyxl), imágenes de figuras para PDF/Word (kaleido),
+    # exportación GIS (simplekml), mapas (folium/branca).
+    'requests', 'sqlite3', 'xml.etree.ElementTree',
+    'docx', 'lxml', 'lxml.etree', 'lxml._elementpath',
+    'openpyxl', 'openpyxl.styles', 'openpyxl.cell', 'openpyxl.utils', 'et_xmlfile',
+    'kaleido',
+    'simplekml',
+    'PIL', 'PIL.Image', 'PIL.ImageChops',
+    'folium', 'streamlit_folium', 'branca',
+] + _root_modules + ['reportes']
 
-# ── 2. collect_all: binarios + datos + hidden imports ────────
+# ── 3. collect_all: binarios + datos + hidden imports ────────
 COLLECT_PKGS = (
     'streamlit', 'plotly', 'pandas', 'numpy',
     'folium', 'streamlit_folium', 'branca',
     'PIL', 'altair', 'pyarrow', 'requests',
+    # Añadidos: stack de exportación (docx/Excel/PDF-imagen/GIS).
+    'docx', 'openpyxl', 'kaleido', 'simplekml', 'lxml',
 )
 for pkg in COLLECT_PKGS:
     try:
@@ -62,7 +76,7 @@ for pkg in COLLECT_PKGS:
     except Exception:
         pass
 
-# ── 3. copy_metadata: dist-info para importlib.metadata ──────
+# ── 4. copy_metadata: dist-info para importlib.metadata ──────
 #    ESTA es la línea que corrige "No package metadata was found"
 METADATA_PKGS = (
     'streamlit', 'pandas', 'numpy', 'plotly', 'pyarrow',
@@ -71,6 +85,8 @@ METADATA_PKGS = (
     'watchdog', 'packaging', 'pydeck', 'validators',
     'toml', 'blinker', 'cachetools', 'gitpython',
     'protobuf', 'pyzmq', 'typing_extensions',
+    # Añadidos: usar el NOMBRE DE DISTRIBUCIÓN (no el de import).
+    'python-docx', 'openpyxl', 'kaleido', 'simplekml', 'lxml', 'et_xmlfile',
 )
 for pkg in METADATA_PKGS:
     try:
@@ -78,7 +94,7 @@ for pkg in METADATA_PKGS:
     except Exception:
         pass
 
-# ── 4. Analysis ───────────────────────────────────────────────
+# ── 5. Analysis ───────────────────────────────────────────────
 a = Analysis(
     ['launcher.py'],
     pathex=['.'],

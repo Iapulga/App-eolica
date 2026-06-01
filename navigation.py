@@ -560,7 +560,7 @@ def get_sidebar_css() -> str:
     .sidebar-brand__subtitle {
         font-size: 0.88rem;
         font-weight: 500;
-        color: #5B6F8C !important;
+        color: #000000 !important;
     }
 
     .sidebar-nav {
@@ -643,13 +643,13 @@ def get_sidebar_css() -> str:
     .sidebar-link__phase {
         font-size: 0.95rem;
         font-weight: 800;
-        color: #243B5A !important;
+        color: #000000 !important;
     }
 
     .sidebar-link__name {
         font-size: 0.97rem;
-        font-weight: 700;
-        color: #526A88 !important;
+        font-weight: 400;
+        color: #000000 !important;
     }
 
     .sidebar-link:hover .sidebar-link__phase,
@@ -659,7 +659,7 @@ def get_sidebar_css() -> str:
     </style>
     """
 
-def _load_global_css() -> None:
+def _load_global_css(current_script: str = "") -> None:
     """Load the shared SMA 2.0 stylesheet with anti-FOUC animation, AND
     preload the CSS of every phase in a single <style> block.
 
@@ -672,7 +672,9 @@ def _load_global_css() -> None:
     skip disk I/O entirely.
     """
     _load_global_css_cached(include_anti_fouc=True)
-    _preload_all_phases_css()
+    # Excluir la página actual del bloque combinado: ya inyecta su propio
+    # <style> en el cuerpo, así evitamos duplicar su CSS en cada rerun.
+    _preload_all_phases_css(Path(current_script).name if current_script else "")
 
 
 def render_dropdown_visibility_fix() -> None:
@@ -759,7 +761,7 @@ def render_dropdown_visibility_fix() -> None:
 
 def render_sidebar_navigation(current_script: str):
     # ── Inject global CSS first to prevent FOUC ──
-    _load_global_css()
+    _load_global_css(current_script)
 
     try:
         from session_helpers import clear_other_phase_state

@@ -72,6 +72,30 @@ _QUESTION_REPLACEMENTS = {
     "Direcciones": "Direcciones",
     "e?lico ": "eólico ",
     "estad?stico ": "estadístico ",
+    "logar?tmico": "logarítmico",
+    "logar?tmica": "logarítmica",
+    "Logar?tmico": "Logarítmico",
+    "Logar?tmica": "Logarítmica",
+    "num?rico": "numérico",
+    "Num?rico": "Numérico",
+    "num?rica": "numérica",
+    "Num?rica": "Numérica",
+    "par?metros": "parámetros",
+    "Par?metros": "Parámetros",
+    "par?metro": "parámetro",
+    "Par?metro": "Parámetro",
+    "geom?trico": "geométrico",
+    "Geom?trico": "Geométrico",
+    "geom?trica": "geométrica",
+    "Geom?trica": "Geométrica",
+    "te?rica": "teórica",
+    "Te?rica": "Teórica",
+    "te?rico": "teórico",
+    "Te?rico": "Teórico",
+    "autom?ticamente": "automáticamente",
+    "Autom?ticamente": "Automáticamente",
+    "autom?tico": "automático",
+    "Autom?tico": "Automático",
     "Interacci?n": "Interacción",
     "interacci?n": "interacción",
     "Representaci?n": "Representación",
@@ -154,6 +178,52 @@ _QUESTION_REPLACEMENTS = {
     "P?rdida Geom?trica m?xima": "Pérdida Geométrica máxima",
     "Documentaci?n del layout del parque y del an?lisis de estelas del proyecto.": "Documentación del layout del parque y del análisis de estelas del proyecto.",
     "Vista en planta del parque con posiciones y rotor representado cuando est? disponible.": "Vista en planta del parque con posiciones y rotor representado cuando está disponible.",
+
+    # double-question marks ('??') = doble-corrupcion
+    "logar??tmico": "logarítmico",
+    "logar??tmica": "logarítmica",
+    "Logar??tmico": "Logarítmico",
+    "Logar??tmica": "Logarítmica",
+    "num??rico": "numérico",
+    "Num??rico": "Numérico",
+    "num??rica": "numérica",
+    "Num??rica": "Numérica",
+    "par??metros": "parámetros",
+    "Par??metros": "Parámetros",
+    "par??metro": "parámetro",
+    "Par??metro": "Parámetro",
+    "caracterizaci??n": "caracterización",
+    "Caracterizaci??n": "Caracterización",
+    "an??lisis": "análisis",
+    "An??lisis": "Análisis",
+    "energ??a": "energía",
+    "Energ??a": "Energía",
+    "geom??trico": "geométrico",
+    "Geom??trico": "Geométrico",
+    "geom??trica": "geométrica",
+    "Geom??trica": "Geométrica",
+    "p??rdida": "pérdida",
+    "P??rdida": "Pérdida",
+    "p??rdidas": "pérdidas",
+    "P??rdidas": "Pérdidas",
+    "direcci??n": "dirección",
+    "Direcci??n": "Dirección",
+    "distribuci??n": "distribución",
+    "Distribuci??n": "Distribución",
+    "configuraci??n": "configuración",
+    "Configuraci??n": "Configuración",
+    "construcci??n": "construcción",
+    "Construcci??n": "Construcción",
+    "documentaci??n": "documentación",
+    "Documentaci??n": "Documentación",
+    "comparaci??n": "comparación",
+    "Comparaci??n": "Comparación",
+    "continuaci??n": "continuación",
+    "Continuaci??n": "Continuación",
+    "a??o": "año",
+    "A??o": "Año",
+    "a??os": "años",
+    "A??os": "Años",
 }
 
 
@@ -233,6 +303,28 @@ def normalize_visible_text(value):
     text = re.sub(r"\ba\?o\b", "año", text, flags=re.IGNORECASE)
     text = text.replace("MWh/a?o", "MWh/año")
     text = text.replace("MWh/a?os", "MWh/años")
+
+    # barrido final '??' (doble corrupcion)
+    text = re.sub(r"\blogar\?\?tmico\b", "logarítmico", text, flags=re.IGNORECASE)
+    text = re.sub(r"\blogar\?\?tmica\b", "logarítmica", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bnum\?\?rico\b", "numérico", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bnum\?\?rica\b", "numérica", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bpar\?\?metros?\b", "parámetros", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bcaracterizaci\?\?n\b", "caracterización", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ban\?\?lisis\b", "análisis", text, flags=re.IGNORECASE)
+    text = re.sub(r"\benerg\?\?a\b", "energía", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bp\?\?rdida\b", "pérdida", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bp\?\?rdidas\b", "pérdidas", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bdistribuci\?\?n\b", "distribución", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bdirecci\?\?n\b", "dirección", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bconfiguraci\?\?n\b", "configuración", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bconstrucci\?\?n\b", "construcción", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bdocumentaci\?\?n\b", "documentación", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bcomparaci\?\?n\b", "comparación", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bcontinuaci\?\?n\b", "continuación", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bgeom\?\?trico\b", "geométrico", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bgeom\?\?trica\b", "geométrica", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ba\?\?os?\b", "año", text, flags=re.IGNORECASE)
 
     return text.strip()
 

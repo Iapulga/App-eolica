@@ -161,8 +161,22 @@ def verificar_archivos_clave_empaquetados():
         ("db.py", internal / "db.py"),
         ("navigation.py", internal / "navigation.py"),
         ("assets_loader.py", internal / "assets_loader.py"),
+        ("calculos.py", internal / "calculos.py"),
+        ("calculos_economicos.py", internal / "calculos_economicos.py"),
+        ("calculos_energia.py", internal / "calculos_energia.py"),
+        ("widget_helpers.py", internal / "widget_helpers.py"),
+        ("session_helpers.py", internal / "session_helpers.py"),
+        ("perf.py", internal / "perf.py"),
+        # Módulos que ANTES no se empaquetaban y rompían features en el .exe:
+        ("i18n_paises.py", internal / "i18n_paises.py"),
+        ("gis_helpers.py", internal / "gis_helpers.py"),
+        ("calculos_iec_site.py", internal / "calculos_iec_site.py"),
+        ("calculos_uncertainty.py", internal / "calculos_uncertainty.py"),
         ("pages/1_Fase_1_Aerogenerador.py", internal / "pages" / "1_Fase_1_Aerogenerador.py"),
         ("pages/6_Fase_6_Exportar_y_guardar.py", internal / "pages" / "6_Fase_6_Exportar_y_guardar.py"),
+        ("reportes/__init__.py", internal / "reportes" / "__init__.py"),
+        ("reportes/bankable.py", internal / "reportes" / "bankable.py"),
+        ("reportes/excel_pro.py", internal / "reportes" / "excel_pro.py"),
         ("assets/style.css", internal / "assets" / "style.css"),
         (".streamlit/config.toml", internal / ".streamlit" / "config.toml"),
     ]
@@ -174,7 +188,7 @@ def verificar_archivos_clave_empaquetados():
         print("    El .exe puede tener comportamiento errático. NO distribuir.")
         sys.exit(1)
 
-    # Verificar que el código bundled tenga los fixes clave (no una versión vieja)
+    # Verificar que el código bundled tenga los fixes/mejoras clave (no una versión vieja)
     smoke_checks = [
         (internal / "db.py", "_seed_empty_curve_if_needed",
          "fix defensivo de guardar_tabla_curva"),
@@ -182,6 +196,17 @@ def verificar_archivos_clave_empaquetados():
          "preload de CSS de todas las fases"),
         (internal / "navigation.py", "_preload_all_phases_css",
          "llamada al preload desde el sidebar"),
+        # ── Mejoras de esta versión ──
+        (internal / "assets_loader.py", "exclude_page",
+         "dedup de CSS por página (no reinyecta la fase actual)"),
+        (internal / "reportes" / "__init__.py", "__getattr__",
+         "imports perezosos de reportes (arranque más rápido)"),
+        (internal / "calculos.py", "Scattergl",
+         "serie horaria en WebGL (render rápido en PCs grandes)"),
+        (internal / "pages" / "2_Fase_2_Perfiles_de_viento.py", "webgl=True",
+         "Fase 2 usa la serie horaria WebGL"),
+        (internal / "pages" / "3_Fase_3_Velocidad_promedio.py", "ResizeObserver",
+         "gráficas Fase 3 se ajustan al zoom de página (150%)"),
     ]
     fallos = []
     for path, needle, desc in smoke_checks:
@@ -195,6 +220,29 @@ def verificar_archivos_clave_empaquetados():
         for f in fallos:
             print(f"        - {f}")
         sys.exit(1)
+
+    # Verificar que las LIBRERÍAS de exportación quedaron empaquetadas (sin ellas,
+    # Word/Excel/PDF-imagen/GIS romperían en el .exe aunque funcionen en VS Code).
+    libs_export = [
+        ("docx",      "exportación Word / reporte bankable (python-docx)"),
+        ("openpyxl",  "exportación Excel (.xlsx)"),
+        ("kaleido",   "imágenes de gráficas en los reportes PDF/Word"),
+        ("simplekml", "exportación GIS (KML)"),
+        ("PIL",       "procesamiento de imágenes en reportes"),
+        ("folium",    "mapas del sitio"),
+    ]
+    libs_faltantes = [
+        f"{mod} ({desc})" for mod, desc in libs_export
+        if not (internal / mod).exists() and not (internal / f"{mod}.py").exists()
+    ]
+    if libs_faltantes:
+        print("    [!] ADVERTENCIA: estas librerías no aparecen en el bundle:")
+        for lf in libs_faltantes:
+            print(f"        - {lf}")
+        print("        Verifica que estén instaladas (pip install) antes de compilar.")
+        print("        Las features que las usan podrían fallar en el .exe.")
+    else:
+        print("    [OK] Librerías de exportación (docx/openpyxl/kaleido/simplekml/PIL/folium) empaquetadas")
 
     print("    [OK] Todos los archivos críticos están presentes y al día")
 

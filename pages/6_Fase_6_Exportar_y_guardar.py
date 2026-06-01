@@ -111,28 +111,28 @@ border-radius:18px !important;border: 1px solid #cbd5e1 !important;background:li
 .hero-card{position:relative;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);border: 1px solid #cbd5e1;border-radius:20px;padding:1.45rem 1.55rem 1.35rem 1.55rem;margin-bottom:1rem;box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045);min-height:unset !important;height:auto !important}
 .hero-card::after{content:"";position:absolute;right:-10px;top:-8px;width:260px;max-width:260px;height:140px;max-height:140px;background:radial-gradient(circle at 78% 25%,rgba(147,197,253,.28) 0 18px,transparent 19px),radial-gradient(circle at 56% 18%,rgba(191,219,254,.30) 0 26px,transparent 27px);opacity:.9;pointer-events:none}
 .fase-hero-title{font-size:2.1rem;line-height:1.05;font-weight:800;color:#1e3a8a;margin:0 0 .28rem 0;position:relative;z-index:2}
-.fase-hero-subtitle{color:#64748b;font-size:.94rem;line-height:1.42;font-weight:700;max-width:74rem;margin:0;position:relative;z-index:2}
+.fase-hero-subtitle{color:#000000;font-size:.94rem;line-height:1.42;font-weight:400;max-width:74rem;margin:0;position:relative;z-index:2}
 .f6-ref-summary-intro{display:flex;align-items:center;gap:14px;background:#f0f6ff;border:1px solid #c8dcfb;border-radius:16px;padding:.85rem 1rem;margin:0 0 10px 0;position:relative;z-index:1}
 .f6-ref-summary-intro-title{font-size:15px;font-weight:900;color:#0a2444;display:flex;align-items:center;gap:12px}
-.f6-ref-summary-intro-sub{font-size:12.5px;color:#5a7099;margin-top:3px}
+.f6-ref-summary-intro-sub{font-size:12.5px;color:#000000;margin-top:3px}
 .f6-ref-icon-soft{width:2.7rem;height:2.7rem;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;color:#2563eb;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 8px 18px rgba(37,99,235,.08)}
 .f6-ref-section-header{display:flex;align-items:center;gap:14px;margin:6px 0 16px}
 .f6-ref-section-title{color:#0a2444;font-size:21px;font-weight:900;letter-spacing:-.02em}
-.f6-ref-section-subtitle{color:#5a7099;font-size:13px;font-weight:600;margin-top:3px}
+.f6-ref-section-subtitle{color:#000000;font-size:13px;font-weight:400;margin-top:3px}
 .f6-ref-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin:10px 0 12px}
 .f6-ref-kpi-card{background:#ffffff;border:1px solid #c8dcfb;border-radius:24px;padding:16px 14px;box-shadow:0 8px 20px rgba(15,45,90,.06);display:flex;align-items:center;gap:14px;text-align:left;min-height:105px;overflow:hidden;transition:box-shadow .18s}
 .f6-ref-kpi-card:hover{box-shadow:0 12px 28px rgba(15,45,90,.10)}
 .f6-ref-kpi-icon{width:62px;height:62px;border-radius:999px;background:#eff6ff;border:1.5px solid #bfdbfe;display:inline-flex;align-items:center;justify-content:center;flex:0 0 62px;color:#2563eb;box-shadow:0 6px 16px rgba(37,99,235,.07)}
-.f6-ref-kpi-label{color:#5a7099;font-size:11px;font-weight:800;margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em}
+.f6-ref-kpi-label{color:#5b6bb0;font-size:15px;font-weight:900;margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em}
 .f6-ref-kpi-value{color:#0a2444;font-size:19px;font-weight:900;line-height:1.1;word-break:break-word;margin-bottom:4px}
-.f6-ref-kpi-sub{color:#6b7fa3;font-size:10.5px;font-weight:600;margin-top:2px;min-height:14px}
+.f6-ref-kpi-sub{color:#000000;font-size:10.5px;font-weight:400;margin-top:2px;min-height:14px}
 .f6-ref-summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:10px 0 14px}
 .f6-ref-summary-card{background:#ffffff;border:1px solid #c8dcfb;border-radius:18px;padding:16px 14px;display:flex;align-items:center;gap:12px;min-height:94px;box-shadow:0 4px 12px rgba(15,45,90,.04)}
 .f6-ref-sc-icon{width:62px;height:62px;border-radius:999px;background:#eff6ff;border:1.5px solid #bfdbfe;display:inline-flex;align-items:center;justify-content:center;flex:0 0 62px;color:#2563eb;box-shadow:0 6px 16px rgba(37,99,235,.07)}
-.f6-ref-summary-label{color:#5a7099;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
+.f6-ref-summary-label{color:#5b6bb0;font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.03em}
 .f6-ref-summary-value{color:#0a2444;font-size:18px;font-weight:900;margin-top:5px;word-break:break-word;line-height:1.1}
-.f6-ref-context-text{color:#5a7099;font-size:13px;font-weight:700;margin:0 0 12px 0;padding-top:4px}
-.f6-ref-context-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;background:#f0f6ff;border:1px solid #c8dcfb;border-radius:14px;padding:14px 18px;color:#5a7099;font-size:13px;font-weight:600;margin:0 0 16px}
+.f6-ref-context-text{color:#000000;font-size:13px;font-weight:400;margin:0 0 12px 0;padding-top:4px}
+.f6-ref-context-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;background:#f0f6ff;border:1px solid #c8dcfb;border-radius:14px;padding:14px 18px;color:#000000;font-size:13px;font-weight:400;margin:0 0 16px}
 .f6-ref-export-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:12px 0 0}
 .f6-ref-export-card{background:#ffffff;border:1px solid #c8dcfb;border-radius:24px;padding:22px 20px 72px;box-shadow:0 8px 20px rgba(15,45,90,.06);display:flex;flex-direction:column;gap:12px;min-height:155px;overflow:hidden;transition:box-shadow .18s}
 .f6-ref-export-card:hover{box-shadow:0 12px 28px rgba(15,45,90,.10)}
@@ -143,12 +143,12 @@ border-radius:18px !important;border: 1px solid #cbd5e1 !important;background:li
 .f6-ref-export-icon-excel{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
 .f6-ref-export-icon-json{background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe}
 .f6-ref-export-title{color:#0a2444;font-size:15px;font-weight:900;margin-bottom:4px;line-height:1.2}
-.f6-ref-export-desc{color:#5a7099;font-size:12px;font-weight:600;line-height:1.35}
+.f6-ref-export-desc{color:#000000;font-size:12px;font-weight:400;line-height:1.35}
 .f6-ref-export-btn{display:block;width:100%;margin-top:auto;padding:12px 0;border-radius:14px;border:1.5px solid #bfdbfe;background:#f8fbff;color:#2563eb;font-size:13.5px;font-weight:800;text-align:center;cursor:pointer;transition:all .18s}
 .f6-ref-export-btn:hover{background:#eff6ff;border-color:#2563eb}
 .f6-ref-save-card{background:#ffffff;border:1px solid #c8dcfb;border-radius:22px;padding:24px 26px;box-shadow:0 8px 20px rgba(15,45,90,.06);margin-bottom:16px}
 .f6-ref-save-title{color:#0a2444;font-size:18px;font-weight:900;margin-bottom:6px;display:flex;align-items:center;gap:10px}
-.f6-ref-save-sub{color:#5a7099;font-size:13px;font-weight:600;margin-bottom:18px}
+.f6-ref-save-sub{color:#000000;font-size:13px;font-weight:400;margin-bottom:18px}
 .f6-ref-alert{background:#fffbeb;border:1px solid #fde68a;color:#78350f;border-radius:16px;padding:14px 16px;font-weight:700;margin:12px 0 16px;font-size:13.5px}
 .st-key-f6_card_exec_summary,.st-key-f6_card_scenario,.st-key-f6_card_exports,.st-key-f6_save_section,.st-key-f6_card_bankable,.st-key-f6_card_gis_export{border-radius:28px !important;border:1px solid #d9e8fb !important;background:#ffffff !important;box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;overflow:visible !important;margin-bottom:16px !important}
 .st-key-f6_card_exec_summary div[data-testid="stVerticalBlockBorderWrapper"],
@@ -164,9 +164,15 @@ div[data-testid="stButton"] > button,div[data-testid="stDownloadButton"] > butto
 div[data-testid="stTextInput"] input,div[data-testid="stSelectbox"] div[data-baseweb="select"] > div{background:#fff !important;border-color:#cfe2f7 !important;color:#0a2444 !important}
 .st-key-f6_save_section [data-testid="stTextInput"]{margin-bottom:16px !important}
 .st-key-f6_card_exports div[data-testid="stHorizontalBlock"]{margin-top:-52px;padding:0 12px;position:relative;z-index:10}
+/* La fila del botón "Ir a Fase 5" NO debe heredar el margin-top negativo (ese
+   -52px es para que los botones de descarga se monten sobre las tarjetas). Con
+   el margen negativo, al hacer zoom 150% el texto de arriba envuelve en más
+   líneas y el botón terminaba tapándolo. margin-top:0 lo deja fluir natural
+   debajo del aviso → estable en 100% y 150%. */
+.st-key-f6_card_exports div[data-testid="stHorizontalBlock"]:has(.st-key-fase6_goto_fase5_activar){margin-top:0 !important}
 .st-key-f6_card_exports [data-testid="stButton"]>button, .st-key-f6_card_exports [data-testid="stDownloadButton"]>button{width:100%;background:#ffffff !important;border:1.5px solid #bfdbfe !important;color:#2563eb !important;border-radius:12px !important;font-weight:800 !important;min-height:40px !important;font-size:14px !important}
 .st-key-f6_card_exports [data-testid="stButton"]>button:hover, .st-key-f6_card_exports [data-testid="stDownloadButton"]>button:hover{background:#eff6ff !important;border-color:#2563eb !important}
-.st-key-f6_card_exports [data-testid="stButton"]>button:disabled, .st-key-f6_card_exports [data-testid="stDownloadButton"]>button:disabled{background:#f8fafc !important;border-color:#e2e8f0 !important;color:#94a3b8 !important}
+.st-key-f6_card_exports [data-testid="stButton"]>button:disabled, .st-key-f6_card_exports [data-testid="stDownloadButton"]>button:disabled{background:#f8fafc !important;border-color:#e2e8f0 !important;color:#000000 !important}
 @media(max-width:1200px){.f6-ref-kpi-grid,.f6-ref-summary-grid{grid-template-columns:repeat(3,1fr)}.f6-ref-export-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:700px){.f6-ref-kpi-grid,.f6-ref-summary-grid{grid-template-columns:repeat(2,1fr)}.f6-ref-export-grid{grid-template-columns:1fr}}
 
@@ -494,7 +500,13 @@ with exp2:
 
 with exp3:
     excel_data = basic_bundle["excel_bytes"] if not btn_disabled and basic_bundle else b""
-    st.download_button("Exportar Excel/CSV", data=excel_data, file_name="fase5_resultados_completos.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
+    if st.download_button("Exportar Excel/CSV", data=excel_data, file_name="fase5_resultados_completos.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, icon=":material/download:", disabled=btn_disabled):
+        # Revela el botón Excel PRO solo después de pulsar "Exportar Excel/CSV".
+        st.session_state["f6_show_excel_pro"] = True
+    if st.session_state.get("f6_show_excel_pro"):
+        excel_pro_data = basic_bundle.get("excel_pro_bytes", b"") if not btn_disabled and basic_bundle else b""
+        pro_disabled = btn_disabled or not excel_pro_data
+        st.download_button("Exportar Excel PRO (16 hojas bankable)", data=excel_pro_data, file_name="fase5_excel_PRO_bankable.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, icon=":material/star:", disabled=pro_disabled, help="Excel profesional estilo WAsP/WindPRO/OpenWind: Cover + ExecSummary + Site + WindRes + PowerCurve + Sectorial + LossWaterfall + PerWTG + Uncertainty P50/P90 + CAPEX/OPEX + CashFlow + Sensitivity + IEC SiteSuitability + Assumptions + Glossary + AuditManifest")
 
 with exp4:
     json_data = basic_bundle["report_manifest_json"].encode("utf-8") if not btn_disabled and basic_bundle else b""
@@ -741,11 +753,4 @@ with st.container(border=True, key="f6_card_gis_export"):
     except ImportError as ie:
         st.warning(f"GIS export requiere `simplekml`. Instalar: `pip install simplekml`. Error: {ie}")
 
-
-# Alerta de contexto Fase 5 al final
-if not runtime_context:
-    st.markdown(
-        '<div class="f6-ref-alert">⚠ Primero abra Fase 5, ejecute el cálculo actual y luego vuelva a Fase 6 para activar las exportaciones.</div>',
-        unsafe_allow_html=True,
-    )
 

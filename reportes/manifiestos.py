@@ -192,7 +192,7 @@ def _build_informe_tecnico_phase2_section(config=None, project_name="", df_nasa=
                 "title": _normalize_spanish_text("UbicaciÃ³n y consulta NASA POWER"),
                 "blocks": [
                     {"type": "figure", "title": _normalize_spanish_text("Mapa del sitio"), "description": _normalize_spanish_text("Mapa de la ubicaciÃ³n seleccionada en Fase 2, alineado con la vista cartogrÃ¡fica usada por la app."), "image_bytes": site_map_png, "image_format": "png" if site_map_png else None, "file_name": "mapa_sitio.png" if site_map_png else None},
-                    {"type": "table", "title": _normalize_spanish_text("UbicaciÃ³n y consulta NASA POWER"), "description": _normalize_spanish_text("Datos geogrÃ¡ficos y temporales de la consulta NASA POWER usada para caracterizar el sitio."), "headers": ["Campo", "Valor"], "rows": [["Latitud", f"{float(latitude):.4f}" if latitude not in [None, ""] else "Sin dato"], ["Longitud", f"{float(longitude):.4f}" if longitude not in [None, ""] else "Sin dato"], ["Fecha inicial", str(start_date or "Sin dato")], ["Fecha final", str(end_date or "Sin dato")]]},
+                    {"type": "table", "title": _normalize_spanish_text("UbicaciÃ³n y consulta NASA POWER"), "description": _normalize_spanish_text("Datos geogrÃ¡ficos y temporales de la consulta NASA POWER usada para caracterizar el sitio."), "headers": ["Campo", "Valor"], "rows": [["Latitud", f"{float(latitude):.2f}" if latitude not in [None, ""] else "Sin dato"], ["Longitud", f"{float(longitude):.2f}" if longitude not in [None, ""] else "Sin dato"], ["Fecha inicial", str(start_date or "Sin dato")], ["Fecha final", str(end_date or "Sin dato")]]},
                 ],
             },
             {
@@ -212,7 +212,7 @@ def _build_informe_tecnico_phase2_section(config=None, project_name="", df_nasa=
                     _phase2_export_figure_block(fig=crear_grafica_perfil_individual(df_log_b, "Promedio Log-Exp", "Promedio Log-Exp", altura_objetivo=altura_deseada, v_objetivo=v_log_b_deseada, color="#2ca25f", dash="dot", yaxis_type="log", puntos_medidos=puntos_medidos), figure_id="informe_tecnico_phase2_perfil_log_b", title="Promedio Log-Exp", description="Perfil operativo construido como promedio entre el perfil exponencial y el perfil logar??tmico A.", stem="informe_tecnico_fase2_promedio_log_exp"),
                     _phase2_export_figure_block(fig=_build_phase2_compare_figure(df_exp, df_log_a, df_log_b, altura_deseada, v_exp_deseada, v_log_a_deseada, v_log_b_deseada, puntos_medidos, yaxis_type="linear"), figure_id="informe_tecnico_phase2_compare_linear", title="ComparaciÃ³n entre perfiles en escala normal", description="ComparaciÃ³n de los perfiles verticales en escala normal para contrastar los tres enfoques de extrapolaciÃ³n.", stem="informe_tecnico_fase2_comparacion_normal"),
                     _phase2_export_figure_block(fig=_build_phase2_compare_figure(df_exp, df_log_a, df_log_b, altura_deseada, v_exp_deseada, v_log_a_deseada, v_log_b_deseada, puntos_medidos, yaxis_type="log"), figure_id="informe_tecnico_phase2_compare_log", title="ComparaciÃ³n entre perfiles en escala logarÃ­tmica", description="ComparaciÃ³n de los perfiles verticales usando escala logarÃ­tmica en altura para resaltar diferencias de comportamiento.", stem="informe_tecnico_fase2_comparacion_log"),
-                    {"type": "table", "title": _normalize_spanish_text("Tabla resumen de perfiles"), "description": _normalize_spanish_text("Resumen num??rico de los par??metros y velocidades representativas obtenidas en la caracterizaci??n vertical del viento."), "headers": ["Concepto", "Valor"], "rows": [["Velocidad media a 10 m", f"{v10:.4f}"], ["Velocidad media a 50 m", f"{v50:.4f}"], ["Alpha exponencial", f"{alpha:.6f}"], ["u* modo A", f"{float(u_star_a):.6f}"], ["z0 modo A ajustada", f"{float(z0_ajustada):.6f}"], ["Velocidad a altura deseada - Exponencial", f"{v_exp_deseada:.4f}"], ["Velocidad a altura deseada - Log A", f"{v_log_a_deseada:.4f}"], ["Velocidad a altura deseada - Promedio Log-Exp", f"{v_log_b_deseada:.4f}"]]},
+                    {"type": "table", "title": _normalize_spanish_text("Tabla resumen de perfiles"), "description": _normalize_spanish_text("Resumen num??rico de los par??metros y velocidades representativas obtenidas en la caracterizaci??n vertical del viento."), "headers": ["Concepto", "Valor"], "rows": [["Velocidad media a 10 m", f"{v10:.2f}"], ["Velocidad media a 50 m", f"{v50:.2f}"], ["Alpha exponencial", f"{alpha:.2f}"], ["u* modo A", f"{float(u_star_a):.2f}"], ["z0 modo A ajustada", f"{float(z0_ajustada):.2f}"], ["Velocidad a altura deseada - Exponencial", f"{v_exp_deseada:.2f}"], ["Velocidad a altura deseada - Log A", f"{v_log_a_deseada:.2f}"], ["Velocidad a altura deseada - Promedio Log-Exp", f"{v_log_b_deseada:.2f}"]]},
                 ],
             },
         ],
@@ -244,14 +244,18 @@ def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None,
     speed_power_table = _informe_tecnico_table_from_dataframe(df_curva, "Tabla editable de velocidades y potencia", "Tabla base de velocidades y potencia actualmente definida para el aerogenerador seleccionado en Fase 1.", ["Velocidad_num", "Potencia_W"], {"Velocidad_num": 2, "Potencia_W": 2})
     if speed_power_table:
         speed_power_table["headers"] = ["Velocidad (m/s)", "Potencia (W)"]
-    cp_table = _informe_tecnico_table_from_dataframe(df_cp.rename(columns={"Velocidad_num": "Velocidad (m/s)", "Potencia_W": "Potencia (W)", "P_viento_W": "Potencia del viento (W)", "Cp": "Cp"}), "Tabla de Cp calculado", "Tabla derivada de la curva de potencia actual para documentar el coeficiente de potencia calculado en cada velocidad.", ["Velocidad (m/s)", "Potencia (W)", "Potencia del viento (W)", "Cp"], {"Velocidad (m/s)": 2, "Potencia (W)": 2, "Potencia del viento (W)": 2, "Cp": 4})
+        speed_power_table["table_family"] = "split_horizontal"
+    df_cp_for_table = df_cp[["Velocidad_num", "Potencia_W", "P_viento_W", "Cp"]].rename(columns={"Velocidad_num": "Velocidad (m/s)", "Potencia_W": "Potencia (W)", "P_viento_W": "Potencia del viento (W)"}) if len(df_cp) > 0 else df_cp
+    cp_table = _informe_tecnico_table_from_dataframe(df_cp_for_table, "Tabla de Cp calculado", "Tabla derivada de la curva de potencia actual para documentar el coeficiente de potencia calculado en cada velocidad.", ["Velocidad (m/s)", "Potencia (W)", "Potencia del viento (W)", "Cp"], {"Velocidad (m/s)": 2, "Potencia (W)": 2, "Potencia del viento (W)": 2, "Cp": 4})
+    if cp_table:
+        cp_table["table_family"] = "split_horizontal"
     cp_figure_block = {"type": "figure", "title": _normalize_spanish_text("GrÃ¡fico de potencia y Cp"), "description": _normalize_spanish_text("GrÃ¡fico tÃ©cnico que muestra la potencia del aerogenerador y el coeficiente Cp calculado a partir de la definiciÃ³n actual de Fase 1."), "image_bytes": None, "image_format": None, "file_name": None}
     if len(df_cp) > 0:
         cp_fig = crear_grafica_curva(df_cp)
         image_bytes, metadata = export_plotly_figure_artifact(fig=cp_fig, figure_id="informe_tecnico_phase1_cp_curve", title="GrÃ¡fico de potencia y Cp", stem="informe_tecnico_potencia_cp", source_hint="Figura base del informe tÃ©cnico reconstruida desde la curva del aerogenerador.", preferred_format="png")
         if image_bytes and str(metadata.get("export_format") or "").lower() == "png":
             cp_figure_block.update({"image_bytes": image_bytes, "image_format": "png", "file_name": metadata.get("file_name", "informe_tecnico_potencia_cp.png")})
-    phase1_section = {"id": "eleccion_aerogenerador", "title": _normalize_spanish_text("ElecciÃ³n del aerogenerador"), "description": _normalize_spanish_text("SecciÃ³n dedicada a documentar el aerogenerador seleccionado, sus parÃ¡metros geomÃ©tricos y la base de desempeÃ±o usada para el resto del proyecto."), "subsections": [{"id": "datos_basicos_aerogenerador", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "blocks": [{"type": "table", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "description": _normalize_spanish_text("ParÃ¡metros geomÃ©tricos y fÃ­sicos base empleados para la caracterizaciÃ³n inicial del aerogenerador."), "headers": [_normalize_spanish_text("ParÃ¡metro"), _normalize_spanish_text("Valor")], "rows": [[_normalize_spanish_text("DiÃ¡metro del rotor"), f"{diametro:,.2f} m".replace(',', '')], [_normalize_spanish_text("Ãrea del rotor"), f"{area_rotor:,.2f} mÂ²".replace(',', '')], [_normalize_spanish_text("Densidad del aire"), f"{densidad:,.3f} kg/mÂ³".replace(',', '')]]}]}, {"id": "tabla_velocidades_potencia", "title": _normalize_spanish_text("Tabla editable de velocidades y potencia"), "blocks": [speed_power_table] if speed_power_table else []}, {"id": "grafico_potencia_cp", "title": _normalize_spanish_text("GrÃ¡fico de potencia y Cp"), "blocks": [cp_figure_block]}, {"id": "tabla_cp_calculado", "title": _normalize_spanish_text("Tabla de Cp calculado"), "blocks": [cp_table] if cp_table else []}]}
+    phase1_section = {"id": "fase1_eleccion_aerogenerador", "title": _normalize_spanish_text("Fase 1 - ElecciÃ³n del aerogenerador"), "description": _normalize_spanish_text("SecciÃ³n dedicada a documentar el aerogenerador seleccionado, sus parÃ¡metros geomÃ©tricos y la base de desempeÃ±o usada para el resto del proyecto."), "subsections": [{"id": "datos_basicos_aerogenerador", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "blocks": [{"type": "table", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "description": _normalize_spanish_text("ParÃ¡metros geomÃ©tricos y fÃ­sicos base empleados para la caracterizaciÃ³n inicial del aerogenerador."), "headers": [_normalize_spanish_text("ParÃ¡metro"), _normalize_spanish_text("Valor")], "rows": [[_normalize_spanish_text("DiÃ¡metro del rotor"), f"{diametro:,.2f} m".replace(',', '')], [_normalize_spanish_text("Ãrea del rotor"), f"{area_rotor:,.2f} mÂ²".replace(',', '')], [_normalize_spanish_text("Densidad del aire"), f"{densidad:,.2f} kg/mÂ³".replace(',', '')]]}]}, {"id": "tabla_velocidades_potencia", "title": _normalize_spanish_text("Tabla editable de velocidades y potencia"), "blocks": [speed_power_table] if speed_power_table else []}, {"id": "grafico_potencia_cp", "title": _normalize_spanish_text("GrÃ¡fico de potencia y Cp"), "blocks": [cp_figure_block]}, {"id": "tabla_cp_calculado", "title": _normalize_spanish_text("Tabla de Cp calculado"), "blocks": [cp_table] if cp_table else []}]}
     sections = [phase1_section]
     if phase2_section:
         sections.append(phase2_section)
@@ -283,14 +287,18 @@ def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None,
     speed_power_table = _informe_tecnico_table_from_dataframe(df_curva, "Tabla editable de velocidades y potencia", "Tabla base de velocidades y potencia actualmente definida para el aerogenerador seleccionado en Fase 1.", ["Velocidad_num", "Potencia_W"], {"Velocidad_num": 2, "Potencia_W": 2})
     if speed_power_table:
         speed_power_table["headers"] = ["Velocidad (m/s)", "Potencia (W)"]
-    cp_table = _informe_tecnico_table_from_dataframe(df_cp.rename(columns={"Velocidad_num": "Velocidad (m/s)", "Potencia_W": "Potencia (W)", "P_viento_W": "Potencia del viento (W)", "Cp": "Cp"}), "Tabla de Cp calculado", "Tabla derivada de la curva de potencia actual para documentar el coeficiente de potencia calculado en cada velocidad.", ["Velocidad (m/s)", "Potencia (W)", "Potencia del viento (W)", "Cp"], {"Velocidad (m/s)": 2, "Potencia (W)": 2, "Potencia del viento (W)": 2, "Cp": 4})
+        speed_power_table["table_family"] = "split_horizontal"
+    df_cp_for_table = df_cp[["Velocidad_num", "Potencia_W", "P_viento_W", "Cp"]].rename(columns={"Velocidad_num": "Velocidad (m/s)", "Potencia_W": "Potencia (W)", "P_viento_W": "Potencia del viento (W)"}) if len(df_cp) > 0 else df_cp
+    cp_table = _informe_tecnico_table_from_dataframe(df_cp_for_table, "Tabla de Cp calculado", "Tabla derivada de la curva de potencia actual para documentar el coeficiente de potencia calculado en cada velocidad.", ["Velocidad (m/s)", "Potencia (W)", "Potencia del viento (W)", "Cp"], {"Velocidad (m/s)": 2, "Potencia (W)": 2, "Potencia del viento (W)": 2, "Cp": 4})
+    if cp_table:
+        cp_table["table_family"] = "split_horizontal"
     cp_figure_block = {"type": "figure", "title": _normalize_spanish_text("GrÃ¡fico de potencia y Cp"), "description": _normalize_spanish_text("GrÃ¡fico tÃ©cnico que muestra la potencia del aerogenerador y el coeficiente Cp calculado a partir de la definiciÃ³n actual de Fase 1."), "image_bytes": None, "image_format": None, "file_name": None}
     if len(df_cp) > 0:
         cp_fig = crear_grafica_curva(df_cp)
         image_bytes, metadata = export_plotly_figure_artifact(fig=cp_fig, figure_id="informe_tecnico_phase1_cp_curve", title="GrÃ¡fico de potencia y Cp", stem="informe_tecnico_potencia_cp", source_hint="Figura base del informe tÃ©cnico reconstruida desde la curva del aerogenerador.", preferred_format="png")
         if image_bytes and str(metadata.get("export_format") or "").lower() == "png":
             cp_figure_block.update({"image_bytes": image_bytes, "image_format": "png", "file_name": metadata.get("file_name", "informe_tecnico_potencia_cp.png")})
-    phase1_section = {"id": "eleccion_aerogenerador", "title": _normalize_spanish_text("ElecciÃ³n del aerogenerador"), "description": _normalize_spanish_text("SecciÃ³n dedicada a documentar el aerogenerador seleccionado, sus parÃ¡metros geomÃ©tricos y la base de desempeÃ±o usada para el resto del proyecto."), "subsections": [{"id": "datos_basicos_aerogenerador", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "blocks": [{"type": "table", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "description": _normalize_spanish_text("ParÃ¡metros geomÃ©tricos y fÃ­sicos base empleados para la caracterizaciÃ³n inicial del aerogenerador."), "headers": [_normalize_spanish_text("ParÃ¡metro"), _normalize_spanish_text("Valor")], "rows": [[_normalize_spanish_text("DiÃ¡metro del rotor"), f"{diametro:,.2f} m".replace(',', '')], [_normalize_spanish_text("Ãrea del rotor"), f"{area_rotor:,.2f} mÂ²".replace(',', '')], [_normalize_spanish_text("Densidad del aire"), f"{densidad:,.3f} kg/mÂ³".replace(',', '')]]}]}, {"id": "tabla_velocidades_potencia", "title": _normalize_spanish_text("Tabla editable de velocidades y potencia"), "blocks": [speed_power_table] if speed_power_table else []}, {"id": "grafico_potencia_cp", "title": _normalize_spanish_text("GrÃ¡fico de potencia y Cp"), "blocks": [cp_figure_block]}, {"id": "tabla_cp_calculado", "title": _normalize_spanish_text("Tabla de Cp calculado"), "blocks": [cp_table] if cp_table else []}]}
+    phase1_section = {"id": "fase1_eleccion_aerogenerador", "title": _normalize_spanish_text("Fase 1 - ElecciÃ³n del aerogenerador"), "description": _normalize_spanish_text("SecciÃ³n dedicada a documentar el aerogenerador seleccionado, sus parÃ¡metros geomÃ©tricos y la base de desempeÃ±o usada para el resto del proyecto."), "subsections": [{"id": "datos_basicos_aerogenerador", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "blocks": [{"type": "table", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "description": _normalize_spanish_text("ParÃ¡metros geomÃ©tricos y fÃ­sicos base empleados para la caracterizaciÃ³n inicial del aerogenerador."), "headers": [_normalize_spanish_text("ParÃ¡metro"), _normalize_spanish_text("Valor")], "rows": [[_normalize_spanish_text("DiÃ¡metro del rotor"), f"{diametro:,.2f} m".replace(',', '')], [_normalize_spanish_text("Ãrea del rotor"), f"{area_rotor:,.2f} mÂ²".replace(',', '')], [_normalize_spanish_text("Densidad del aire"), f"{densidad:,.2f} kg/mÂ³".replace(',', '')]]}]}, {"id": "tabla_velocidades_potencia", "title": _normalize_spanish_text("Tabla editable de velocidades y potencia"), "blocks": [speed_power_table] if speed_power_table else []}, {"id": "grafico_potencia_cp", "title": _normalize_spanish_text("GrÃ¡fico de potencia y Cp"), "blocks": [cp_figure_block]}, {"id": "tabla_cp_calculado", "title": _normalize_spanish_text("Tabla de Cp calculado"), "blocks": [cp_table] if cp_table else []}]}
     sections = [phase1_section]
     if phase2_section:
         sections.append(phase2_section)
@@ -301,7 +309,7 @@ def _format_coordinate_pair(latitude, longitude):
     if not _report_has_value(latitude) or not _report_has_value(longitude):
         return None
     try:
-        return f"{float(latitude):.4f}, {float(longitude):.4f}"
+        return f"{float(latitude):.2f}, {float(longitude):.2f}"
     except Exception:
         return _normalize_spanish_text(f"{latitude}, {longitude}")
 
@@ -1567,10 +1575,22 @@ def _informe_tecnico_table_from_dataframe(df, title, description, columns=None, 
             if pd.isna(value):
                 row_cells.append("")
             elif isinstance(value, (int, np.integer)):
-                row_cells.append(str(int(value)))
+                row_cells.append(f"{int(value):,}".replace(",", "."))
             elif isinstance(value, (float, np.floating)):
-                decimals = int(decimals_map.get(column, 4))
-                row_cells.append(f"{float(value):,.{decimals}f}".replace(",", ""))
+                # Forzar maximo 2 decimales (legibilidad profesional)
+                # decimals_map ignorado salvo si solicita MENOS de 2 (ej. 0 para enteros virtuales)
+                requested = decimals_map.get(column, 2)
+                try:
+                    requested_int = int(requested)
+                except (TypeError, ValueError):
+                    requested_int = 2
+                decimals = min(2, max(0, requested_int)) if requested_int < 2 else 2
+                fv = float(value)
+                # Miles con punto, decimales con coma estilo europeo simplificado
+                s = f"{fv:,.{decimals}f}"
+                # Style: 1,234.56 → 1.234,56 (europeo) o mantener 1,234.56 (US)
+                # Mantener formato US (mas neutro) pero garantizar 2 decimales
+                row_cells.append(s)
             else:
                 row_cells.append(_normalize_spanish_text(str(value)))
         rows.append(row_cells)
@@ -1608,13 +1628,13 @@ def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None)
     if speed_power_table:
         speed_power_table["headers"] = ["Velocidad (m/s)", "Potencia (W)"]
 
+    df_cp_for_table = df_cp[["Velocidad_num", "Potencia_W", "P_viento_W", "Cp"]].rename(columns={
+        "Velocidad_num": "Velocidad (m/s)",
+        "Potencia_W": "Potencia (W)",
+        "P_viento_W": "Potencia del viento (W)",
+    }) if len(df_cp) > 0 else df_cp
     cp_table = _informe_tecnico_table_from_dataframe(
-        df_cp.rename(columns={
-            "Velocidad_num": "Velocidad (m/s)",
-            "Potencia_W": "Potencia (W)",
-            "P_viento_W": "Potencia del viento (W)",
-            "Cp": "Cp",
-        }),
+        df_cp_for_table,
         title="Tabla de Cp calculado",
         description="Tabla derivada de la curva de potencia actual para documentar el coeficiente de potencia calculado en cada velocidad.",
         columns=["Velocidad (m/s)", "Potencia (W)", "Potencia del viento (W)", "Cp"],
@@ -1659,7 +1679,7 @@ def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None)
         "rows": [
             ["DiÃ¡metro del rotor", f"{diametro:,.2f} m".replace(",", "")],
             ["Ãrea del rotor", f"{area_rotor:,.2f} mÂ²".replace(",", "")],
-            ["Densidad del aire", f"{densidad:,.3f} kg/mÂ³".replace(",", "")],
+            ["Densidad del aire", f"{densidad:,.2f} kg/mÂ³".replace(",", "")],
         ],
     }
 
@@ -1754,7 +1774,7 @@ def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None)
         "rows": [
             [_normalize_spanish_text("DiÃ¡metro del rotor"), f"{diametro:,.2f} m".replace(",", "")],
             [_normalize_spanish_text("Ãrea del rotor"), f"{area_rotor:,.2f} mÂ²".replace(",", "")],
-            [_normalize_spanish_text("Densidad del aire"), f"{densidad:,.3f} kg/mÂ³".replace(",", "")],
+            [_normalize_spanish_text("Densidad del aire"), f"{densidad:,.2f} kg/mÂ³".replace(",", "")],
         ],
     }
 

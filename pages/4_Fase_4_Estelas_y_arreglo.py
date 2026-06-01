@@ -168,9 +168,9 @@ def _render_phase4_css():
         }
 
         .sidebar-project-card__eyebrow {
-            color: #64748b;
+            color: #000000;
             font-size: 0.78rem;
-            font-weight: 700;
+            font-weight: 500;
             margin-bottom: 0.15rem;
         }
 
@@ -183,7 +183,7 @@ def _render_phase4_css():
         }
 
         .sidebar-project-card__meta {
-            color: #64748b;
+            color: #000000;
             font-size: 0.77rem;
             line-height: 1.35;
         }
@@ -195,9 +195,9 @@ def _render_phase4_css():
             margin-top: 0.9rem;
             padding-top: 0.75rem;
             border-top: 1px solid rgba(203, 213, 225, 0.55);
-            color: #334155;
+            color: #000000;
             font-size: 0.88rem;
-            font-weight: 700;
+            font-weight: 400;
         }
 
         .sidebar-user-card {
@@ -228,7 +228,7 @@ def _render_phase4_css():
         }
 
         .sidebar-user-card__mail {
-            color: #64748b;
+            color: #000000;
             font-size: 0.8rem;
             font-weight: 500;
         }
@@ -269,9 +269,9 @@ def _render_phase4_css():
         }
         .fase-hero-subtitle {
             margin: 0 !important;
-            color: #64748b !important;
+            color: #000000 !important;
             font-size: 0.94rem !important;
-            font-weight: 700 !important;
+            font-weight: 400 !important;
             line-height: 1.42 !important;
             max-width: 74rem !important;
             position: relative !important;
@@ -329,10 +329,10 @@ def _render_phase4_css():
         .sma-phase-title-content p {
             margin: 0 !important;
             max-width: 74rem !important;
-            color: #64748b !important;
+            color: #000000 !important;
             font-size: 0.94rem !important;
             line-height: 1.42 !important;
-            font-weight: 700 !important;
+            font-weight: 400 !important;
         }
 
         .f4-info-banner {
@@ -344,7 +344,7 @@ def _render_phase4_css():
             border-radius: 12px !important;
             background: #ecf4ff !important;
             color: #1f4ea8 !important;
-            font-weight: 700 !important;
+            font-weight: 500 !important;
             margin-bottom: 0.85rem !important;
         }
 
@@ -397,8 +397,8 @@ def _render_phase4_css():
 
         .st-key-f4_card_move_layout label,
         .st-key-f4_card_wind_base label {
-            color: #334155 !important;
-            font-weight: 700 !important;
+            color: #000000 !important;
+            font-weight: 400 !important;
         }
 
         .st-key-f4_card_move_layout [data-testid="stNumberInput"] input,
@@ -543,7 +543,7 @@ def _render_phase4_css():
         .st-key-f4_card_detail_direction [data-testid="stSelectbox"] [data-baseweb="select"] span,
         .st-key-f4_card_wind_base [data-testid="stSelectbox"] [data-baseweb="select"] div,
         .st-key-f4_card_detail_direction [data-testid="stSelectbox"] [data-baseweb="select"] div {
-            font-weight: 700 !important;
+            font-weight: 600 !important;
             color: #0f172a !important;
             background: #ffffff !important;
         }
@@ -625,9 +625,9 @@ def _render_phase4_css():
         }
 
         .f4-top-kpi-card__label {
-            color: #475569 !important;
+            color: #000000 !important;
             font-size: 0.86rem !important;
-            font-weight: 700 !important;
+            font-weight: 400 !important;
         }
 
         .f4-top-kpi-card__value {
@@ -638,9 +638,9 @@ def _render_phase4_css():
         }
 
         .f4-top-kpi-card__caption {
-            color: #64748b !important;
+            color: #000000 !important;
             font-size: 0.75rem !important;
-            font-weight: 600 !important;
+            font-weight: 400 !important;
             line-height: 1.25 !important;
         }
 
@@ -677,9 +677,9 @@ def _render_phase4_css():
         }
 
         .f4-kpi-html__label {
-            color: #58708f !important;
+            color: #000000 !important;
             font-size: 0.88rem !important;
-            font-weight: 600 !important;
+            font-weight: 400 !important;
         }
 
         .f4-kpi-html__value {
@@ -690,7 +690,7 @@ def _render_phase4_css():
         }
 
         .f4-kpi-html__caption {
-            color: #7b8aa4 !important;
+            color: #000000 !important;
             font-size: 0.76rem !important;
             font-weight: 500 !important;
         }
@@ -702,7 +702,7 @@ def _render_phase4_css():
             background: #eff6ff !important;
             color: #2563eb !important;
             font-size: 0.88rem !important;
-            font-weight: 600 !important;
+            font-weight: 400 !important;
             border: 1px solid #cbd5e1 !important;
         }
 
@@ -715,9 +715,9 @@ def _render_phase4_css():
         }
 
         .f4-panel-hero__subtitle {
-            color: #64748b !important;
+            color: #000000 !important;
             font-size: 0.8rem !important;
-            font-weight: 600 !important;
+            font-weight: 400 !important;
             margin-top: -0.2rem !important;
             margin-bottom: 0.5rem !important;
         }
@@ -763,9 +763,9 @@ def _render_phase4_css():
         }
 
         .f4-summary-item__label {
-            color: #475569 !important;
+            color: #000000 !important;
             font-size: 0.9rem !important;
-            font-weight: 700 !important;
+            font-weight: 400 !important;
         }
 
         .f4-summary-item__value {
@@ -778,9 +778,9 @@ def _render_phase4_css():
 
 
         .f4-inline-caption {
-            color: #64748b !important;
+            color: #000000 !important;
             font-size: 0.8rem !important;
-            font-weight: 600 !important;
+            font-weight: 400 !important;
             line-height: 1.35 !important;
             padding-top: 0.3rem !important;
         }
@@ -815,7 +815,7 @@ def _render_phase4_css():
             border: 1px solid #c9dcff !important;
             background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
             color: #1d4ed8 !important;
-            font-weight: 700 !important;
+            font-weight: 600 !important;
             min-height: 2.9rem !important;
             box-shadow: 0 6px 16px rgba(15, 23, 42, 0.045) !important;
         }
@@ -827,14 +827,14 @@ def _render_phase4_css():
         .stTabs [data-baseweb="tab"] {
             border-radius: 999px !important;
             padding: 0.45rem 0.95rem !important;
-            color: #35527d !important;
+            color: #000000 !important;
             background: #f6f9ff !important;
         }
 
         .stTabs [aria-selected="true"] {
             background: #e8f0ff !important;
             color: #1d4ed8 !important;
-            font-weight: 700 !important;
+            font-weight: 650 !important;
         }
 
         div[data-testid="stMetric"] {
@@ -846,8 +846,8 @@ def _render_phase4_css():
         }
 
         div[data-testid="stMetricLabel"] {
-            color: #64748b !important;
-            font-weight: 600 !important;
+            color: #000000 !important;
+            font-weight: 400 !important;
         }
 
         div[data-testid="stMetricValue"] {
@@ -1033,9 +1033,9 @@ def _render_phase4_css():
         }
 
         .f4-plot-caption {
-            color: #64748b !important;
+            color: #000000 !important;
             font-size: 0.8rem !important;
-            font-weight: 600 !important;
+            font-weight: 400 !important;
             margin-top: -0.35rem !important;
             margin-bottom: 0.55rem !important;
         }
@@ -1169,9 +1169,9 @@ def _render_phase4_css():
         }
 
         .f4-geom-kpi-card .f4-top-kpi-card__label {
-            color: #64748b !important;
+            color: #000000 !important;
             font-size: 0.78rem !important;
-            font-weight: 750 !important;
+            font-weight: 400 !important;
             margin-bottom: 0.25rem !important;
         }
 
@@ -1185,9 +1185,9 @@ def _render_phase4_css():
 
         .f4-geom-kpi-card .f4-top-kpi-card__caption {
             margin-top: 0.32rem !important;
-            color: #64748b !important;
+            color: #000000 !important;
             font-size: 0.72rem !important;
-            font-weight: 650 !important;
+            font-weight: 400 !important;
         }
 
         .st-key-f4_geom_rose_subcard {
@@ -1245,8 +1245,8 @@ def _render_phase4_css():
             padding: 0.7rem 1.5rem !important;
             border-radius: 12px 12px 0 0 !important;
             background: #f8fafc !important;
-            color: #64748b !important;
-            font-weight: 700 !important;
+            color: #000000 !important;
+            font-weight: 400 !important;
             font-size: 1.05rem !important;
             border: 1px solid transparent !important;
             border-bottom: none !important;
@@ -1296,8 +1296,8 @@ def _render_phase4_css():
         }
         .f4-detail-kpi .f4-top-kpi-card__title {
             font-size: 0.8rem !important;
-            color: #64748b !important;
-            font-weight: 700 !important;
+            color: #000000 !important;
+            font-weight: 400 !important;
             text-transform: uppercase !important;
             letter-spacing: 0.5px !important;
             margin-bottom: 0.2rem !important;
@@ -1356,7 +1356,7 @@ def _render_phase4_css():
         }
 
         .f4-wake-legend-subtitle {
-            color: #243b5a;
+            color: #000000;
             font-size: 0.88rem;
             font-weight: 800;
             margin-bottom: 0.55rem;
@@ -1388,7 +1388,7 @@ def _render_phase4_css():
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
-            color: #334155;
+            color: #000000;
             font-size: 0.86rem;
             font-weight: 800;
         }
@@ -1451,9 +1451,9 @@ def _render_phase4_css():
 
         .f4-scenario-hero__subtitle {
             margin-top: 0.22rem;
-            color: #526a88;
+            color: #000000;
             font-size: 0.9rem;
-            font-weight: 650;
+            font-weight: 400;
         }
 
         .f4-scenario-card-title {
@@ -1484,9 +1484,9 @@ def _render_phase4_css():
             align-items: center;
             gap: 0.42rem;
             margin-top: 0.72rem;
-            color: #64748b;
+            color: #000000;
             font-size: 0.82rem;
-            font-weight: 700;
+            font-weight: 400;
         }
 
         .f4-scenario-table-wrap {
@@ -3871,7 +3871,7 @@ with view_cols[0]:
         )
         st.markdown(
             """
-            <div style="display:flex;align-items:center;gap:0.9rem;margin:0.35rem 0 0.1rem 0;padding:0.48rem 0.7rem;border: 1px solid #cbd5e1;border-radius:12px;background:#fbfdff;color:#475569;font-size:0.82rem;font-weight:700;">
+            <div style="display:flex;align-items:center;gap:0.9rem;margin:0.35rem 0 0.1rem 0;padding:0.48rem 0.7rem;border: 1px solid #cbd5e1;border-radius:12px;background:#fbfdff;color:#000000;font-size:0.82rem;font-weight:400;">
                 <span style="color:#0f172a;font-weight:800;">Afectación local por estela</span>
                 <span style="display:inline-flex;align-items:center;gap:0.32rem;"><i style="width:10px;height:10px;border-radius:999px;background:#10B981;display:inline-block;"></i>Verde: Baja</span>
                 <span style="display:inline-flex;align-items:center;gap:0.32rem;"><i style="width:10px;height:10px;border-radius:999px;background:#F59E0B;display:inline-block;"></i>Naranja: Media</span>

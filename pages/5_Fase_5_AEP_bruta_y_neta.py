@@ -711,10 +711,10 @@ FASE_5_CSS = """
         z-index: 2;
     }
     .fase-hero-subtitle {
-        color: #64748b;
+        color: #000000;
         font-size: 0.94rem;
         line-height: 1.42;
-        font-weight: 700;
+        font-weight: 400;
         max-width: 74rem;
         margin: 0;
         position: relative;
@@ -763,7 +763,7 @@ FASE_5_CSS = """
     .f5-section-subtitle, .f5-ref-section-subtitle {
         color: var(--f5-ref-muted);
         font-size: 0.74rem;
-        font-weight: 650;
+        font-weight: 400;
         margin-top: 0.17rem;
     }
     .f5-section-header-card {
@@ -832,9 +832,9 @@ FASE_5_CSS = """
         gap: 0.34rem;
     }
     .f5-section-header-card-subtitle {
-        color: #58708f;
+        color: #000000;
         font-size: 0.82rem;
-        font-weight: 650;
+        font-weight: 500;
         line-height: 1.25;
     }
     .f5-info-banner {
@@ -889,9 +889,9 @@ FASE_5_CSS = """
     .f5-kpi-card.accent-green .f5-kpi-icon { background: #dcfce7; color: #16a34a; }
     .f5-kpi-card.accent-purple .f5-kpi-icon { background: #f3e8ff; color: #7e22ce; }
     .f5-kpi-card.accent-amber .f5-kpi-icon { background: #fef3c7; color: #d97706; }
-    .f5-kpi-label { color: #607089; font-size: 0.69rem; font-weight: 760; margin-bottom: 0.2rem; line-height: 1.16; }
+    .f5-kpi-label { color: #000000; font-size: 0.69rem; font-weight: 400; margin-bottom: 0.2rem; line-height: 1.16; }
     .f5-kpi-value { color: #102a56; font-size: 1.24rem; font-weight: 900; line-height: 1.02; }
-    .f5-kpi-unit, .f5-kpi-caption { color: #64748b; font-size: 0.67rem; font-weight: 680; margin-top: 0.2rem; }
+    .f5-kpi-unit, .f5-kpi-caption { color: #000000; font-size: 0.67rem; font-weight: 400; margin-top: 0.2rem; }
     .f5-mini-note {
         display: flex;
         align-items: center;
@@ -902,10 +902,10 @@ FASE_5_CSS = """
         color: #1f4ea8;
         border: 1px solid #d2e5ff;
         font-size: 0.72rem;
-        font-weight: 700;
+        font-weight: 400;
         margin-top: 0.28rem;
     }
-    .f5-subcard-title { color: #294977; font-size: 0.86rem; font-weight: 820; margin-bottom: 0.52rem; }
+    .f5-subcard-title { color: #000000; font-size: 0.86rem; font-weight: 820; margin-bottom: 0.52rem; }
     /* ===== Reference-style loss table ===== */
     .f5-loss-table-wrap {
         border: 1px solid #d9e8fb !important;
@@ -932,7 +932,7 @@ FASE_5_CSS = """
         padding: 0.66rem 0.74rem;
         font-weight: 800;
         font-size: 0.88rem;
-        color: #3f5e84;
+        color: #000000;
         border-bottom: 1.5px solid #e2e8f0;
         white-space: normal;
         line-height: 1.2;
@@ -993,7 +993,7 @@ FASE_5_CSS = """
         margin-top: 0.22rem;
     }
     .f5-loss-col-title {
-        color: #294977;
+        color: #000000;
         font-size: 0.8rem;
         font-weight: 800;
         margin-bottom: 0.38rem;
@@ -1038,7 +1038,7 @@ FASE_5_CSS = """
         height: 100%;
     }
     .f5-sector-panel-title {
-        color: #294977;
+        color: #000000;
         font-size: 0.84rem;
         font-weight: 800;
         margin-bottom: 0.48rem;
@@ -1069,9 +1069,9 @@ FASE_5_CSS = """
     }
     .f5-sector-table-ref th {
         padding: 0.5rem 0.4rem;
-        font-weight: 700;
+        font-weight: 400;
         font-size: 0.62rem;
-        color: #64748b;
+        color: #000000;
         border-bottom: 1.5px solid #e2e8f0;
         text-align: right;
         line-height: 1.22;
@@ -1081,7 +1081,7 @@ FASE_5_CSS = """
         padding: 0.45rem 0.4rem;
         font-weight: 500;
         border-bottom: 1px solid #f1f5f9;
-        color: #334155;
+        color: #000000;
         font-variant-numeric: tabular-nums;
         text-align: right;
     }
@@ -1141,10 +1141,10 @@ FASE_5_CSS = """
     .f5-econ-mini-kpi-header { display:flex; align-items:center; gap:0.5rem; width:100%; justify-content:flex-start; }
     .f5-econ-mini-kpi-body { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; width:100%; margin-top:0; flex-grow:1; }
     .f5-econ-mini-kpi-icon { width:2.8rem; height:2.8rem; min-width:2.8rem; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#ecf4ff; border:1px solid #c8dcfb; }
-    .f5-econ-mini-kpi-label { color:#607089; font-size:0.62rem; font-weight:750; line-height:1.15; }
+    .f5-econ-mini-kpi-label { color:#000000; font-size:0.62rem; font-weight:400; line-height:1.15; }
     .f5-econ-mini-kpi-value { color:#102a56; font-size:1.18rem; font-weight:900; line-height:1.0; text-align:center; }
-    .f5-econ-mini-kpi-unit { color:#64748b; font-size:0.62rem; font-weight:650; margin-top:0.25rem; text-align:center; }
-    .f5-econ-fx-strip { display:flex; align-items:center; gap:0.8rem; padding:0.52rem 0.72rem; border-radius:10px; background:#eef5ff; border:1px solid #dbe9fc; font-size:0.66rem; font-weight:700; color:#475569; margin-top:0.25rem; margin-bottom:0.25rem; flex-wrap:wrap; }
+    .f5-econ-mini-kpi-unit { color:#000000; font-size:0.62rem; font-weight:400; margin-top:0.25rem; text-align:center; }
+    .f5-econ-fx-strip { display:flex; align-items:center; gap:0.8rem; padding:0.52rem 0.72rem; border-radius:10px; background:#eef5ff; border:1px solid #dbe9fc; font-size:0.66rem; font-weight:400; color:#000000; margin-top:0.25rem; margin-bottom:0.25rem; flex-wrap:wrap; }
     .st-key-f5_btn_actualizar_tasa button,
     .st-key-f5_card_econ_currency div[data-testid="stButton"] button {
         min-height: 2.7rem !important;
@@ -1184,9 +1184,9 @@ FASE_5_CSS = """
     .f5-econ-col-title { display:flex; align-items:center; gap:0.48rem; color:#0f2f6e; font-size:0.92rem; font-weight:860; margin-bottom:0.18rem; }
     .f5-econ-col-title-icon { width:1.85rem; height:1.85rem; min-width:1.85rem; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:#ecf4ff; border:1px solid #bfd8fb; }
     .f5-econ-table-wrap { border:1px solid #e2ebf6; border-radius:12px; overflow:hidden; margin-top:0.22rem; }
-    .f5-econ-table-title { color:#294977; font-size:0.72rem; font-weight:800; margin-top:0.32rem; margin-bottom:0.12rem; }
+    .f5-econ-table-title { color:#000000; font-size:0.72rem; font-weight:800; margin-top:0.32rem; margin-bottom:0.12rem; }
     .f5-econ-table { width:100%; border-collapse:collapse; font-size:0.62rem; color:#1e293b; }
-    .f5-econ-table th { text-align:left; background:#f4f8ff; color:#475569; font-weight:800; font-size:0.58rem; padding:0.28rem 0.42rem; border-bottom:1px solid #e2ebf6; }
+    .f5-econ-table th { text-align:left; background:#f4f8ff; color:#000000; font-weight:800; font-size:0.58rem; padding:0.28rem 0.42rem; border-bottom:1px solid #e2ebf6; }
     .f5-econ-table th:not(:first-child) { text-align:right; }
     .f5-econ-table td { padding:0.22rem 0.42rem; border-bottom:1px solid #f1f5f9; font-weight:550; }
     .f5-econ-table td:not(:first-child) { text-align:right; font-variant-numeric:tabular-nums; }
@@ -1194,7 +1194,7 @@ FASE_5_CSS = """
     .f5-econ-table .f5-econ-total-row td { font-weight:900; color:#0f172a; border-top:1.5px solid #cbd5e1; background:#f0f5ff; }
     /* LCOE result KPIs - large centered numbers */
     .f5-econ-lcoe-kpi { display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.18rem; padding:0.52rem 0.32rem; border:1px solid #e2ebf6; border-radius:14px; background:#ffffff; }
-    .f5-econ-lcoe-kpi-label { color:#607089; font-size:0.58rem; font-weight:700; line-height:1.18; text-align:center; }
+    .f5-econ-lcoe-kpi-label { color:#000000; font-size:0.58rem; font-weight:400; line-height:1.18; text-align:center; }
     .f5-econ-lcoe-kpi-value { color:#102a56; font-size:1.52rem; font-weight:900; line-height:1.05; letter-spacing:-0.02em; }
     .f5-econ-lcoe-kpi-value.blue-val { color:#2563eb; }
     .f5-econ-lcoe-kpi-value.green-val { color:#16a34a; }
@@ -1207,13 +1207,13 @@ FASE_5_CSS = """
     .f5-econ-mostrado-icon.blue { background:#ecf4ff; color:#2563eb; }
     .f5-econ-mostrado-icon.green { background:#dcfce7; color:#16a34a; }
     .f5-econ-mostrado-icon.purple { background:#f3e8ff; color:#7e22ce; }
-    .f5-econ-mostrado-label { color:#607089; font-size:0.68rem; font-weight:720; line-height:1.12; }
+    .f5-econ-mostrado-label { color:#000000; font-size:0.68rem; font-weight:400; line-height:1.12; }
     .f5-econ-mostrado-value { color:#102a56; font-size:1.18rem; font-weight:900; line-height:1.0; }
     /* Grilla 2x2 de resultados dentro del card LCOE */
     .f5-econ-mostrado-grid-inside-lcoe { display:grid !important; grid-template-columns:repeat(2, minmax(0, 1fr)) !important; gap:0.62rem !important; margin-top:0.9rem; width:100% !important; max-width:100% !important; }
     .f5-econ-mostrado-grid-inside-lcoe .f5-econ-mostrado-card { min-height:86px; padding:0.72rem 0.82rem; border:1px solid #d9e8fb; border-radius:16px; background:#ffffff; box-shadow:0 6px 16px rgba(15,45,90,.032); min-width:0 !important; overflow:hidden !important; }
     .f5-econ-mostrado-grid-inside-lcoe .f5-econ-mostrado-icon { width:2.45rem; height:2.45rem; min-width:2.45rem; }
-    .f5-econ-mostrado-grid-inside-lcoe .f5-econ-mostrado-label { font-size:0.68rem; font-weight:720; color:#607089; }
+    .f5-econ-mostrado-grid-inside-lcoe .f5-econ-mostrado-label { font-size:0.68rem; font-weight:400; color:#000000; }
     .f5-econ-mostrado-grid-inside-lcoe .f5-econ-mostrado-value { font-size:1.05rem; font-weight:900; color:#102a56; overflow-wrap:anywhere !important; word-break:break-word !important; }
     @media (max-width:1200px) {
         .f5-econ-mini-kpis { grid-template-columns:repeat(2, minmax(0, 1fr)); }
@@ -1347,7 +1347,7 @@ FASE_5_CSS = """
     .st-key-f5_card_econ_base .stDataFrame thead tr th,
     .st-key-f5_card_econ_currency .stDataFrame thead tr th {
         background: #f1f7ff !important;
-        color: #31527a !important;
+        color: #000000 !important;
         font-weight: 800 !important;
     }
     .st-key-f5_card_breakdown [data-testid="stPlotlyChart"],
@@ -1364,7 +1364,7 @@ FASE_5_CSS = """
         margin-bottom: 0.56rem !important;
     }
     .f5-action-title { color: #1d407f; font-size: 0.66rem; font-weight: 850; margin-top: 0.2rem; line-height:1.1; }
-    .f5-action-description { color: #667a94; font-size: 0.54rem; font-weight: 620; line-height: 1.13; }
+    .f5-action-description { color: #000000; font-size: 0.54rem; font-weight: 400; line-height: 1.13; }
     .f5-action-button {
         border: 1px solid #8bb7ff;
         border-radius: 11px;
@@ -1457,16 +1457,16 @@ FASE_5_CSS = """
     .f5-main-kpi-icon.icon-purple { background: #f4ebff; border-color: #e4d3ff; color: #7e22ce; }
     .f5-main-kpi-icon.icon-amber { background: #fff4dc; border-color: #fde3b2; color: #d97706; }
     .f5-main-kpi-title {
-        color: #5d7391;
+        color: #000000;
         font-size: 0.67rem;
-        font-weight: 760;
+        font-weight: 400;
         line-height: 1.16;
         margin-bottom: 0.16rem;
     }
     .f5-main-kpi-method {
-        color: #6b7f99;
+        color: #000000;
         font-size: 0.64rem;
-        font-weight: 700;
+        font-weight: 400;
         line-height: 1.1;
         margin-bottom: 0.2rem;
     }
@@ -1477,9 +1477,9 @@ FASE_5_CSS = """
         font-weight: 900;
     }
     .f5-main-kpi-unit {
-        color: #64748b;
+        color: #000000;
         font-size: 0.78rem;
-        font-weight: 700;
+        font-weight: 400;
         margin-top: 0.16rem;
         line-height: 1.15;
     }
@@ -1507,9 +1507,9 @@ FASE_5_CSS = """
         justify-content: center;
     }
     .f5-param-chip__name {
-        color: #607089;
+        color: #000000;
         font-size: 0.65rem;
-        font-weight: 760;
+        font-weight: 400;
         line-height: 1.14;
     }
     .f5-param-chip__value {
@@ -1583,8 +1583,8 @@ FASE_5_CSS = """
     }
     .f5-profile-summary-kpi-label {
         font-size: 0.76rem;
-        font-weight: 700;
-        color: #48648d;
+        font-weight: 400;
+        color: #000000;
         line-height: 1.2;
     }
     .f5-profile-summary-kpi-value {
@@ -1597,7 +1597,7 @@ FASE_5_CSS = """
     .stDataFrame { border-radius: 14px !important; overflow: hidden !important; }
     .stDataFrame thead tr th {
         background: #f1f7ff !important;
-        color: #31527a !important;
+        color: #000000 !important;
     }
     div[data-testid="stSelectbox"] [data-baseweb="select"] > div,
     div[data-testid="stNumberInput"] input {
@@ -1658,7 +1658,7 @@ FASE_5_CSS = """
     .f5-ref-export-icon-json { background:#ffffff; color:#7c3aed; border:1px solid transparent; }
     .f5-ref-export-icon-orange { background:#ffffff; color:#d97706; border:1px solid transparent; }
     .f5-ref-export-title { color:#1e293b; font-size:12px; font-weight:800; margin-bottom:4px; line-height:1.2; }
-    .f5-ref-export-desc { color:#64748b; font-size:10px; font-weight:600; line-height:1.3; }
+    .f5-ref-export-desc { color:#000000; font-size:10px; font-weight:400; line-height:1.3; }
     @media(max-width:1200px){.f5-ref-export-grid{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:700px){.f5-ref-export-grid{grid-template-columns:repeat(2,1fr)}}
     .st-key-f5_card_export div[data-testid="stHorizontalBlock"]{margin-top:-56px;padding:0 4px;position:relative;z-index:10}
@@ -2172,6 +2172,7 @@ st.markdown(
         box-sizing: border-box !important;
     }
 
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -2433,21 +2434,6 @@ with top_config_col:
                     rho_anual_serie = _dens_mensual["anual"]
                     factor_densidad_calc = calculos.factor_correccion_densidad(rho_anual_serie)
                     rho_sitio_calc = rho_anual_serie
-                    st.markdown(
-                        f'<div class="f5-mini-note" style="margin-top:0.4rem;">'
-                        f'ρ media anual (T2M) ≈ <b>{rho_anual_serie:.3f}</b> kg/m³ &nbsp;|&nbsp; '
-                        f'factor ≈ <b>{factor_densidad_calc:.3f}</b>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        f'<div class="f5-mini-note" style="margin-top:0.4rem;">'
-                        f'ρ sitio ≈ <b>{rho_sitio_calc:.3f}</b> kg/m³ &nbsp;|&nbsp; '
-                        f'factor corr. ≈ <b>{factor_densidad_calc:.3f}</b>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
 
             roughness_label = roughness_default
             if modo_estadistico == "Comparar Weibull y Rayleigh":
@@ -2460,11 +2446,6 @@ with top_config_col:
                 )
             else:
                 metodo_detalle = modo_estadistico
-
-            st.markdown(
-                '<div class="f5-mini-note"><span class="f5-info-dot" style="width:1.2rem;height:1.2rem;font-size:0.72rem;">i</span>Promedio Log-Exp = promedio entre Exponencial y Log A.</div>',
-                unsafe_allow_html=True,
-            )
 
             st.form_submit_button("Aplicar configuración", use_container_width=True)
 # Persist configuration values to database
@@ -2786,7 +2767,7 @@ try:
                 )
 
             st.markdown(
-                '<div class="f5-mini-note" style="margin-top:0.4rem;font-size:0.78rem;color:#6b7280;">'
+                '<div class="f5-mini-note" style="margin-top:-0.3rem;margin-bottom:0.7rem;font-size:0.78rem;color:#000000;font-weight:400;">'
                 'Nota: TI se calcula desde la serie WS_ANALISIS (proxy a altura hub). '
                 'Método conservador, no reemplaza medición in-situ con torre meteorológica.'
                 '</div>',

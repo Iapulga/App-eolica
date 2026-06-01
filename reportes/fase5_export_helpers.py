@@ -7,6 +7,7 @@ import pandas as pd
 
 from .contexto import get_export_metadata, get_project_context, get_report_context
 from .docx import build_informe_tecnico_docx
+from .excel_pro import exportar_excel_pro  # noqa: F401  (re-export para Fase 5)
 from .figuras import (
     build_figure_export_bundle,
     build_indexed_appendix_annex_bundle,
@@ -26,6 +27,82 @@ INFORME_TECNICO_DOCX_STATE_KEY = "fase5_informe_tecnico_docx_artifact"
 INFORME_TECNICO_META_STATE_KEY = "fase5_informe_tecnico_meta"
 
 
+_EXCEL_HEADER_FILL_HEX = "1F4E79"
+_EXCEL_HEADER_FONT_HEX = "FFFFFF"
+_EXCEL_BAND_FILL_HEX = "E7EEF7"
+
+
+def _apply_excel_style(writer, sheet_name, df):
+    """Aplica header navy + autofilter + freeze + auto-width."""
+    try:
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    except ImportError:
+        return
+    ws = writer.sheets.get(sheet_name)
+    if ws is None or df is None:
+        return
+    n_cols = len(df.columns)
+    if n_cols == 0:
+        return
+
+    header_fill = PatternFill("solid", fgColor=_EXCEL_HEADER_FILL_HEX)
+    header_font = Font(name="Calibri", size=11, bold=True, color=_EXCEL_HEADER_FONT_HEX)
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    band_fill = PatternFill("solid", fgColor=_EXCEL_BAND_FILL_HEX)
+    thin = Side(style="thin", color="B7C0C7")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # Header
+    for col_idx in range(1, n_cols + 1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_align
+        cell.border = border
+
+    # Body: borders + alt row banding + number format
+    max_row = ws.max_row
+    for row_idx in range(2, max_row + 1):
+        is_alt = (row_idx % 2 == 0)
+        for col_idx in range(1, n_cols + 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            cell.border = border
+            if is_alt:
+                cell.fill = band_fill
+            v = cell.value
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                col_name = str(df.columns[col_idx - 1]).lower()
+                if "(%)" in col_name or "pct" in col_name or "porcentaje" in col_name:
+                    cell.number_format = "0.00"
+                elif "mwh" in col_name or "kwh" in col_name:
+                    cell.number_format = "#,##0.00"
+                elif "(w)" in col_name or "potencia" in col_name:
+                    cell.number_format = "#,##0.00"
+                elif "(m/s)" in col_name or "velocidad" in col_name:
+                    cell.number_format = "0.0000"
+                elif "(°)" in col_name or "(deg)" in col_name or "(hex)" in col_name:
+                    cell.number_format = "0.00"
+                elif "capex" in col_name or "opex" in col_name or "lcoe" in col_name or "vp " in col_name:
+                    cell.number_format = "#,##0.00"
+                else:
+                    cell.number_format = "#,##0.0000"
+                cell.alignment = Alignment(horizontal="right")
+
+    # Auto-width approx
+    for col_idx in range(1, n_cols + 1):
+        col_name = str(df.columns[col_idx - 1])
+        max_len = max(
+            [len(col_name)] +
+            [len(str(ws.cell(row=r, column=col_idx).value or "")) for r in range(2, max_row + 1)]
+        )
+        ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = min(max(12, max_len + 2), 48)
+
+    # Freeze + autofilter
+    ws.freeze_panes = "A2"
+    last_col_letter = ws.cell(row=1, column=n_cols).column_letter
+    ws.auto_filter.ref = f"A1:{last_col_letter}{max_row}"
+
+
 def exportar_excel(
     resumen_df,
     perdidas_df,
@@ -38,16 +115,23 @@ def exportar_excel(
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         resumen_df.to_excel(writer, index=False, sheet_name="Resumen")
+        _apply_excel_style(writer, "Resumen", resumen_df)
         perdidas_df.to_excel(writer, index=False, sheet_name="Perdidas")
+        _apply_excel_style(writer, "Perdidas", perdidas_df)
         sector_df.to_excel(writer, index=False, sheet_name="Sectorial")
+        _apply_excel_style(writer, "Sectorial", sector_df)
         if export_metadata_df is not None:
             export_metadata_df.to_excel(writer, index=False, sheet_name="Metadata_exportacion")
+            _apply_excel_style(writer, "Metadata_exportacion", export_metadata_df)
         if report_manifest_df is not None:
             report_manifest_df.to_excel(writer, index=False, sheet_name="Manifiesto_reporte")
+            _apply_excel_style(writer, "Manifiesto_reporte", report_manifest_df)
         if comparacion_df is not None:
             comparacion_df.to_excel(writer, index=False, sheet_name="Comparacion_metodos")
+            _apply_excel_style(writer, "Comparacion_metodos", comparacion_df)
         if comparacion_sector_df is not None:
             comparacion_sector_df.to_excel(writer, index=False, sheet_name="Comparacion_sectorial")
+            _apply_excel_style(writer, "Comparacion_sectorial", comparacion_sector_df)
     output.seek(0)
     return output.getvalue()
 
@@ -225,6 +309,24 @@ def build_basic_export_bundle(config, context):
         comparacion_sector_df=context.get("comp_sector_df"),
     )
 
+    # Excel profesional bankable (16 hojas)
+    excel_pro_bytes = b""
+    try:
+        excel_pro_ctx = dict(context)
+        excel_pro_ctx["project_name"] = context.get("project_name_default", "Proyecto eolico")
+        excel_pro_ctx["config"] = config
+        excel_pro_ctx["df_curva"] = context.get("df_curva")
+        excel_pro_ctx["df_cp"] = context.get("df_cp")
+        excel_pro_ctx["df_resumen_sectorial"] = context.get("df_resumen_sectorial")
+        excel_pro_ctx["df_per_turbine"] = context.get("df_per_turbine")
+        excel_pro_ctx["uncertainty_categories"] = context.get("uncertainty_categories")
+        excel_pro_ctx["iec_site"] = context.get("iec_site")
+        excel_pro_ctx["capex_components"] = context.get("capex_components")
+        excel_pro_ctx["opex_components"] = context.get("opex_components")
+        excel_pro_bytes = exportar_excel_pro(excel_pro_ctx)
+    except Exception:
+        excel_pro_bytes = b""
+
     return {
         "project_context": get_project_context(config),
         "report_context": report_context,
@@ -239,6 +341,7 @@ def build_basic_export_bundle(config, context):
         "latex_skeleton": latex_skeleton,
         "csv_bytes": csv_bytes,
         "excel_bytes": excel_bytes,
+        "excel_pro_bytes": excel_pro_bytes,
     }
 
 

@@ -50,44 +50,29 @@ def precargar_todo() -> bool:
     with timed("warmup.total"):
         with timed("warmup.init_db"):
             init_db()
+        # Calienta los caches de lectura de la BD (config, curva, NASA, layout).
+        # Son baratos y los necesita la propia página de Inicio o la primera fase.
         with timed("warmup.cargar_config"):
-            cfg = cargar_config()
+            cargar_config()
         with timed("warmup.cargar_tabla_curva"):
             cargar_tabla_curva()
         with timed("warmup.cargar_nasa_hourly"):
             cargar_nasa_hourly()
         with timed("warmup.cargar_layout_parque"):
-            layout = cargar_layout_parque()
-        # Pre-import módulos pesados de fases 5/6 para evitar import cold-start
-        # cuando el usuario navega por primera vez a esas pestañas.
+            cargar_layout_parque()
+        # Pre-import de módulos pesados para evitar el cold-start de import
+        # (sobre todo plotly, que arrastra `calculos`) cuando el usuario navega
+        # por primera vez. Esto es lo barato del warmup; las FIGURAS ya NO se
+        # precomputan aquí — la página de Inicio no las usa y bloqueaban su
+        # primer render. Siguen bajo @st.cache_data, así que se calculan (una
+        # sola vez) en la primera visita real a Fase 3/4.
         try:
+            with timed("warmup.import_calculos"):
+                import calculos  # noqa: F401  (también calienta plotly)
             with timed("warmup.import_calculos_energia"):
                 import calculos_energia  # noqa: F401
             with timed("warmup.import_calculos_economicos"):
                 import calculos_economicos  # noqa: F401
-        except Exception:
-            pass
-        try:
-            if layout is not None and not layout.empty:
-                from calculos import crear_figura_layout_parque
-                diametro = float(cfg.get("diametro_rotor", 100) or 100)
-                with timed("warmup.crear_figura_layout_parque"):
-                    crear_figura_layout_parque(layout, diametro=diametro)
-        except Exception:
-            pass
-        # Pre-render rosa de vientos para que primer click en Fase 3 sea cache hit.
-        try:
-            from calculos import (
-                crear_rosa_vientos_16,
-                preparar_datos_rosa,
-                resumir_sectores_rosa,
-            )
-            nasa_df = cargar_nasa_hourly()
-            if nasa_df is not None and not nasa_df.empty:
-                with timed("warmup.rosa"):
-                    df_rosa = preparar_datos_rosa(nasa_df, wd_col="WD50M")
-                    df_resumen = resumir_sectores_rosa(df_rosa)
-                    crear_rosa_vientos_16(df_resumen)
         except Exception:
             pass
     return True
@@ -265,9 +250,9 @@ def _style_projects_df(df: pd.DataFrame) -> "pd.io.formats.style.Styler":
         for v in col:
             s = str(v)
             if "\u25cf" in s:          # ● Activo
-                styles.append("color: #16a34a; font-weight: 700")
+                styles.append("color: #16a34a; font-weight: 400")
             elif "\u25cb" in s:        # ○ Guardado
-                styles.append("color: #6b7280")
+                styles.append("color: #000000")
             else:
                 styles.append("")
         return styles
@@ -338,20 +323,20 @@ st.markdown(
 border:1.4px solid #cbd5e1;border-radius:26px;padding:32px 36px;box-shadow:0 1px 4px rgba(15,23,42,.045);margin-bottom:18px;overflow:hidden;min-height:146px}
 .home-ref-hero-text{flex:1;z-index:1}
 .home-ref-hero-title{margin:0;font-size:30px;font-weight:900;color:#0b2a5b;letter-spacing:-.03em;line-height:1.1}
-.home-ref-hero-sub{margin-top:8px;color:#4f6484;font-size:14.5px;font-weight:600;line-height:1.55}
+.home-ref-hero-sub{margin-top:8px;color:#000000;font-size:14.5px;font-weight:400;line-height:1.55}
 .home-ref-hero-illust{position:absolute;right:0;top:0;bottom:0;width:390px;pointer-events:none;opacity:.62}
 .home-ref-card{background:#ffffff;border:1.4px solid #cbd5e1;border-radius:24px;padding:22px 24px;box-shadow:0 1px 4px rgba(15,23,42,.045);margin-bottom:16px}
 .home-ref-section-title{display:flex;align-items:center;gap:11px;color:#0b2a5b;font-size:22px;font-weight:900;margin:16px 0 12px;letter-spacing:-.02em}
 .home-ref-card-title{display:flex;align-items:center;gap:13px;color:#0b2a5b;font-size:17px;font-weight:900;margin-bottom:14px}
 .home-ref-icon-soft{width:42px;height:42px;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 8px 18px rgba(37,99,235,.08)}
-.home-ref-desc{color:#425a7a;font-size:14.5px;line-height:1.65;margin:0}
+.home-ref-desc{color:#000000;font-size:14.5px;line-height:1.65;margin:0}
 .home-table-wrap{border:1px solid #cbd5e1;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(15,23,42,.045)}
 .home-table{width:100%;border-collapse:collapse;color:#0b2a5b;font-size:13.5px}
-.home-table th{text-align:left;background:#f4f8ff;color:#496789;font-weight:850;padding:11px 14px;border-bottom:1px solid #cbd5e1}
+.home-table th{text-align:left;background:#f4f8ff;color:#000000;font-weight:850;padding:11px 14px;border-bottom:1px solid #cbd5e1}
 .home-table td{padding:12px 14px;border-bottom:1px solid #eaf1f9}
 .home-status-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
 .home-status-active{background:#dcfce7;color:#16a34a;border:1px solid #86efac}
-.home-status-saved{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1}
+.home-status-saved{background:#f1f5f9;color:#000000;border:1px solid #cbd5e1}
 .home-status-dot{width:7px;height:7px;border-radius:999px;display:inline-block;flex-shrink:0}
 .home-status-dot-active{background:#22c55e}
 .home-status-dot-saved{background:#94a3b8}
@@ -374,7 +359,7 @@ border:1.4px solid #cbd5e1;border-radius:26px;padding:32px 36px;box-shadow:0 1px
 }
 .st-key-btn_eliminar_proyecto > button {
     background-color: #ffffff !important;
-    color: #6b7280 !important;
+    color: #000000 !important;
     border: 1px solid #e5e7eb !important;
     border-radius: 8px !important;
     font-weight: 500 !important;
@@ -744,7 +729,7 @@ st.markdown(
         <div class="home-ref-final-icon">{_svg_icon("trophy", 32)}</div>
         <div>
             <b>Resultado final esperado</b><br>
-            <div style="font-size:15.5px;color:#425a7a;margin-top:4px">Al completar las seis fases obtendrá el AEP bruto y neto estimado del parque eólico, incluyendo las pérdidas por estelas, disponibilidad y otros factores, con la capacidad de exportar reportes y datos para documentación del proyecto.</div>
+            <div style="font-size:15.5px;color:#000000;margin-top:4px">Al completar las seis fases obtendrá el AEP bruto y neto estimado del parque eólico, incluyendo las pérdidas por estelas, disponibilidad y otros factores, con la capacidad de exportar reportes y datos para documentación del proyecto.</div>
         </div>
     </div>
     <div class="home-ref-final-card">

@@ -724,7 +724,7 @@ st.markdown(
     div[data-testid="stFormSubmitButton"] > button {
         border-radius: 14px !important;
         padding: 0.72rem 1rem !important;
-        font-weight: 700 !important;
+        font-weight: 500 !important;
         border: 1px solid #cbd5e1 !important;
         box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05) !important;
         transition: all 0.18s ease !important;
@@ -779,10 +779,10 @@ st.markdown(
         z-index: 2;
     }
     .fase-hero-subtitle {
-        color: #64748b;
+        color: #000000;
         font-size: 0.94rem;
         line-height: 1.42;
-        font-weight: 700;
+        font-weight: 400;
         margin: 0;
         max-width: 74rem;
         position: relative;
@@ -840,10 +840,10 @@ st.markdown(
     .sma-phase-title-content p {
         margin: 0 !important;
         max-width: 74rem !important;
-        color: #64748b !important;
+        color: #000000 !important;
         font-size: 0.94rem !important;
         line-height: 1.42 !important;
-        font-weight: 700 !important;
+        font-weight: 500 !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"] {
         padding: 1.02rem 1.08rem !important;
@@ -899,7 +899,7 @@ st.markdown(
         flex-shrink: 0;
     }
     .muted-text {
-        color: #64748b;
+        color: #000000;
         font-size: 0.94rem;
         margin-bottom: 0.72rem;
     }
@@ -934,7 +934,7 @@ st.markdown(
     .metric-copy { min-width: 0; }
     .metric-label {
         font-size: 0.82rem;
-        color: #64748b;
+        color: #000000;
         margin-bottom: 0.16rem;
     }
     .metric-value {
@@ -969,7 +969,7 @@ st.markdown(
         padding: 0.42rem 0;
         border-bottom: 1px solid #edf2f7;
         font-size: 0.9rem;
-        color: #334155;
+        color: #000000;
     }
     .info-row:last-child { border-bottom: none; }
     .formula-strip {
@@ -978,7 +978,7 @@ st.markdown(
         border: 1px solid #cbd5e1;
         border-radius: 13px;
         padding: 0.72rem 0.96rem;
-        color: #334155;
+        color: #000000;
         font-size: 0.94rem;
         text-align: center;
     }
@@ -987,7 +987,7 @@ st.markdown(
         border: 1px solid #cbd5e1;
         border-radius: 16px;
         padding: 0.82rem 0.92rem;
-        color: #334155;
+        color: #000000;
         font-size: 0.92rem;
         line-height: 1.48;
     }
@@ -1235,7 +1235,7 @@ st.markdown(
     .f1-power-subtitle {
         margin: 0 !important;
         padding: 0.35rem 0 0 0 !important;
-        color: #64748b !important;
+        color: #000000 !important;
         font-size: 0.98rem !important;
         font-weight: 500 !important;
         line-height: 1.35 !important;

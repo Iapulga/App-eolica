@@ -1922,12 +1922,18 @@ def consultar_open_meteo(latitude: float, longitude: float, start_date, end_date
 
 
 @st.cache_data(show_spinner=False)
-def crear_grafica_nasa_hourly(df_nasa):
+def crear_grafica_nasa_hourly(df_nasa, webgl: bool = False):
+    # webgl=True usa Scattergl (WebGL) para render y zoom/pan fluidos de la serie
+    # horaria COMPLETA (decenas de miles de puntos) en el navegador. Por defecto
+    # False → go.Scatter (SVG), porque la exportación a imagen estática (kaleido)
+    # de los reportes NO renderiza WebGL de forma fiable. Solo la vista interactiva
+    # (Fase 2) pasa webgl=True; los llamadores de export usan el default (SVG).
     fig = go.Figure()
+    _Trace = go.Scattergl if webgl else go.Scatter
 
     if len(df_nasa) > 0:
         fig.add_trace(
-            go.Scatter(
+            _Trace(
                 x=df_nasa["timestamp"],
                 y=df_nasa["WS10M"],
                 mode="lines",
@@ -1937,7 +1943,7 @@ def crear_grafica_nasa_hourly(df_nasa):
         )
 
         fig.add_trace(
-            go.Scatter(
+            _Trace(
                 x=df_nasa["timestamp"],
                 y=df_nasa["WS50M"],
                 mode="lines",

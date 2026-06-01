@@ -45,6 +45,9 @@ def _convert_with_word_powershell(docx_path: str, pdf_path: str):
         "  $word.Visible = $false;"
         "  $word.DisplayAlerts = 0;"
         "  $doc = $word.Documents.Open($docx, $false, $true);"
+        "  try { $doc.Fields.Update() } catch {};"
+        "  try { foreach ($sect in $doc.Sections) { foreach ($hdr in $sect.Headers) { try { $hdr.Range.Fields.Update() } catch {} }; foreach ($ftr in $sect.Footers) { try { $ftr.Range.Fields.Update() } catch {} } } } catch {};"
+        "  try { $doc.TablesOfContents | ForEach-Object { try { $_.Update() } catch {} } } catch {};"
         f"  $doc.SaveAs([ref] $pdf, [ref] {WD_FORMAT_PDF});"
         "  $doc.Close($false);"
         "  $word.Quit();"
@@ -100,6 +103,33 @@ def _convert_with_word_com_pywin32(docx_path: str, pdf_path: str):
         word.Visible = False
         word.DisplayAlerts = 0
         document = word.Documents.Open(str(Path(docx_path).resolve()), ReadOnly=True)
+        # Refrescar TOC + campos antes de exportar a PDF
+        try:
+            document.Fields.Update()
+        except Exception:
+            pass
+        try:
+            for sect in document.Sections:
+                for hdr in sect.Headers:
+                    try:
+                        hdr.Range.Fields.Update()
+                    except Exception:
+                        pass
+                for ftr in sect.Footers:
+                    try:
+                        ftr.Range.Fields.Update()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        try:
+            for toc in document.TablesOfContents:
+                try:
+                    toc.Update()
+                except Exception:
+                    pass
+        except Exception:
+            pass
         document.SaveAs(str(Path(pdf_path).resolve()), FileFormat=WD_FORMAT_PDF)
         document.Close(False)
         document = None
@@ -141,6 +171,33 @@ def _convert_with_word_com_comtypes(docx_path: str, pdf_path: str):
         word.Visible = False
         word.DisplayAlerts = 0
         document = word.Documents.Open(str(Path(docx_path).resolve()), ReadOnly=True)
+        # Refrescar TOC + campos antes de exportar a PDF
+        try:
+            document.Fields.Update()
+        except Exception:
+            pass
+        try:
+            for sect in document.Sections:
+                for hdr in sect.Headers:
+                    try:
+                        hdr.Range.Fields.Update()
+                    except Exception:
+                        pass
+                for ftr in sect.Footers:
+                    try:
+                        ftr.Range.Fields.Update()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        try:
+            for toc in document.TablesOfContents:
+                try:
+                    toc.Update()
+                except Exception:
+                    pass
+        except Exception:
+            pass
         document.SaveAs(str(Path(pdf_path).resolve()), FileFormat=WD_FORMAT_PDF)
         document.Close(False)
         document = None

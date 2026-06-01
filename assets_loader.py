@@ -101,16 +101,24 @@ def _pages_mtime_stamp() -> tuple:
 
 
 @st.cache_data(show_spinner=False)
-def _build_all_phases_css(_stamp: tuple) -> str:
+def _build_all_phases_css(_stamp: tuple, exclude_page: str = "") -> str:
     """Lee todas las pages/*.py, extrae cada bloque <style> y los concatena.
 
     Cacheado por mtime de todos los archivos. Costo real solo al primer
     arranque o cuando editas alguna página.
+
+    `exclude_page` permite omitir el archivo de la página actual: esa página
+    ya inyecta su propio `<style>` en el cuerpo, así que incluirlo aquí
+    duplicaría sus reglas en el DOM. Excluirla evita reenviar ~su porción de
+    CSS dos veces por cada rerun, sin cambiar el resultado visual (las reglas
+    siguen presentes una vez, vía el `st.markdown` de la propia página).
     """
     if not _PAGES_DIR.exists():
         return ""
     parts: list[str] = []
     for py_file in sorted(_PAGES_DIR.glob("*.py")):
+        if exclude_page and py_file.name == exclude_page:
+            continue
         try:
             source = py_file.read_text(encoding="utf-8")
         except OSError:
@@ -122,8 +130,8 @@ def _build_all_phases_css(_stamp: tuple) -> str:
     return "\n\n".join(parts)
 
 
-def preload_all_phases_css() -> None:
-    """Inyecta el CSS combinado de TODAS las fases en un solo `<style>`.
+def preload_all_phases_css(current_page: str = "") -> None:
+    """Inyecta el CSS combinado de las OTRAS fases en un solo `<style>`.
 
     Idempotente y barata gracias al cache: llamarla al inicio de cada página
     cuesta esencialmente cero después del primer render del proceso.
@@ -132,7 +140,11 @@ def preload_all_phases_css() -> None:
     Fase 2..6 también están aplicadas en el DOM. Cuando navega a otra fase,
     el navegador no espera nada — los selectores `.st-key-fN_*` ya tienen
     sus reglas, no hay flash del diseño anterior entre páginas.
+
+    `current_page` (nombre de archivo, p.ej. "3_Fase_3_Velocidad_promedio.py")
+    se excluye del bloque combinado porque esa página ya inyecta su propio
+    `<style>`; así no se duplica su CSS en cada rerun.
     """
-    combined = _build_all_phases_css(_pages_mtime_stamp())
+    combined = _build_all_phases_css(_pages_mtime_stamp(), current_page)
     if combined:
         st.markdown(f"<style>\n{combined}\n</style>", unsafe_allow_html=True)
