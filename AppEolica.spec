@@ -120,7 +120,9 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,          # UPX puede causar falsos positivos en antivirus
-    console=True,       # True = ventana de consola visible (útil para ver errores)
+    console=False,      # False = sin ventana de consola (cmd oculto). Los logs se
+                        # redirigen a %LOCALAPPDATA%/AppEolica/app_log.txt desde
+                        # launcher.py (ver _redirect_output_when_windowed).
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

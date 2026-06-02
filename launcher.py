@@ -6,6 +6,38 @@ import time
 import webbrowser
 from pathlib import Path
 
+
+def _redirect_output_when_windowed() -> None:
+    """En el .exe compilado sin consola (console=False), Windows no asigna una
+    consola y PyInstaller deja `sys.stdout`/`sys.stderr` en None. Cualquier
+    `print(...)` (p.ej. perf.py) o log a stderr lanzaría una excepción y podría
+    romper el arranque. Redirigimos la salida a un archivo de log en
+    %LOCALAPPDATA%/AppEolica/app_log.txt — así nada crashea y, si hace falta
+    depurar, los mensajes quedan guardados. En dev (no frozen) no se toca nada.
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    try:
+        base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        log_dir = (Path(base) / "AppEolica") if base else (Path.home() / "AppEolica")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_handle = open(log_dir / "app_log.txt", "w", encoding="utf-8", errors="replace")
+        sys.stdout = log_handle
+        sys.stderr = log_handle
+    except Exception:
+        # Último recurso: descartar la salida para no dejar stdout/stderr en None.
+        try:
+            devnull = open(os.devnull, "w")
+            sys.stdout = devnull
+            sys.stderr = devnull
+        except Exception:
+            pass
+
+
+_redirect_output_when_windowed()
+
 # Fuerza modo producción ANTES de cargar Streamlit
 os.environ["STREAMLIT_GLOBAL_DEVELOPMENT_MODE"] = "false"
 os.environ["STREAMLIT_SERVER_HEADLESS"] = "true"
@@ -116,6 +148,84 @@ def open_browser_when_ready(host: str, port: int) -> None:
             pass
 
 
+# Contador de websockets VIVOS (pestañas abiertas). Es la señal fiable de
+# "hay una pestaña abierta": el websocket se cierra al instante al cerrar la
+# pestaña (a diferencia de las conexiones HTTP keep-alive, que quedan en el pool;
+# y a diferencia del 'estado' del runtime, que Streamlit retiene tras desconectar).
+_WS_STATE = {"count": 0, "seen": False}
+
+
+def _install_ws_counter() -> bool:
+    """Monkeypatch del handler de websockets de Streamlit para contar pestañas
+    vivas. Debe instalarse ANTES de que el servidor acepte conexiones. Idempotente.
+    """
+    try:
+        import streamlit.web.server.browser_websocket_handler as bwh
+    except Exception:
+        return False
+    H = bwh.BrowserWebSocketHandler
+    if getattr(H, "_sma_patched", False):
+        return True
+    orig_open = H.open
+    orig_close = H.on_close
+
+    def _open(self, *a, **k):
+        try:
+            _WS_STATE["count"] += 1
+            _WS_STATE["seen"] = True
+        except Exception:
+            pass
+        return orig_open(self, *a, **k)
+
+    def _on_close(self, *a, **k):
+        try:
+            _WS_STATE["count"] = max(0, _WS_STATE["count"] - 1)
+        except Exception:
+            pass
+        return orig_close(self, *a, **k)
+
+    H.open = _open
+    H.on_close = _on_close
+    H._sma_patched = True
+    return True
+
+
+def _shutdown_when_no_sessions(port: int = 8501) -> None:
+    """Cierra el proceso cuando se cierra la pestaña del navegador.
+
+    Sin consola, al cerrar la pestaña el servidor quedaría corriendo en segundo
+    plano. Usamos el contador de websockets vivos (`_WS_STATE`): una vez que se
+    abrió al menos una pestaña, si quedan 0 websockets durante un margen (para
+    tolerar la breve desconexión de las recargas al cambiar de fase, que reabren
+    el websocket enseguida), detenemos el runtime y terminamos el proceso.
+
+    Antes de la primera conexión NO hace nada, así que no se cierra al arrancar.
+    """
+    _install_ws_counter()
+    POLL = 1.0
+    GRACE_SECONDS = 6.0  # tolera recargas/navegación entre fases (reconexión rápida)
+    empty_for = 0.0
+
+    while True:
+        time.sleep(POLL)
+        if not _WS_STATE["seen"]:
+            continue  # aún no se ha conectado ninguna pestaña
+        if _WS_STATE["count"] > 0:
+            empty_for = 0.0
+        else:
+            empty_for += POLL
+            if empty_for >= GRACE_SECONDS:
+                try:
+                    from streamlit.runtime import exists, get_instance
+                    if exists():
+                        get_instance().stop()
+                except Exception:
+                    pass
+                time.sleep(0.3)
+                os._exit(0)
+        # Estado INITIAL o NO_SESSIONS_CONNECTED antes de la 1ª conexión: no hacer nada.
+
+
 def run_app() -> None:
     app_file = resource_path("Inicio.py")
 
@@ -125,7 +235,28 @@ def run_app() -> None:
     host = "127.0.0.1"
     port = 8501
 
-    # Refuerza configuración en tiempo de ejecución
+    # ── CLAVE anti-FOUC del .exe ──────────────────────────────────────────
+    # Streamlit busca `.streamlit/config.toml` en el CWD. En `streamlit run`
+    # (VS Code) el CWD es la carpeta del proyecto → encuentra la config y aplica
+    # showSidebarNavigation=false, toolbarMode=minimal y el tema DESDE el primer
+    # frame. En el .exe el CWD es donde está el ejecutable, NO la carpeta del
+    # bundle (`_internal`), así que NO encontraba la config y el primer pintado
+    # mostraba el diseño por defecto de Streamlit (el sidebar-nav automático y la
+    # barra "Deploy"). Las env vars de cliente NO sustituyen esto (Streamlit las
+    # ignora para client.*). Solución: en modo frozen, cambiar el CWD a la carpeta
+    # del bundle (que contiene `.streamlit/config.toml`) y re-parsear la config.
+    if getattr(sys, "frozen", False):
+        bundle_dir = getattr(sys, "_MEIPASS", None)
+        if bundle_dir and os.path.isdir(os.path.join(bundle_dir, ".streamlit")):
+            try:
+                os.chdir(bundle_dir)
+                st_config.get_config_options(force_reparse=True)
+            except Exception:
+                pass
+
+    # Refuerza configuración en tiempo de ejecución (tras el reparse, para que
+    # estos valores ganen). showSidebarNavigation y toolbarMode se fijan también
+    # por código: son los que causaban el flash del diseño por defecto.
     st_config.set_option("global.developmentMode", False)
     st_config.set_option("server.headless", True)
     st_config.set_option("server.address", host)
@@ -135,6 +266,13 @@ def run_app() -> None:
     st_config.set_option("server.runOnSave", False)
     st_config.set_option("runner.magicEnabled", False)
     st_config.set_option("client.toolbarMode", "minimal")
+    st_config.set_option("client.showSidebarNavigation", False)
+    # Log limpio en producción (el cmd mostraba DEBUG muy verboso). Solo
+    # warnings/errores al archivo de log.
+    st_config.set_option("logger.level", "warning")
+
+    # Parchear el contador de websockets ANTES de levantar el servidor.
+    _install_ws_counter()
 
     threading.Thread(
         target=open_browser_when_ready,
@@ -144,6 +282,14 @@ def run_app() -> None:
 
     threading.Thread(
         target=_preload_heavy_modules,
+        daemon=True,
+    ).start()
+
+    # Vigilante: cierra el .exe cuando se cierra la pestaña del navegador
+    # (para que no quede el servidor corriendo en segundo plano sin consola).
+    threading.Thread(
+        target=_shutdown_when_no_sessions,
+        args=(port,),
         daemon=True,
     ).start()
 
