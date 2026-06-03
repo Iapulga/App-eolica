@@ -244,6 +244,19 @@ def verificar_archivos_clave_empaquetados():
     else:
         print("    [OK] Librerías de exportación (docx/openpyxl/kaleido/simplekml/PIL/folium) empaquetadas")
 
+    # ── Qt WebEngine (Chromium) de la carcasa de escritorio ──────────────────
+    # Sin el proceso satélite QtWebEngineProcess.exe (+ sus resources/locales), la
+    # ventana de la app abriría EN BLANCO. Es el fallo más común al empaquetar
+    # PySide6 WebEngine, así que se verifica explícitamente.
+    web_proc = list(internal.rglob("QtWebEngineProcess.exe"))
+    if not web_proc:
+        print("    [X] No se encontró QtWebEngineProcess.exe en el bundle.")
+        print("        La ventana de escritorio abriría EN BLANCO. NO distribuir.")
+        print("        Asegúrate de tener PySide6 (con Addons) instalado antes de compilar")
+        print("        para que los hooks de PyInstaller recolecten Qt WebEngine.")
+        sys.exit(1)
+    print(f"    [OK] Qt WebEngine empaquetado ({web_proc[0].relative_to(internal)})")
+
     print("    [OK] Todos los archivos críticos están presentes y al día")
 
 

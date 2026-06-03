@@ -274,11 +274,16 @@ def run_app() -> None:
     # Parchear el contador de websockets ANTES de levantar el servidor.
     _install_ws_counter()
 
-    threading.Thread(
-        target=open_browser_when_ready,
-        args=(host, port),
-        daemon=True,
-    ).start()
+    # No abrir el navegador del sistema cuando la carcasa de escritorio
+    # (desktop_shell.py) es la dueña de la UI: el server corre como proceso hijo
+    # con ALFA_NO_BROWSER=1 y la ventana Qt ya muestra la app. Sin esta guarda
+    # saldrían a la vez la ventana de escritorio y una pestaña del navegador.
+    if os.environ.get("ALFA_NO_BROWSER") != "1":
+        threading.Thread(
+            target=open_browser_when_ready,
+            args=(host, port),
+            daemon=True,
+        ).start()
 
     threading.Thread(
         target=_preload_heavy_modules,

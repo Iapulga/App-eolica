@@ -14,8 +14,14 @@ import os
 # runtime muchos de estos módulos (i18n_paises, gis_helpers, calculos_iec_site,
 # calculos_uncertainty, shadow_flicker, ruido_iso9613, etc.); si falta alguno,
 # la función que lo usa rompe en el .exe aunque funcione en VS Code.
-_EXCLUDE_ROOT_PY = {'build_exe.py', 'launcher.py'}  # launcher = entry; build_exe = herramienta de build
+# desktop_shell.py = entry (PyInstaller lo analiza como script); build_exe.py = herramienta de build.
+# launcher.py SÍ se incluye ahora (antes era el entry): el proceso hijo del servidor —que lanza la
+# carcasa de escritorio— hace `import launcher`, así que debe quedar como módulo importable.
+_EXCLUDE_ROOT_PY = {'build_exe.py', 'desktop_shell.py'}
 _root_py = sorted(f for f in glob.glob('*.py') if f not in _EXCLUDE_ROOT_PY)
+
+# Icono opcional de la app (taskbar / ejecutable). Si no existe, PyInstaller usa el icono por defecto.
+_icon = 'assets/app.ico' if os.path.isfile('assets/app.ico') else None
 
 datas = [(f, '.') for f in _root_py]
 datas += [
@@ -41,6 +47,13 @@ _root_modules = [
 
 binaries = []
 hiddenimports = [
+    # ── Carcasa de escritorio: PySide6 + Qt WebEngine (Chromium incrustado) ──
+    # Estos hiddenimports disparan los hooks oficiales de PyInstaller para PySide6,
+    # que recolectan automáticamente QtWebEngineProcess.exe + resources (icudtl.dat,
+    # *.pak) + qtwebengine_locales. Sin ellos el .exe abriría una ventana en blanco.
+    'PySide6', 'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets',
+    'PySide6.QtNetwork', 'PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
+    'PySide6.QtWebChannel',
     # Streamlit internals necesarios
     'streamlit.web.bootstrap',
     'streamlit.web.cli',
@@ -96,7 +109,7 @@ for pkg in METADATA_PKGS:
 
 # ── 5. Analysis ───────────────────────────────────────────────
 a = Analysis(
-    ['launcher.py'],
+    ['desktop_shell.py'],
     pathex=['.'],
     binaries=binaries,
     datas=datas,
@@ -116,6 +129,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='Alfa App',
+    icon=_icon,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
