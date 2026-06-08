@@ -653,14 +653,21 @@ def calcular_aep_serie_horaria(
         "wake_pct_h": wake_pct_h,
     })
 
-    aep_total = float(np.nansum(aep_h_mwh))
+    # La serie horaria puede abarcar varios años (p.ej. NASA POWER ~5 años de
+    # datos). Anualizamos dividiendo por el nº de años para obtener AEP/año,
+    # comparable con el método Weibull (que ya es anual) y con factor de planta
+    # físico (<100%). Sin esto, aep_total sumaría la energía de TODOS los años.
+    n_years = (n_hours / 8760.0) if n_hours > 0 else 1.0
+    if not np.isfinite(n_years) or n_years <= 0:
+        n_years = 1.0
+    aep_total = float(np.nansum(aep_h_mwh)) / n_years
 
     df_h_out["timestamp"] = pd.to_datetime(df_h_out["timestamp"], errors="coerce")
     df_with_ts = df_h_out.dropna(subset=["timestamp"])
     if len(df_with_ts) > 0:
         meses = df_with_ts["timestamp"].dt.month
         horas = df_with_ts["timestamp"].dt.hour
-        aep_por_mes = df_with_ts.groupby(meses)["aep_h_MWh"].sum()
+        aep_por_mes = df_with_ts.groupby(meses)["aep_h_MWh"].sum() / n_years
         heatmap = pd.DataFrame(
             df_with_ts.assign(mes=meses, hora=horas)
             .groupby(["mes", "hora"])["potencia_parque_W"]
