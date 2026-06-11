@@ -722,6 +722,21 @@ _AURORA_MAIN_CSS = """
 .fase-hero-subtitle{color:rgba(255,255,255,.93) !important}
 .hero-card .fase-hero-subtitle b, .hero-card .fase-hero-title b{color:#fff !important}
 
+/* Hero de Inicio (clases propias de la página de inicio) */
+.home-ref-hero{
+  background:linear-gradient(118deg,var(--ac) 0%, var(--ac2) 80%) !important;
+  border:none !important;
+  box-shadow:0 18px 38px color-mix(in srgb, var(--ac) 30%, transparent), inset 0 1px 0 rgba(255,255,255,.25) !important;
+}
+.home-ref-hero-title{color:#ffffff !important;text-shadow:0 1px 2px rgba(0,0,0,.14) !important}
+.home-ref-hero-sub{color:rgba(255,255,255,.93) !important}
+.home-ref-hero-illust{opacity:.9 !important;filter:brightness(4) saturate(.4)}
+
+/* Cápsulas de icono KPI con tinte de acento (estilo mockup Aurora) */
+[class*="-kpi-icon"], [class*="-sc-icon"], [class*="-icon-soft"]{
+  background:linear-gradient(135deg, color-mix(in srgb, var(--ac) 13%, #fff), color-mix(in srgb, var(--ac) 4%, #fff)) !important;
+}
+
 /* Franja de acento superior en las cards grandes (st.container con key) */
 div[class*="st-key-"][class*="card"] > div[data-testid="stVerticalBlockBorderWrapper"]{position:relative !important}
 div[class*="st-key-"][class*="card"] > div[data-testid="stVerticalBlockBorderWrapper"]::before{

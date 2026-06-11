@@ -237,6 +237,14 @@ st.markdown(
     padding: 1.1rem 1.2rem 1.1rem 1.2rem !important;
 }
 .st-key-f6_card_secciones [data-testid="stRadio"] label{font-weight:700 !important}
+.f6-divider{display:flex;align-items:center;gap:13px;margin:4px 2px 14px}
+.f6-divider .dx{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--dc,#0d9488) 88%, #fff), var(--dc,#0d9488));color:#fff;
+  box-shadow:0 8px 18px color-mix(in srgb, var(--dc,#0d9488) 35%, transparent)}
+.f6-divider b{font-size:15.5px;letter-spacing:-.01em;display:block}
+.f6-divider small{display:block;font-size:10.5px;color:#5a6b85;font-weight:700}
+.f6-divider .dline{flex:1;height:2px;border-radius:2px;
+  background:linear-gradient(90deg, color-mix(in srgb, var(--dc,#0d9488) 45%, #fff), transparent)}
 div[data-testid="stButton"] > button,div[data-testid="stDownloadButton"] > button{border-radius:12px !important;min-height:42px !important;font-weight:800 !important}
 </style>
 """,
@@ -1887,6 +1895,20 @@ def _render_auditoria() -> None:
             "aves → EN03, IEC (validación de Fase 5) → IEC01/IEC03. Los ítems sociales son de verificación manual."
         )
 
+
+_F6_DIVISORES = {
+    "Sitio y cumplimiento": ("🗺️", "Idoneidad IEC · terreno · clima frío", "#0d9488"),
+    "Ambiental": ("🌿", "Receptores · ruido · flicker · avifauna · huella CO₂", "#16a34a"),
+    "Operación y red": ("⚡", "SCADA real · curtailment · planta híbrida", "#d97706"),
+    "Optimización y fin de vida": ("🎯", "Layout óptimo · repotenciación", "#7c3aed"),
+    "Auditoría": ("📋", "Pre-audit checklist estilo DNV", "#0b66c2"),
+}
+_div_emoji, _div_sub, _div_color = _F6_DIVISORES[seccion]
+st.markdown(
+    f'<div class="f6-divider" style="--dc:{_div_color}"><div class="dx">{_div_emoji}</div>'
+    f'<div><b>{_escape(seccion)}</b><small>{_div_sub}</small></div><div class="dline"></div></div>',
+    unsafe_allow_html=True,
+)
 
 if seccion == "Sitio y cumplimiento":
     _render_sitio_cumplimiento()
