@@ -285,6 +285,21 @@ DEFAULT_CONFIG = {
     # B6 - Multi-curva
     "f1_curves_activas_count": "1",
     "f1_default_curve_id": "default",
+
+    # Fase 6 - Estudios avanzados
+    "f6_receptores_json": "",
+    "f6_ruido_lwa_db": "105.0",
+    "f6_ruido_lim_diurno": "50.0",
+    "f6_ruido_lim_nocturno": "40.0",
+    "f6_flicker_limite_h": "30.0",
+    "f6_aves_tabla_json": "",
+    "f6_cap_inyeccion_mw": "",
+    "f6_disp_red_pct": "98.0",
+    "f6_opt_maxiter": "5",
+    "f6_flow_pixel_m": "30.0",
+    "f6_flow_l_hill_m": "",
+    "f5_ruido_max_db": "",
+    "f5_flicker_max_h": "",
 }
 
 
@@ -553,8 +568,32 @@ def _crear_backup_db(motivo: str = "auto") -> None:
         pass
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 SCHEMA_VERSION_KEY = "_schema_version"
+
+# Migración v3: la Fase 6 (Exportar y guardar) pasó a ser Fase 7; sus claves
+# persistidas cambian de prefijo. WHITELIST exacta — nunca renombrar por
+# prefijo: la nueva Fase 6 (Estudios avanzados) usa claves f6_* propias.
+_F6_A_F7_KEYS = {
+    "f6_bankable_project_name": "f7_bankable_project_name",
+    "f6_bankable_autor": "f7_bankable_autor",
+    "f6_bankable_cliente": "f7_bankable_cliente",
+    "f6_country_code": "f7_country_code",
+    "f6_report_lang": "f7_report_lang",
+}
+
+
+def _renombrar_claves_config_f6_a_f7(cur) -> None:
+    """Renombra en app_config las claves de la antigua Fase 6 → Fase 7.
+
+    Idempotente: si la clave nueva ya existe, el UPDATE se ignora y el
+    DELETE limpia la fila vieja. Se invoca en la migración v3 y también al
+    restaurar proyectos (guardados antes de la renumeración reintroducen
+    las claves viejas).
+    """
+    for old, new in _F6_A_F7_KEYS.items():
+        cur.execute("UPDATE OR IGNORE app_config SET key = ? WHERE key = ?", (new, old))
+        cur.execute("DELETE FROM app_config WHERE key = ?", (old,))
 
 
 def _aplicar_migraciones_schema() -> None:
@@ -585,6 +624,9 @@ def _aplicar_migraciones_schema() -> None:
         # Ejemplo:
         # if current < 2:
         #     cur.execute("ALTER TABLE ... ADD COLUMN ...")
+
+        if current < 3:
+            _renombrar_claves_config_f6_a_f7(cur)
 
         cur.execute(
             "INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)",
@@ -630,10 +672,22 @@ def cargar_config():
 
 
 def guardar_config_values(values: dict):
+    # Diff-check: las páginas llaman esto en cada rerun con los mismos valores.
+    # Si nada cambió, NO escribir — una escritura cambia el mtime de la DB e
+    # invalida TODO el cache de lecturas (config, curva, NASA, layout), forzando
+    # releerlo de SQLite en el siguiente rerun. Saltarla mantiene la app fluida.
+    try:
+        actual = _cargar_config_cached(_db_cache_stamp())
+        cambios = {k: v for k, v in values.items() if str(actual.get(str(k))) != str(v)}
+    except Exception:
+        cambios = dict(values)
+    if not cambios:
+        return
+
     conn = get_connection()
     cur = conn.cursor()
 
-    for key, value in values.items():
+    for key, value in cambios.items():
         cur.execute(
             "INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)",
             (str(key), str(value))
@@ -1124,6 +1178,9 @@ def cargar_proyecto(nombre_proyecto):
             item.get("metrics_json"),
         ))
 
+    # Proyectos guardados antes de la renumeración traen claves f6_* viejas.
+    _renombrar_claves_config_f6_a_f7(cur)
+
     conn.commit()
     conn.close()
     _clear_cached_reads()
@@ -1211,6 +1268,9 @@ def importar_proyecto_desde_json_texto(json_texto):
             item.get("settings_json"),
             item.get("metrics_json"),
         ))
+
+    # Proyectos exportados antes de la renumeración traen claves f6_* viejas.
+    _renombrar_claves_config_f6_a_f7(cur)
 
     conn.commit()
     conn.close()

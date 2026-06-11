@@ -677,6 +677,149 @@ def _load_global_css(current_script: str = "") -> None:
     _preload_all_phases_css(Path(current_script).name if current_script else "")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Rediseño "Aurora": color de acento por fase + sidebar pills + stepper global.
+# Todo es HTML/CSS (sin JS): compatible con QtWebEngine (Chromium) y con el
+# mecanismo anti-FOUC existente (assets_loader recolecta los <style>).
+# ─────────────────────────────────────────────────────────────────────────────
+_PHASE_META = [
+    # (script, etiqueta, nombre, emoji, acento, acento_oscuro)
+    ("Inicio.py", "Inicio", "Panel inicial", "🏠", "#2563eb", "#1e40af"),
+    ("pages/1_Fase_1_Aerogenerador.py", "Fase 1", "Aerogenerador", "🌀", "#0284c7", "#075985"),
+    ("pages/2_Fase_2_Perfiles_de_viento.py", "Fase 2", "Perfiles de viento", "🌬️", "#0891b2", "#155e75"),
+    ("pages/3_Fase_3_Velocidad_promedio.py", "Fase 3", "Velocidad promedio", "🧭", "#4f46e5", "#3730a3"),
+    ("pages/4_Fase_4_Estelas_y_arreglo.py", "Fase 4", "Estelas y arreglo", "🌪️", "#7c3aed", "#5b21b6"),
+    ("pages/5_Fase_5_AEP_bruta_y_neta.py", "Fase 5", "AEP bruta y neta", "⚡", "#059669", "#065f46"),
+    ("pages/6_Fase_6_Estudios_avanzados.py", "Fase 6", "Estudios avanzados", "🔬", "#0d9488", "#115e59"),
+    ("pages/7_Fase_7_Exportar_y_guardar.py", "Fase 7", "Exportar y guardar", "📦", "#d97706", "#92400e"),
+]
+
+
+def _phase_index(current_script: str) -> int:
+    for i, meta in enumerate(_PHASE_META):
+        if meta[0] == current_script:
+            return i
+    return 0
+
+
+# Skin global Aurora para el contenido (hero con gradiente del acento, franja
+# de acento en cards, pulido de KPIs). Usa !important porque el CSS local de
+# cada página se inyecta DESPUÉS de este bloque.
+_AURORA_MAIN_CSS = """
+<style id="aurora-main">
+.hero-card{
+  background:linear-gradient(118deg,var(--ac) 0%, var(--ac2) 80%) !important;
+  border:none !important;
+  box-shadow:0 18px 38px color-mix(in srgb, var(--ac) 30%, transparent), inset 0 1px 0 rgba(255,255,255,.25) !important;
+}
+.hero-card::after{
+  background:
+    radial-gradient(circle at 86% 14%, rgba(255,255,255,.20) 0 52px, transparent 53px),
+    radial-gradient(circle at 95% 64%, rgba(255,255,255,.12) 0 84px, transparent 85px) !important;
+  opacity:1 !important;
+}
+.fase-hero-title{color:#ffffff !important;text-shadow:0 1px 2px rgba(0,0,0,.14)}
+.fase-hero-subtitle{color:rgba(255,255,255,.93) !important}
+.hero-card .fase-hero-subtitle b, .hero-card .fase-hero-title b{color:#fff !important}
+
+/* Franja de acento superior en las cards grandes (st.container con key) */
+div[class*="st-key-"][class*="card"] > div[data-testid="stVerticalBlockBorderWrapper"]{position:relative !important}
+div[class*="st-key-"][class*="card"] > div[data-testid="stVerticalBlockBorderWrapper"]::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:4px;z-index:5;
+  border-radius:28px 28px 0 0;
+  background:linear-gradient(90deg, var(--ac), color-mix(in srgb, var(--ac) 25%, #fff) 70%, transparent);
+}
+
+/* Pulido global de los KPI existentes (todas las fases comparten el sufijo) */
+[class*="-kpi-icon"], [class*="-icon-soft"]{
+  box-shadow:0 6px 14px color-mix(in srgb, var(--ac) 16%, transparent) !important;
+}
+[class*="-kpi-card"]{transition:box-shadow .18s !important}
+
+/* Stepper de fases (emitido por navigation en todas las páginas) */
+.aurora-stepper{display:flex;align-items:center;background:#fff;border:1px solid #dce7f5;border-radius:18px;
+  padding:10px 16px;margin:0 0 14px 0;box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06)}
+.aurora-step{display:flex;align-items:center;gap:8px;flex:1;min-width:0;text-decoration:none !important}
+.aurora-step .sdot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:14px;background:#f3f8ff;border:2px solid #dce7f5;flex-shrink:0}
+.aurora-step span{font-size:10px;font-weight:800;color:#5a6b85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aurora-step .sbar{flex:1;height:3.5px;border-radius:2px;background:#dce7f5;margin:0 7px}
+.aurora-step.done .sdot{background:#f0fdf4;border-color:#86efac}
+.aurora-step.done .sbar{background:linear-gradient(90deg,#86efac,#bbf7d0)}
+.aurora-step.current .sdot{background:linear-gradient(135deg,var(--ac),var(--ac2));border-color:var(--ac);color:#fff;
+  animation:aurorapulse 2s infinite}
+.aurora-step.current span{color:var(--ac)}
+@keyframes aurorapulse{0%,100%{box-shadow:0 0 0 4px color-mix(in srgb,var(--ac) 22%,transparent)}50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--ac) 8%,transparent)}}
+</style>
+"""
+
+# Sidebar Aurora: re-estiliza las clases existentes del sidebar (se inyecta
+# DESPUÉS de get_sidebar_css(), así sus reglas ganan en cascada).
+_AURORA_SIDEBAR_CSS = """
+<style id="aurora-sidebar">
+.sidebar-link{padding:0.55rem 0.6rem !important;border-radius:15px !important;gap:0.7rem !important}
+.sidebar-link__icon{
+  width:38px !important;height:38px !important;border-radius:12px !important;font-size:17px !important;
+  background:#ffffff !important;border:1px solid #dce7f5 !important;
+  box-shadow:0 2px 5px rgba(11,36,71,.05) !important;
+}
+.sidebar-link.is-active{
+  background:linear-gradient(120deg, color-mix(in srgb, var(--ic) 12%, #fff), color-mix(in srgb, var(--ic) 5%, #fff)) !important;
+  border:1px solid color-mix(in srgb, var(--ic) 45%, #fff) !important;
+  box-shadow:0 10px 22px color-mix(in srgb, var(--ic) 20%, transparent) !important;
+}
+.sidebar-link.is-active .sidebar-link__icon{
+  background:linear-gradient(135deg, var(--ic), var(--ic2)) !important;
+  border-color:transparent !important;
+  box-shadow:0 6px 14px color-mix(in srgb, var(--ic) 40%, transparent) !important;
+}
+.sidebar-link.is-active .sidebar-link__phase{color:var(--ic) !important}
+.sidebar-link.is-active .sidebar-link__name{color:color-mix(in srgb, var(--ic) 80%, #000) !important}
+.sidebar-link.is-done .sidebar-link__icon{background:#f0fdf4 !important;border-color:#bbf7d0 !important}
+.sidebar-link__check{
+  margin-left:auto;width:18px;height:18px;border-radius:50%;background:#dcfce7;color:#15803d;
+  font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.sidebar-link__phase{font-size:0.86rem !important}
+.sidebar-link__name{font-size:0.8rem !important;font-weight:500 !important;color:#5a6b85 !important}
+.aurora-progress{margin:0.9rem 0.55rem 0;padding:0.7rem;border-radius:15px;background:#fff;
+  border:1px solid #dce7f5;text-align:center;box-shadow:0 4px 12px rgba(11,36,71,.05)}
+.aurora-progress small{color:#5a6b85;font-weight:800;font-size:0.6rem;text-transform:uppercase;letter-spacing:.08em}
+</style>
+"""
+
+
+def _render_aurora_accent(idx: int) -> str:
+    ac, ac2 = _PHASE_META[idx][4], _PHASE_META[idx][5]
+    return f"<style id='aurora-accent'>:root{{--ac:{ac};--ac2:{ac2};}}</style>"
+
+
+def _render_stepper(idx: int) -> str:
+    pasos = []
+    for i, (script, label, _nombre, emoji, _ac, _ac2) in enumerate(_PHASE_META):
+        clase = "current" if i == idx else ("done" if i < idx else "")
+        barra = '<div class="sbar"></div>' if i < len(_PHASE_META) - 1 else ""
+        pasos.append(
+            f'<a class="aurora-step {clase}" href="{_sidebar_href(script)}" target="_self">'
+            f'<div class="sdot">{emoji}</div><span>{label}</span>{barra}</a>'
+        )
+    return f'<div class="aurora-stepper">{"".join(pasos)}</div>'
+
+
+def _render_progress_ring(idx: int) -> str:
+    pct = int(idx / (len(_PHASE_META) - 1) * 100)
+    dash = pct * 2.01
+    return f"""
+    <div class="aurora-progress"><small>Progreso del proyecto</small>
+      <svg viewBox="0 0 80 80" width="72" style="margin:6px auto 0;display:block">
+        <circle cx="40" cy="40" r="32" fill="none" stroke="#e9f0fa" stroke-width="9"/>
+        <circle cx="40" cy="40" r="32" fill="none" stroke="var(--ac)" stroke-width="9" stroke-linecap="round"
+          stroke-dasharray="{dash:.0f} 999" transform="rotate(-90 40 40)"/>
+        <text x="40" y="46" text-anchor="middle" font-size="17" font-weight="900" fill="#0b2447">{pct}%</text>
+      </svg>
+    </div>"""
+
+
 def render_dropdown_visibility_fix() -> None:
     """Late CSS override for Streamlit expanders and dropdown menus.
 
@@ -773,15 +916,7 @@ def render_sidebar_navigation(current_script: str):
     except Exception:
         # No interrumpir la navegación si el helper no está disponible
         pass
-    phase_links = [
-        ("Inicio.py", "Inicio", "Panel inicial", "home"),
-        ("pages/1_Fase_1_Aerogenerador.py", "Fase 1", "Aerogenerador", "turbine"),
-        ("pages/2_Fase_2_Perfiles_de_viento.py", "Fase 2", "Perfiles de viento", "profile"),
-        ("pages/3_Fase_3_Velocidad_promedio.py", "Fase 3", "Velocidad promedio", "waves"),
-        ("pages/4_Fase_4_Estelas_y_arreglo.py", "Fase 4", "Estelas y arreglo", "layout"),
-        ("pages/5_Fase_5_AEP_bruta_y_neta.py", "Fase 5", "AEP bruta y neta", "document"),
-        ("pages/6_Fase_6_Exportar_y_guardar.py", "Fase 6", "Exportar y guardar", "export"),
-    ]
+    idx_actual = _phase_index(current_script)
 
     sidebar_brand_html = textwrap.dedent(
         f"""
@@ -798,26 +933,33 @@ def render_sidebar_navigation(current_script: str):
     ).strip()
 
     nav_items = []
-    for page_path, phase_label, phase_name, icon_name in phase_links:
+    for i, (page_path, phase_label, phase_name, emoji, ac, ac2) in enumerate(_PHASE_META):
         is_active = page_path == current_script
-        icon_color = "#2563eb" if is_active else "#475569"
-        active_class = " is-active" if is_active else ""
+        estado = " is-active" if is_active else (" is-done" if i < idx_actual else "")
+        check = '<span class="sidebar-link__check">✓</span>' if i < idx_actual else ""
         nav_items.append(
             textwrap.dedent(
                 f"""
-                <a class="sidebar-link{active_class}" href="{_sidebar_href(page_path)}" target="_self">
-                    <span class="sidebar-link__icon">{_icon_svg(icon_name, 24, icon_color)}</span>
+                <a class="sidebar-link{estado}" href="{_sidebar_href(page_path)}" target="_self" style="--ic:{ac};--ic2:{ac2}">
+                    <span class="sidebar-link__icon">{emoji}</span>
                     <span class="sidebar-link__copy">
                         <span class="sidebar-link__phase">{phase_label}</span>
                         <span class="sidebar-link__name">{phase_name}</span>
-                    </span>
+                    </span>{check}
                 </a>
                 """
             ).strip()
         )
     sidebar_nav_html = f'<div class="sidebar-nav">{"".join(nav_items)}</div>'
 
+    # Acento de la fase + skin Aurora + stepper en el contenido principal.
+    st.markdown(_render_aurora_accent(idx_actual), unsafe_allow_html=True)
+    st.markdown(_AURORA_MAIN_CSS, unsafe_allow_html=True)
+    st.markdown(_render_stepper(idx_actual), unsafe_allow_html=True)
+
     st.sidebar.markdown(get_sidebar_css(), unsafe_allow_html=True)
+    st.sidebar.markdown(_AURORA_SIDEBAR_CSS, unsafe_allow_html=True)
     st.sidebar.markdown(sidebar_brand_html, unsafe_allow_html=True)
     st.sidebar.markdown(sidebar_nav_html, unsafe_allow_html=True)
+    st.sidebar.markdown(_render_progress_ring(idx_actual), unsafe_allow_html=True)
 

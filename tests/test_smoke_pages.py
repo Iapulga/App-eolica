@@ -36,7 +36,8 @@ PAGES = [
     "pages/3_Fase_3_Velocidad_promedio.py",
     "pages/4_Fase_4_Estelas_y_arreglo.py",
     "pages/5_Fase_5_AEP_bruta_y_neta.py",
-    "pages/6_Fase_6_Exportar_y_guardar.py",
+    "pages/6_Fase_6_Estudios_avanzados.py",
+    "pages/7_Fase_7_Exportar_y_guardar.py",
 ]
 
 

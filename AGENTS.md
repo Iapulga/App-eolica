@@ -54,7 +54,7 @@ Files to fix:
 - `pages/1_Fase_1_Aerogenerador.py` — `.st-key-f1_card_g` line ~1121
 - `pages/4_Fase_4_Estelas_y_arreglo.py` — find card wrapping expanders
 - `pages/5_Fase_5_AEP_bruta_y_neta.py` — find card wrapping expanders
-- `pages/6_Fase_6_Exportar_y_guardar.py` — find card wrapping expanders
+- `pages/7_Fase_7_Exportar_y_guardar.py` — find card wrapping expanders
 
 Phase 3 already has `overflow: visible` on `f3_card_expanders` — skip it.
 

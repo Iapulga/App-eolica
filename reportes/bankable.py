@@ -485,7 +485,7 @@ def construir_contexto_bankable(config, runtime_context=None, project_metadata=N
     project_metadata = project_metadata or {}
     runtime_context = runtime_context or {}
 
-    pais_code = project_metadata.get("country_code") or config.get("f6_country_code", "OTRO")
+    pais_code = project_metadata.get("country_code") or config.get("f7_country_code", "OTRO")
     pais_nombre = project_metadata.get("country_nombre") or "Custom"
     pais_profile = {}
     try:
@@ -535,8 +535,8 @@ def construir_contexto_bankable(config, runtime_context=None, project_metadata=N
         "fecha_generacion": datetime.now(UTC).isoformat(),
         "metadata": {
             "project_name": project_metadata.get("project_name", config.get("project_name", "Proyecto sin nombre")),
-            "autor": project_metadata.get("autor", config.get("f6_bankable_autor", "—")),
-            "cliente": project_metadata.get("cliente", config.get("f6_bankable_cliente", "—")),
+            "autor": project_metadata.get("autor", config.get("f7_bankable_autor", "—")),
+            "cliente": project_metadata.get("cliente", config.get("f7_bankable_cliente", "—")),
             "lat": _safe_get(config, "nasa_lat"),
             "lon": _safe_get(config, "nasa_lon"),
             "version_sma": "2.0 Fase D",

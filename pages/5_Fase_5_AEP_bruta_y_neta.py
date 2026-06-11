@@ -3826,7 +3826,7 @@ with st.container(border=True, key="f5_card_export"):
     _render_f5_section_header_card(_f5_icon_svg("export", "#2563eb", 20), "Exportación y guardado final")
     _render_f5_info(
         "Guarde su análisis y exporte los resultados en los formatos que necesita. "
-        "Las exportaciones finales se preparan para la Fase 6 con el contexto calculado aquí."
+        "Las exportaciones finales se preparan para la Fase 7 con el contexto calculado aquí."
     )
     st.markdown(
         '<div class="f5-ref-export-grid">'
@@ -3841,17 +3841,17 @@ with st.container(border=True, key="f5_card_export"):
 
     exp1, exp2, exp3, exp4, exp5 = st.columns(5, gap="medium")
     with exp1:
-        st.page_link("pages/6_Fase_6_Exportar_y_guardar.py", label="Exportar PDF", icon=":material/picture_as_pdf:", use_container_width=True)
+        st.page_link("pages/7_Fase_7_Exportar_y_guardar.py", label="Exportar PDF", icon=":material/picture_as_pdf:", use_container_width=True)
     with exp2:
-        st.page_link("pages/6_Fase_6_Exportar_y_guardar.py", label="Exportar Excel", icon=":material/table_view:", use_container_width=True)
+        st.page_link("pages/7_Fase_7_Exportar_y_guardar.py", label="Exportar Excel", icon=":material/table_view:", use_container_width=True)
     with exp3:
-        st.page_link("pages/6_Fase_6_Exportar_y_guardar.py", label="Exportar DOCX", icon=":material/description:", use_container_width=True)
+        st.page_link("pages/7_Fase_7_Exportar_y_guardar.py", label="Exportar DOCX", icon=":material/description:", use_container_width=True)
     with exp4:
-        st.page_link("pages/6_Fase_6_Exportar_y_guardar.py", label="Guardar proyecto", icon=":material/save:", use_container_width=True)
+        st.page_link("pages/7_Fase_7_Exportar_y_guardar.py", label="Guardar proyecto", icon=":material/save:", use_container_width=True)
     with exp5:
         st.page_link("pages/1_Fase_1_Aerogenerador.py", label="Cargar proyecto", icon=":material/folder_open:", use_container_width=True)
     st.caption(
-        f"Contexto disponible para Fase 6: {report_context['report_style_label']} "
+        f"Contexto disponible para Fase 7: {report_context['report_style_label']} "
         f"({project_context['mode_label']}, perfil: {project_context['profile_label']})."
     )
 

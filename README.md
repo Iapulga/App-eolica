@@ -22,7 +22,7 @@ SMA 2.0 es una alternativa libre y gratuita a herramientas comerciales como Wind
 - [Características](#características)
 - [Instalación](#instalación)
 - [Inicio rápido](#inicio-rápido)
-- [Flujo de las 6 fases](#flujo-de-las-6-fases)
+- [Flujo de las 7 fases](#flujo-de-las-7-fases)
 - [Módulos avanzados](#módulos-avanzados)
 - [Comparativa vs WindPRO / WAsP / OpenWind](#comparativa-vs-herramientas-comerciales)
 - [Validación científica](#validación-científica)
@@ -111,11 +111,12 @@ Disponible a partir de la release v1.0. Ver [Releases](https://github.com/alanda
    - **Fase 3**: ajustar Weibull/Rayleigh por sector.
    - **Fase 4**: definir el layout y calcular pérdidas por estela.
    - **Fase 5**: aplicar pérdidas detalladas, calcular AEP neto, LCOE y financiero.
-   - **Fase 6**: exportar reportes DOCX/PDF/KML.
+   - **Fase 6**: estudios avanzados (IEC, ruido, flicker, aves, SCADA, curtailment, híbrido, optimizador, pre-audit).
+   - **Fase 7**: exportar reportes DOCX/PDF/KML.
 
 ---
 
-## Flujo de las 6 fases
+## Flujo de las 7 fases
 
 | Fase | Objetivo | Entrada | Salida principal |
 |------|----------|---------|------------------|
@@ -124,13 +125,14 @@ Disponible a partir de la release v1.0. Ver [Releases](https://github.com/alanda
 | **3 — Rosa y velocidad** | Caracterizar el recurso por sector | Salida de F2 | Rosa 16 sectores, k & c por sector |
 | **4 — Estelas y arreglo** | Definir layout y calcular pérdidas por estela | Posiciones X/Y, modelo de estela | Pérdida por sector, AEP por turbina |
 | **5 — AEP bruta y neta** | Aplicar pérdidas y calcular economía | Pérdidas + CAPEX/OPEX + tasa | AEP P50–P99, LCOE, NPV, IRR |
-| **6 — Exportar y guardar** | Generar reportes y persistir el proyecto | Configuración del país, autor | DOCX, PDF, KML, JSON proyecto |
+| **6 — Estudios avanzados** | Estudios de sitio, ambientales, de red y de ciclo de vida | Resultados de F1–F5 + receptores/SCADA/DEM | IEC site suitability, ruido, flicker, aves, LCA, curtailment, híbrido, layout óptimo, pre-audit |
+| **7 — Exportar y guardar** | Generar reportes y persistir el proyecto | Configuración del país, autor | DOCX, PDF, KML, JSON proyecto |
 
 ---
 
 ## Módulos avanzados
 
-Más allá de las 6 fases, SMA 2.0 incluye módulos especializados activables desde las fases correspondientes:
+Los módulos especializados viven en la **Fase 6 · Estudios avanzados** (cada estudio corre bajo demanda con los datos de las fases anteriores):
 
 | Módulo | Archivo | Propósito |
 |--------|---------|-----------|

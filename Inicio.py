@@ -693,7 +693,8 @@ _phase_mini = [
     ("Fase 3", "Rosa de vientos y probabilidad de ocurrencia", "waves"),
     ("Fase 4", "Estelas y arreglo", "layout"),
     ("Fase 5", "AEP bruta y neta", "document"),
-    ("Fase 6", "Exportar y guardar", "export"),
+    ("Fase 6", "Estudios avanzados", "activity"),
+    ("Fase 7", "Exportar y guardar", "export"),
 ]
 
 _mini_cards_html = ""
@@ -729,14 +730,14 @@ st.markdown(
         <div class="home-ref-final-icon">{_svg_icon("trophy", 32)}</div>
         <div>
             <b>Resultado final esperado</b><br>
-            <div style="font-size:15.5px;color:#000000;margin-top:4px">Al completar las seis fases obtendrá el AEP bruto y neto estimado del parque eólico, incluyendo las pérdidas por estelas, disponibilidad y otros factores, con la capacidad de exportar reportes y datos para documentación del proyecto.</div>
+            <div style="font-size:15.5px;color:#000000;margin-top:4px">Al completar las siete fases obtendrá el AEP bruto y neto estimado del parque eólico, incluyendo las pérdidas por estelas, disponibilidad y otros factores, junto con estudios avanzados de sitio y la capacidad de exportar reportes y datos para documentación del proyecto.</div>
         </div>
     </div>
     <div class="home-ref-final-card">
         <div class="home-ref-final-icon">{_svg_icon("info", 32)}</div>
         <div>
             <b style="font-size:19px">Flujo recomendado de trabajo:</b>
-            <span style="font-size:18px;color:#2563eb;font-weight:700"> Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 6</span>
+            <span style="font-size:18px;color:#2563eb;font-weight:700"> Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 6 → Fase 7</span>
         </div>
     </div>
 </div>

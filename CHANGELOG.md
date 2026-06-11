@@ -8,6 +8,19 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Añadido
+- **Fase 6 · Estudios avanzados** (`pages/6_Fase_6_Estudios_avanzados.py`): nueva fase que
+  cablea a la UI los 13 módulos de cálculo que existían sin interfaz — IEC 61400-1 site
+  suitability, flujo lineal sobre terreno (Jackson-Hunt), clima frío/icing, ruido ISO 9613-2,
+  shadow flicker, colisión de aves (Band 2007), huella de carbono LCA, validación SCADA,
+  curtailment de red, planta híbrida viento+solar+BESS, optimizador de layout (Differential
+  Evolution), análisis de fin de vida (repowering) y pre-audit checklist DNV-style.
+- El `.exe` vuelve a incluir `scipy` (requerido por el optimizador de layout, el ajuste
+  Gumbel y las estadísticas del reporte bankable).
+
+### Cambiado
+- La fase de exportaciones pasa de **Fase 6 a Fase 7** (`pages/7_Fase_7_Exportar_y_guardar.py`);
+  sus claves persistidas `f6_*` migran automáticamente a `f7_*` (migración de esquema v3,
+  también al restaurar proyectos guardados con la numeración anterior).
 - Estructura open-source: `LICENSE` (MIT), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `pyproject.toml`, `requirements.txt`, `requirements-dev.txt`.
 - Workflow CI de GitHub Actions (lint + tests sobre Python 3.11 y 3.12).
 - Plantillas de issue y pull request.

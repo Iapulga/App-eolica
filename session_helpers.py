@@ -5,7 +5,7 @@ del script y limpiar claves de sesión pertenecientes a otras fases.
 """
 from __future__ import annotations
 
-PHASE_PREFIXES = ["f1_", "f2_", "f3_", "f4_", "f5_", "f6_"]
+PHASE_PREFIXES = ["f1_", "f2_", "f3_", "f4_", "f5_", "f6_", "f7_"]
 
 
 def _normalize_script(script: str) -> str:
@@ -28,6 +28,8 @@ def script_to_phase_prefix(script: str) -> str | None:
         return "f5_"
     if "6_fase_6" in s or "/pages/6_" in s:
         return "f6_"
+    if "7_fase_7" in s or "/pages/7_" in s:
+        return "f7_"
     return None
 
 

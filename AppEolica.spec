@@ -39,7 +39,9 @@ if os.path.isdir('.streamlit'):
 # disponibles y que PyInstaller analice sus dependencias. Se excluyen los
 # scripts/utilidades que NO deben ejecutarse durante el análisis (siguen
 # empaquetados como datos, importables si hiciera falta).
-_NO_HIDDENIMPORT = {'_verify_and_patch', 'pre_audit_checklist'}
+# pre_audit_checklist salió de la lista: ahora lo importa la Fase 6 (Estudios
+# avanzados) y es seguro de analizar (solo depende de pandas).
+_NO_HIDDENIMPORT = {'_verify_and_patch'}
 _root_modules = [
     os.path.splitext(f)[0] for f in _root_py
     if os.path.splitext(f)[0] not in _NO_HIDDENIMPORT
@@ -117,7 +119,10 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['matplotlib', 'tkinter', 'scipy', 'IPython', 'jupyter'],
+    # scipy YA NO se excluye: el optimizador de layout de Fase 6 requiere
+    # scipy.optimize.differential_evolution, y el ajuste Gumbel (calculos.py) +
+    # stats del bankable lo usan. Costo: ~80-120 MB más de bundle.
+    excludes=['matplotlib', 'tkinter', 'IPython', 'jupyter'],
     noarchive=False,
     optimize=0,
 )

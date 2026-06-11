@@ -1039,7 +1039,7 @@ def _build_executive_summary_section(project_name, config, phase5_context):
 
 
 def _build_phase6_section(config, phase5_context):
-    """Fase 6 - Exportacion y manifiesto del informe tecnico.
+    """Fase 7 - Exportacion y manifiesto del informe tecnico.
 
     Cierra el ciclo: documenta config de exportacion, formatos generados, LCOE
     basico (si disponible), y manifiesto de trazabilidad sin overlap con bankable.
@@ -1090,11 +1090,11 @@ def _build_phase6_section(config, phase5_context):
 
     return {
         "id": "fase6_exportacion",
-        "title": _normalize_spanish_text("Fase 6 - Exportacion y cierre del informe"),
+        "title": _normalize_spanish_text("Fase 7 - Exportacion y cierre del informe"),
         "description": _normalize_spanish_text(
             "Cierre formal del informe tecnico: configuracion de exportacion, trazabilidad y proximos pasos. "
             "Esta fase NO incluye analisis economico bankable (CAPEX/OPEX/NPV/LCOE detallado). "
-            "Para project finance use el modulo 'Reporte BANKABLE' en Fase 6 de la app."
+            "Para project finance use el modulo 'Reporte BANKABLE' en Fase 7 de la app."
         ),
         "subsections": [
             {"id": "fase6_config_export", "title": _normalize_spanish_text("Configuracion de exportacion"), "blocks": blocks_main},
@@ -1122,7 +1122,7 @@ def _build_informe_cover_section(project_name, config):
         ["Fuente datos", "NASA POWER API"],
         ["Generado (UTC)", fecha],
         ["Herramienta", "SMA 2.0 — modo INFORME TECNICO"],
-        ["Diferencia con bankable", "Este informe NO incluye P50/P75/P90, ni IEC 61400-15-2, ni analisis economico CAPEX/OPEX, ni risk register. Para evaluacion bankable use el modulo 'Reporte BANKABLE' en Fase 6."],
+        ["Diferencia con bankable", "Este informe NO incluye P50/P75/P90, ni IEC 61400-15-2, ni analisis economico CAPEX/OPEX, ni risk register. Para evaluacion bankable use el modulo 'Reporte BANKABLE' en Fase 7."],
     ]
     return {
         "id": "cover_informe_tecnico",
@@ -1180,7 +1180,7 @@ def build_informe_tecnico_word_model(config=None, project_name="", df_curva_raw=
             "AVISO: Este informe NO es un EYA bankable. No contiene Monte Carlo P50/P75/P90, "
             "ni analisis IEC 61400-15-2 de incertidumbre, ni analisis economico CAPEX/OPEX, "
             "ni risk register. Para soportar decision de inversion (FID, project finance) "
-            "genere el 'Reporte BANKABLE' desde la misma Fase 6."
+            "genere el 'Reporte BANKABLE' desde la misma Fase 7."
         ),
     ]
 
