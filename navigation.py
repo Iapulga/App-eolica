@@ -745,11 +745,30 @@ div[class*="st-key-"][class*="card"] > div[data-testid="stVerticalBlockBorderWra
   background:linear-gradient(90deg, var(--ac), color-mix(in srgb, var(--ac) 25%, #fff) 70%, transparent);
 }
 
-/* Pulido global de los KPI existentes (todas las fases comparten el sufijo) */
-[class*="-kpi-icon"], [class*="-icon-soft"]{
-  box-shadow:0 6px 14px color-mix(in srgb, var(--ac) 16%, transparent) !important;
+/* Pulido global de los KPI e iconos de sección (todas las fases comparten sufijos) */
+[class*="-icon-soft"]{
+  border-radius:14px !important;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--ac) 16%, #fff), color-mix(in srgb, var(--ac) 7%, #fff)) !important;
+  border:1.5px solid color-mix(in srgb, var(--ac) 35%, #fff) !important;
+  box-shadow:0 5px 12px color-mix(in srgb, var(--ac) 16%, transparent) !important;
 }
-[class*="-kpi-card"]{transition:box-shadow .18s !important}
+[class*="-kpi-icon"], [class*="-sc-icon"]{
+  background:linear-gradient(135deg, color-mix(in srgb, var(--ac) 14%, #fff), color-mix(in srgb, var(--ac) 5%, #fff)) !important;
+  box-shadow:0 5px 12px color-mix(in srgb, var(--ac) 16%, transparent) !important;
+}
+[class*="-kpi-card"]{transition:box-shadow .18s !important;border-radius:18px !important}
+[class*="-kpi-card"]:hover{box-shadow:0 12px 26px color-mix(in srgb, var(--ac) 16%, transparent) !important}
+
+/* Botones Streamlit con el acento de la fase */
+div[data-testid="stButton"] > button[kind="primary"],
+div[data-testid="stButton"] > button[data-testid="stBaseButton-primary"]{
+  background:linear-gradient(120deg, var(--ac), var(--ac2)) !important;
+  border:none !important;
+  box-shadow:0 8px 18px color-mix(in srgb, var(--ac) 30%, transparent) !important;
+}
+div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > button{
+  border-radius:12px !important;
+}
 
 /* Stepper de fases (emitido por navigation en todas las páginas) */
 .aurora-stepper{display:flex;align-items:center;background:#fff;border:1px solid #dce7f5;border-radius:18px;
