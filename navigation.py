@@ -489,11 +489,27 @@ def get_sidebar_css() -> str:
     [data-testid="stSidebar"],
     [data-testid="stSidebar"] > div:first-child,
     [data-testid="stSidebarContent"] {
-        background: #F3F8FF !important;
-        border-right: 1px solid #dbe7f3 !important;
+        background: linear-gradient(185deg, #ffffff 60%, #f3f8ff) !important;
+        border-right: 1px solid #dce7f5 !important;
+    }
+
+    section[data-testid="stSidebar"] {
+        width: 252px !important;
+        min-width: 252px !important;
+        max-width: 252px !important;
     }
 
     section[data-testid="stSidebar"] [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
+
+    /* Main como el mockup Aurora: header fuera, contenido 1480px a la izquierda */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapsedControl"] {
         display: none !important;
     }
 
@@ -501,12 +517,13 @@ def get_sidebar_css() -> str:
     section[data-testid="stMain"] .block-container,
     div[data-testid="stMainBlockContainer"] {
         width: 100% !important;
-        max-width: none !important;
-        margin-left: auto !important;
+        max-width: 1480px !important;
+        margin-left: 0 !important;
         margin-right: auto !important;
-        padding-left: clamp(12px, 1.2vw, 24px) !important;
-        padding-right: clamp(12px, 1.2vw, 24px) !important;
-        padding-top: 4.5rem !important;
+        padding-left: 28px !important;
+        padding-right: 28px !important;
+        padding-top: 22px !important;
+        padding-bottom: 60px !important;
     }
 
     @media (max-width: 1100px) {
@@ -519,10 +536,18 @@ def get_sidebar_css() -> str:
     }
 
     section[data-testid="stSidebar"] .block-container {
-        padding-top: 0.7rem !important;
-        padding-left: 0.55rem !important;
-        padding-right: 0.55rem !important;
-        padding-bottom: 0.8rem !important;
+        padding-top: 20px !important;
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+        padding-bottom: 20px !important;
+    }
+
+    /* Sin cabecera fantasma del sidebar (el mockup arranca en el brand) */
+    [data-testid="stSidebarHeader"] {
+        display: none !important;
+    }
+    [data-testid="stSidebarUserContent"] {
+        padding-top: 20px !important;
     }
 
     .sidebar-brand {
@@ -687,9 +712,9 @@ _PHASE_META = [
     ("Inicio.py", "Inicio", "Panel inicial", "🏠", "#2563eb", "#1e40af"),
     ("pages/1_Fase_1_Aerogenerador.py", "Fase 1", "Aerogenerador", "🌀", "#0284c7", "#075985"),
     ("pages/2_Fase_2_Perfiles_de_viento.py", "Fase 2", "Perfiles de viento", "🌬️", "#0891b2", "#155e75"),
-    ("pages/3_Fase_3_Velocidad_promedio.py", "Fase 3", "Velocidad promedio", "🧭", "#4f46e5", "#3730a3"),
+    ("pages/3_Fase_3_Velocidad_promedio.py", "Fase 3", "Rosa y velocidad", "🧭", "#4f46e5", "#3730a3"),
     ("pages/4_Fase_4_Estelas_y_arreglo.py", "Fase 4", "Estelas y arreglo", "🌪️", "#7c3aed", "#5b21b6"),
-    ("pages/5_Fase_5_AEP_bruta_y_neta.py", "Fase 5", "AEP bruta y neta", "⚡", "#059669", "#065f46"),
+    ("pages/5_Fase_5_AEP_bruta_y_neta.py", "Fase 5", "AEP y economía", "⚡", "#059669", "#065f46"),
     ("pages/6_Fase_6_Estudios_avanzados.py", "Fase 6", "Estudios avanzados", "🔬", "#0d9488", "#115e59"),
     ("pages/7_Fase_7_Exportar_y_guardar.py", "Fase 7", "Exportar y guardar", "📦", "#d97706", "#92400e"),
 ]
@@ -707,6 +732,20 @@ def _phase_index(current_script: str) -> int:
 # cada página se inyecta DESPUÉS de este bloque.
 _AURORA_MAIN_CSS = """
 <style id="aurora-main">
+/* Tipografía del mockup (Segoe UI Variable). Excluye los iconos material. */
+html body *:not([data-testid="stIconMaterial"]):not([class*="material-symbols"]){
+  font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;
+}
+
+/* Fondo del mockup: radiales del acento + degradado vertical suave */
+[data-testid="stAppViewContainer"]{
+  background:
+    radial-gradient(1100px 420px at 90% -120px, color-mix(in srgb, var(--ac) 16%, transparent), transparent 70%),
+    radial-gradient(900px 500px at -150px 45%, color-mix(in srgb, var(--ac) 7%, transparent), transparent 70%),
+    linear-gradient(180deg,#f7fbff 0%, #eef5fd 60%, #f4f8fe 100%) !important;
+}
+[data-testid="stMain"]{background:transparent !important}
+
 .hero-card{
   background:linear-gradient(118deg,var(--ac) 0%, var(--ac2) 80%) !important;
   border:none !important;
@@ -726,11 +765,10 @@ _AURORA_MAIN_CSS = """
 .home-ref-hero{
   background:linear-gradient(118deg,var(--ac) 0%, var(--ac2) 80%) !important;
   border:none !important;
-  box-shadow:0 18px 38px color-mix(in srgb, var(--ac) 30%, transparent), inset 0 1px 0 rgba(255,255,255,.25) !important;
+  box-shadow:0 22px 44px color-mix(in srgb, var(--ac) 32%, transparent), inset 0 1px 0 rgba(255,255,255,.25) !important;
 }
-.home-ref-hero-title{color:#ffffff !important;text-shadow:0 1px 2px rgba(0,0,0,.14) !important}
-.home-ref-hero-sub{color:rgba(255,255,255,.93) !important}
-.home-ref-hero-illust{opacity:.9 !important;filter:brightness(4) saturate(.4)}
+.home-ref-hero-title{color:#ffffff !important;text-shadow:0 1px 2px rgba(0,0,0,.12) !important}
+.home-ref-hero-sub{color:rgba(255,255,255,.94) !important}
 
 /* Cápsulas de icono KPI con tinte de acento (estilo mockup Aurora) */
 [class*="-kpi-icon"], [class*="-sc-icon"], [class*="-icon-soft"]{
@@ -741,7 +779,7 @@ _AURORA_MAIN_CSS = """
 div[class*="st-key-"][class*="card"] > div[data-testid="stVerticalBlockBorderWrapper"]{position:relative !important}
 div[class*="st-key-"][class*="card"] > div[data-testid="stVerticalBlockBorderWrapper"]::before{
   content:"";position:absolute;left:0;right:0;top:0;height:4px;z-index:5;
-  border-radius:28px 28px 0 0;
+  border-radius:26px 26px 0 0;
   background:linear-gradient(90deg, var(--ac), color-mix(in srgb, var(--ac) 25%, #fff) 70%, transparent);
 }
 
@@ -771,12 +809,12 @@ div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > butt
 }
 
 /* Stepper de fases (emitido por navigation en todas las páginas) */
-.aurora-stepper{display:flex;align-items:center;background:#fff;border:1px solid #dce7f5;border-radius:18px;
-  padding:10px 16px;margin:0 0 14px 0;box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06)}
+.aurora-stepper{display:flex;align-items:center;background:#fff;border:1px solid #dce7f5;border-radius:19px;
+  padding:11px 18px;margin:0 0 20px 0;box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06)}
 .aurora-step{display:flex;align-items:center;gap:8px;flex:1;min-width:0;text-decoration:none !important}
-.aurora-step .sdot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-size:14px;background:#f3f8ff;border:2px solid #dce7f5;flex-shrink:0}
-.aurora-step span{font-size:10px;font-weight:800;color:#5a6b85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aurora-step .sdot{width:33px;height:33px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:14.5px;background:#f3f8ff;border:2px solid #dce7f5;flex-shrink:0}
+.aurora-step span{font-size:10px;font-weight:800;color:#5a6b85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
 .aurora-step .sbar{flex:1;height:3.5px;border-radius:2px;background:#dce7f5;margin:0 7px}
 .aurora-step.done .sdot{background:#f0fdf4;border-color:#86efac}
 .aurora-step.done .sbar{background:linear-gradient(90deg,#86efac,#bbf7d0)}
@@ -791,9 +829,24 @@ div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > butt
 # DESPUÉS de get_sidebar_css(), así sus reglas ganan en cascada).
 _AURORA_SIDEBAR_CSS = """
 <style id="aurora-sidebar">
-.sidebar-link{padding:0.55rem 0.6rem !important;border-radius:15px !important;gap:0.7rem !important}
+/* Brand del mockup: logo α en squircle con gradiente azul→violeta */
+.sidebar-brand{margin:0 0 14px 0 !important;padding:4px 8px 18px 8px !important;border-bottom:1px solid #e9f0fa !important}
+.sidebar-brand__row{gap:12px !important}
+.sidebar-brand__logo{
+  width:46px !important;height:46px !important;border-radius:15px !important;
+  background:linear-gradient(135deg,#3b82f6,#8b5cf6 90%) !important;border:none !important;
+  color:#fff !important;font-weight:900 !important;font-size:22px !important;
+  box-shadow:0 10px 22px rgba(59,130,246,.35), inset 0 1px 0 rgba(255,255,255,.4) !important;
+}
+.sidebar-brand__title{font-size:17.5px !important;font-weight:900 !important;letter-spacing:-.02em !important;color:#0b2447 !important}
+.sidebar-brand__subtitle{
+  font-size:10.5px !important;font-weight:700 !important;color:#5a6b85 !important;
+  letter-spacing:.02em !important;text-transform:uppercase !important;white-space:nowrap !important;
+}
+.sidebar-nav{gap:5px !important;margin:0 0 14px 0 !important}
+.sidebar-link{padding:8px 10px !important;border-radius:15px !important;gap:11px !important}
 .sidebar-link__icon{
-  width:38px !important;height:38px !important;border-radius:12px !important;font-size:17px !important;
+  width:37px !important;height:37px !important;border-radius:12px !important;font-size:17px !important;
   background:#ffffff !important;border:1px solid #dce7f5 !important;
   box-shadow:0 2px 5px rgba(11,36,71,.05) !important;
 }
@@ -814,11 +867,11 @@ _AURORA_SIDEBAR_CSS = """
   margin-left:auto;width:18px;height:18px;border-radius:50%;background:#dcfce7;color:#15803d;
   font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
-.sidebar-link__phase{font-size:0.86rem !important}
-.sidebar-link__name{font-size:0.8rem !important;font-weight:500 !important;color:#5a6b85 !important}
-.aurora-progress{margin:0.9rem 0.55rem 0;padding:0.7rem;border-radius:15px;background:#fff;
-  border:1px solid #dce7f5;text-align:center;box-shadow:0 4px 12px rgba(11,36,71,.05)}
-.aurora-progress small{color:#5a6b85;font-weight:800;font-size:0.6rem;text-transform:uppercase;letter-spacing:.08em}
+.sidebar-link__phase{font-size:12.5px !important;font-weight:800 !important;letter-spacing:-.01em !important}
+.sidebar-link__name{font-size:10px !important;font-weight:600 !important;color:#5a6b85 !important}
+.aurora-progress{margin:16px 0 0 0;padding:14px 12px;border-radius:16px;background:#fff;
+  border:1px solid #dce7f5;text-align:center;box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06)}
+.aurora-progress small{color:#5a6b85;font-weight:800;font-size:9.5px;text-transform:uppercase;letter-spacing:.08em}
 </style>
 """
 
@@ -842,14 +895,16 @@ def _render_stepper(idx: int) -> str:
 
 def _render_progress_ring(idx: int) -> str:
     pct = int(idx / (len(_PHASE_META) - 1) * 100)
-    dash = pct * 2.01
+    dash = pct * 2.073  # circunferencia r=33 ≈ 207.3
     return f"""
     <div class="aurora-progress"><small>Progreso del proyecto</small>
-      <svg viewBox="0 0 80 80" width="72" style="margin:6px auto 0;display:block">
-        <circle cx="40" cy="40" r="32" fill="none" stroke="#e9f0fa" stroke-width="9"/>
-        <circle cx="40" cy="40" r="32" fill="none" stroke="var(--ac)" stroke-width="9" stroke-linecap="round"
-          stroke-dasharray="{dash:.0f} 999" transform="rotate(-90 40 40)"/>
-        <text x="40" y="46" text-anchor="middle" font-size="17" font-weight="900" fill="#0b2447">{pct}%</text>
+      <svg viewBox="0 0 84 84" width="78" style="margin:9px auto 2px;display:block">
+        <circle cx="42" cy="42" r="33" fill="none" stroke="#e9f0fa" stroke-width="10"/>
+        <circle cx="42" cy="42" r="33" fill="none" stroke="url(#aurorapg)" stroke-width="10" stroke-linecap="round"
+          stroke-dasharray="{dash:.0f} 999" transform="rotate(-90 42 42)"/>
+        <defs><linearGradient id="aurorapg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="var(--ac)"/><stop offset="1" stop-color="var(--ac2)"/></linearGradient></defs>
+        <text x="42" y="48" text-anchor="middle" font-size="17" font-weight="900" fill="#0b2447">{pct}%</text>
       </svg>
     </div>"""
 
@@ -936,7 +991,16 @@ def render_dropdown_visibility_fix() -> None:
     )
 
 
-def render_sidebar_navigation(current_script: str):
+def render_stepper(current_script: str) -> None:
+    """Pinta el stepper de fases en el punto de llamada.
+
+    Lo usa Inicio para colocarlo DEBAJO del hero (orden del mockup Aurora);
+    el resto de páginas lo recibe arriba vía render_sidebar_navigation.
+    """
+    st.markdown(_render_stepper(_phase_index(current_script)), unsafe_allow_html=True)
+
+
+def render_sidebar_navigation(current_script: str, stepper: bool = True):
     # ── Inject global CSS first to prevent FOUC ──
     _load_global_css(current_script)
 
@@ -953,10 +1017,10 @@ def render_sidebar_navigation(current_script: str):
     idx_actual = _phase_index(current_script)
 
     sidebar_brand_html = textwrap.dedent(
-        f"""
+        """
         <div class="sidebar-brand">
             <div class="sidebar-brand__row">
-                <div class="sidebar-brand__logo">{_icon_svg("turbine", 28, "#2563eb")}</div>
+                <div class="sidebar-brand__logo">α</div>
                 <div class="sidebar-brand__copy">
                     <div class="sidebar-brand__title">SMA 2.0</div>
                     <div class="sidebar-brand__subtitle">Wind Project Analyzer</div>
@@ -989,7 +1053,8 @@ def render_sidebar_navigation(current_script: str):
     # Acento de la fase + skin Aurora + stepper en el contenido principal.
     st.markdown(_render_aurora_accent(idx_actual), unsafe_allow_html=True)
     st.markdown(_AURORA_MAIN_CSS, unsafe_allow_html=True)
-    st.markdown(_render_stepper(idx_actual), unsafe_allow_html=True)
+    if stepper:
+        st.markdown(_render_stepper(idx_actual), unsafe_allow_html=True)
 
     st.sidebar.markdown(get_sidebar_css(), unsafe_allow_html=True)
     st.sidebar.markdown(_AURORA_SIDEBAR_CSS, unsafe_allow_html=True)
