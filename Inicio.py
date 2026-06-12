@@ -319,16 +319,36 @@ def _phase_cards_html(fases: list[dict]) -> str:
 st.markdown(
     """
 <style>
-.home-ref-hero{position:relative;display:flex;align-items:center;background:#ffffff;
-border:1.4px solid #cbd5e1;border-radius:26px;padding:32px 36px;box-shadow:0 1px 4px rgba(15,23,42,.045);margin-bottom:18px;overflow:hidden;min-height:146px}
-.home-ref-hero-text{flex:1;z-index:1}
-.home-ref-hero-title{margin:0;font-size:30px;font-weight:900;color:#0b2a5b;letter-spacing:-.03em;line-height:1.1}
-.home-ref-hero-sub{margin-top:8px;color:#000000;font-size:14.5px;font-weight:400;line-height:1.55}
-.home-ref-hero-illust{position:absolute;right:0;top:0;bottom:0;width:390px;pointer-events:none;opacity:.62}
+.home-ref-hero{position:relative;display:flex;align-items:center;gap:18px;
+background:linear-gradient(118deg,var(--ac,#2563eb) 0%, var(--ac2,#1e40af) 80%);
+border:none;border-radius:26px;padding:26px 30px;margin-bottom:18px;overflow:hidden;min-height:132px;
+box-shadow:0 22px 44px color-mix(in srgb, var(--ac,#2563eb) 32%, transparent), inset 0 1px 0 rgba(255,255,255,.25)}
+.home-ref-hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:
+radial-gradient(circle at 86% 12%, rgba(255,255,255,.18) 0 54px, transparent 55px),
+radial-gradient(circle at 95% 70%, rgba(255,255,255,.10) 0 86px, transparent 87px)}
+.home-ref-hero-badge{width:64px;height:64px;border-radius:19px;background:rgba(255,255,255,.17);
+border:1.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:32px;
+flex-shrink:0;z-index:2;box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 8px 18px rgba(0,0,0,.12)}
+.home-ref-hero-text{flex:1;z-index:2}
+.home-ref-hero-title{margin:0;font-size:27px;font-weight:900;color:#ffffff;letter-spacing:-.03em;line-height:1.12;text-shadow:0 1px 2px rgba(0,0,0,.14)}
+.home-ref-hero-sub{margin-top:7px;color:rgba(255,255,255,.93);font-size:13.5px;font-weight:500;line-height:1.5;max-width:760px}
+.home-ref-hero-pills{display:flex;gap:9px;z-index:2;flex-shrink:0}
+.home-ref-hpill{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:15px;
+padding:9px 16px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25);color:#fff}
+.home-ref-hpill b{display:block;font-size:17px;letter-spacing:-.01em}
+.home-ref-hpill span{font-size:9px;opacity:.92;text-transform:uppercase;letter-spacing:.07em;font-weight:800}
+.home-ref-hero-illust{position:absolute;right:0;top:0;bottom:0;width:390px;pointer-events:none;opacity:.35;z-index:1}
 .home-ref-card{background:#ffffff;border:1.4px solid #cbd5e1;border-radius:24px;padding:22px 24px;box-shadow:0 1px 4px rgba(15,23,42,.045);margin-bottom:16px}
 .home-ref-section-title{display:flex;align-items:center;gap:11px;color:#0b2a5b;font-size:22px;font-weight:900;margin:16px 0 12px;letter-spacing:-.02em}
 .home-ref-card-title{display:flex;align-items:center;gap:13px;color:#0b2a5b;font-size:17px;font-weight:900;margin-bottom:14px}
-.home-ref-icon-soft{width:42px;height:42px;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 8px 18px rgba(37,99,235,.08)}
+.home-ref-icon-soft{width:46px;height:46px;border-radius:14px;
+background:linear-gradient(135deg, color-mix(in srgb, var(--ac,#2563eb) 16%, #fff), color-mix(in srgb, var(--ac,#2563eb) 7%, #fff));
+border:1.5px solid color-mix(in srgb, var(--ac,#2563eb) 35%, #fff);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+box-shadow:0 5px 12px color-mix(in srgb, var(--ac,#2563eb) 16%, transparent)}
+.home-ref-card{position:relative;overflow:hidden}
+.home-ref-card::before, .home-ref-phases-container::before, .home-ref-final-card::before{
+content:"";position:absolute;left:0;right:0;top:0;height:4px;
+background:linear-gradient(90deg, var(--sc, var(--ac,#2563eb)), color-mix(in srgb, var(--sc, var(--ac,#2563eb)) 25%, #fff) 70%, transparent)}
 .home-ref-desc{color:#000000;font-size:14.5px;line-height:1.65;margin:0}
 .home-table-wrap{border:1px solid #cbd5e1;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(15,23,42,.045)}
 .home-table{width:100%;border-collapse:collapse;color:#0b2a5b;font-size:13.5px}
@@ -369,19 +389,30 @@ border:1.4px solid #cbd5e1;border-radius:26px;padding:32px 36px;box-shadow:0 1px
     border-color: #fca5a5 !important;
     color: #dc2626 !important;
 }
-.home-ref-phases-container{background:#ffffff;border:1.4px solid #cbd5e1;border-radius:24px;padding:20px 22px;box-shadow:0 1px 4px rgba(15,23,42,.045);margin-bottom:16px}
-.home-ref-phases-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-top:10px}
-.home-ref-phase-mini{display:flex;align-items:center;gap:16px;background:#f8fbff;border:1px solid #cbd5e1;border-radius:18px;padding:18px 20px;transition:box-shadow .18s;min-height:92px}
-.home-ref-phase-mini:hover{box-shadow:0 6px 16px rgba(15,45,90,.09)}
-.home-ref-phase-mini-icon{width:74px;height:74px;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 8px 18px rgba(37,99,235,.08)}
+.home-ref-phases-container{position:relative;overflow:hidden;background:#ffffff;border:1.4px solid #cbd5e1;border-radius:24px;padding:20px 22px;box-shadow:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08);margin-bottom:16px}
+.home-ref-phases-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:10px}
+.home-ref-phase-mini{display:flex;align-items:center;gap:13px;background:#ffffff;border:1px solid #d8e5f5;border-radius:18px;padding:14px 16px;transition:box-shadow .18s;min-height:84px;box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06)}
+.home-ref-phase-mini:hover{box-shadow:0 10px 22px color-mix(in srgb, var(--pc,#2563eb) 18%, transparent)}
+.home-ref-phase-mini-icon{width:54px;height:54px;border-radius:999px;font-size:24px;
+background:linear-gradient(135deg, color-mix(in srgb, var(--pc,#2563eb) 17%, #fff), color-mix(in srgb, var(--pc,#2563eb) 6%, #fff));
+border:1.5px solid color-mix(in srgb, var(--pc,#2563eb) 38%, #fff);display:flex;align-items:center;justify-content:center;flex-shrink:0;
+box-shadow:0 5px 12px color-mix(in srgb, var(--pc,#2563eb) 18%, transparent)}
 .home-ref-phase-mini-text{flex:1;min-width:0}
-.home-ref-phase-mini-num{font-size:14.5px;font-weight:900;color:#2563eb;margin-bottom:3px}
-.home-ref-phase-mini-name{font-size:15.5px;font-weight:800;color:#0b2a5b;line-height:1.25}
-.home-ref-phase-mini-chevron{color:#93b4e0;font-size:22px;flex-shrink:0}
+.home-ref-phase-mini-num{font-size:9.5px;font-weight:900;color:#64748b;margin-bottom:3px;text-transform:uppercase;letter-spacing:.07em}
+.home-ref-phase-mini-name{font-size:14.5px;font-weight:800;color:#0b2a5b;line-height:1.22}
+.home-ref-phase-mini-chevron{color:color-mix(in srgb, var(--pc,#2563eb) 60%, #fff);font-size:20px;flex-shrink:0}
 .home-ref-final-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
-.home-ref-final-card{background:#ffffff;border:1.4px solid #cbd5e1;border-radius:22px;padding:22px 24px;display:flex;align-items:center;gap:18px;color:#0b2a5b;box-shadow:0 1px 4px rgba(15,23,42,.045);min-height:106px}
+.home-ref-final-card{position:relative;overflow:hidden;background:#ffffff;border:1.4px solid #cbd5e1;border-radius:22px;padding:22px 24px;display:flex;align-items:center;gap:18px;color:#0b2a5b;box-shadow:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08);min-height:106px}
 .home-ref-final-card b{font-weight:900;font-size:17.5px}
-.home-ref-final-icon{width:60px;height:60px;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 8px 18px rgba(37,99,235,.08)}
+.home-ref-final-icon{width:56px;height:56px;border-radius:16px;
+background:linear-gradient(135deg, color-mix(in srgb, var(--sc,#2563eb) 16%, #fff), color-mix(in srgb, var(--sc,#2563eb) 7%, #fff));
+border:1.5px solid color-mix(in srgb, var(--sc,#2563eb) 35%, #fff);display:flex;align-items:center;justify-content:center;flex-shrink:0;
+box-shadow:0 5px 12px color-mix(in srgb, var(--sc,#2563eb) 16%, transparent)}
+.home-ref-flow-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:800;
+color:var(--pc,#2563eb);border:1.5px solid color-mix(in srgb, var(--pc,#2563eb) 45%, #fff);
+background:linear-gradient(120deg, color-mix(in srgb, var(--pc,#2563eb) 12%, #fff), color-mix(in srgb, var(--pc,#2563eb) 5%, #fff));
+box-shadow:0 4px 10px color-mix(in srgb, var(--pc,#2563eb) 14%, transparent);margin:3px 2px}
+.home-ref-flow-arrow{color:#94a3b8;font-weight:900;margin:0 4px}
 .st-key-home_card_projects,
 .st-key-home_card_projects > div,
 .st-key-home_card_projects [data-testid="stVerticalBlock"],
@@ -469,17 +500,34 @@ _WIND_ILLUST_SVG = '''<svg viewBox="0 0 320 140" width="320" height="140" xmlns=
 # -----------------------------------------------------------------------------
 # Hero y descripción
 # -----------------------------------------------------------------------------
+# Datos rápidos del hero (lecturas cacheadas — costo ~0 tras el warmup)
+try:
+    _n_proyectos = len(listar_proyectos_guardados())
+except Exception:
+    _n_proyectos = 0
+try:
+    _df_nasa_hero = cargar_nasa_hourly()
+    _n_anios_nasa = max(1, round(len(_df_nasa_hero) / 8760)) if _df_nasa_hero is not None and len(_df_nasa_hero) else 0
+except Exception:
+    _n_anios_nasa = 0
+_pill_nasa = f"{_n_anios_nasa} años" if _n_anios_nasa else "—"
+
 st.markdown(
     f"""
 <div class="home-ref-hero">
+    <div class="home-ref-hero-illust">{_WIND_ILLUST_SVG}</div>
+    <div class="home-ref-hero-badge">🏠</div>
     <div class="home-ref-hero-text">
         <h1 class="home-ref-hero-title">Aplicación para cálculos de parques eólicos</h1>
         <div class="home-ref-hero-sub">
-            Plataforma integrada para el análisis de recursos eólicos y la estimación del AEP, pérdidas, estelas y AEP bruto y neto.<br>
-            Trabaje por fases para obtener resultados precisos y confiables para su proyecto.
+            Plataforma integrada para análisis del recurso eólico y estimación del AEP, pérdidas, estelas y economía.
         </div>
     </div>
-    <div class="home-ref-hero-illust">{_WIND_ILLUST_SVG}</div>
+    <div class="home-ref-hero-pills">
+        <div class="home-ref-hpill"><b>{_n_proyectos}</b><span>Proyectos</span></div>
+        <div class="home-ref-hpill"><b>7</b><span>Fases</span></div>
+        <div class="home-ref-hpill"><b>{_pill_nasa}</b><span>Datos NASA</span></div>
+    </div>
 </div>
 """,
     unsafe_allow_html=True,
@@ -687,21 +735,22 @@ if st.session_state.confirm_delete_project and st.session_state.project_to_delet
 # -----------------------------------------------------------------------------
 # Fases de la aplicación
 # -----------------------------------------------------------------------------
+# (etiqueta, nombre, emoji, color de la fase — misma paleta Aurora de navigation)
 _phase_mini = [
-    ("Fase 1", "Elección del aerogenerador", "turbine"),
-    ("Fase 2", "Perfiles de viento", "profile"),
-    ("Fase 3", "Rosa de vientos y probabilidad de ocurrencia", "waves"),
-    ("Fase 4", "Estelas y arreglo", "layout"),
-    ("Fase 5", "AEP bruta y neta", "document"),
-    ("Fase 6", "Estudios avanzados", "activity"),
-    ("Fase 7", "Exportar y guardar", "export"),
+    ("Fase 1", "Aerogenerador", "🌀", "#0284c7"),
+    ("Fase 2", "Perfiles de viento", "🌬️", "#0891b2"),
+    ("Fase 3", "Rosa y velocidad", "🧭", "#4f46e5"),
+    ("Fase 4", "Estelas y arreglo", "🌪️", "#7c3aed"),
+    ("Fase 5", "AEP y economía", "⚡", "#059669"),
+    ("Fase 6", "Estudios avanzados", "🔬", "#0d9488"),
+    ("Fase 7", "Exportar y guardar", "📦", "#d97706"),
 ]
 
 _mini_cards_html = ""
-for num, nombre, icono in _phase_mini:
+for num, nombre, emoji, color in _phase_mini:
     _mini_cards_html += (
-        f'<div class="home-ref-phase-mini">'
-        f'<div class="home-ref-phase-mini-icon">{nav_icon_svg(icono, 40, "#2563eb")}</div>'
+        f'<div class="home-ref-phase-mini" style="--pc:{color}">'
+        f'<div class="home-ref-phase-mini-icon">{emoji}</div>'
         f'<div class="home-ref-phase-mini-text">'
         f'<div class="home-ref-phase-mini-num">{_escape(num)}</div>'
         f'<div class="home-ref-phase-mini-name">{_escape(nombre)}</div>'
@@ -723,21 +772,27 @@ st.markdown(
 # -----------------------------------------------------------------------------
 # Cards finales
 # -----------------------------------------------------------------------------
+_flow_chips_html = '<span class="home-ref-flow-arrow">→</span>'.join(
+    f'<span class="home-ref-flow-chip" style="--pc:{color}">{emoji} {_escape(num)}</span>'
+    for num, _nombre, emoji, color in _phase_mini
+)
+
 st.markdown(
     f"""
 <div class="home-ref-final-row">
-    <div class="home-ref-final-card">
-        <div class="home-ref-final-icon">{_svg_icon("trophy", 32)}</div>
+    <div class="home-ref-final-card" style="--sc:#16a34a">
+        <div class="home-ref-final-icon" style="--sc:#16a34a">🏆</div>
         <div>
             <b>Resultado final esperado</b><br>
-            <div style="font-size:15.5px;color:#000000;margin-top:4px">Al completar las siete fases obtendrá el AEP bruto y neto estimado del parque eólico, incluyendo las pérdidas por estelas, disponibilidad y otros factores, junto con estudios avanzados de sitio y la capacidad de exportar reportes y datos para documentación del proyecto.</div>
+            <div style="font-size:14px;color:#334155;margin-top:4px;line-height:1.55">Al completar las siete fases obtendrá el AEP bruto y neto estimado del parque eólico, incluyendo las pérdidas por estelas, disponibilidad y otros factores, junto con estudios avanzados de sitio y la capacidad de exportar reportes y datos para documentación del proyecto.</div>
         </div>
     </div>
     <div class="home-ref-final-card">
-        <div class="home-ref-final-icon">{_svg_icon("info", 32)}</div>
+        <div class="home-ref-final-icon">🧭</div>
         <div>
-            <b style="font-size:19px">Flujo recomendado de trabajo:</b>
-            <span style="font-size:18px;color:#2563eb;font-weight:700"> Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 6 → Fase 7</span>
+            <b>Flujo recomendado</b>
+            <div style="font-size:12px;color:#5a6b85;font-weight:700;margin:2px 0 8px">Orden sugerido de trabajo</div>
+            <div>{_flow_chips_html}</div>
         </div>
     </div>
 </div>
