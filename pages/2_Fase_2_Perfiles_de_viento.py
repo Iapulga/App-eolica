@@ -79,18 +79,15 @@ ROUGHNESS_OPTIONS = {
 
 
 def _section_title_html(letter: str, icon_name: str, title: str, subtitle: str | None = None) -> str:
-    subtitle_html = f'<div class="section-subtitle">{subtitle}</div>' if subtitle else ""
+    """Card-head del mockup Aurora: cicon (SVG dentro de squircle tintado) +
+    título (con la letra de sección prefijada) + subtítulo. Firma intacta."""
+    sub = f"<p>{subtitle}</p>" if subtitle else ""
+    full_title = f"{letter} · {title}" if letter else title
     return textwrap.dedent(
         f"""
-        <div class="section-header">
-            <div class="section-badge">{letter}</div>
-            <div class="section-copy">
-                <div class="section-title">
-                    <span class="section-icon">{_icon_svg(icon_name, 18, "#2563eb")}</span>
-                    <span>{title}</span>
-                </div>
-                {subtitle_html}
-            </div>
+        <div class="f2-card-head">
+            <div class="f2-cicon">{_icon_svg(icon_name, 22, "#0891b2")}</div>
+            <div><h2>{full_title}</h2>{sub}</div>
         </div>
         """
     ).strip()
@@ -133,19 +130,14 @@ def _metric_card_html(
     icon_dy: int = 0,
     icon_variant: str = "",
 ) -> str:
-    icon_color = "#2563eb" if tone != "green" else "#15803d"
+    # Color del aro/icono (--kc del mockup) derivado del tono/variante existente.
+    icon_color = "#2563eb" if tone != "green" else "#16a34a"
     if icon_variant == "param":
         icon_color = "#7c3aed"
     elif icon_variant == "combined":
         icon_color = "#0f766e"
-
-    icon_color_class = ""
-    if icon_variant == "wind":
-        icon_color_class = " icon-color-wind"
-    elif icon_variant == "param":
-        icon_color_class = " icon-color-param"
-    elif icon_variant == "combined":
-        icon_color_class = " icon-color-combined"
+    elif icon_variant == "wind":
+        icon_color = "#0891b2"
 
     icon_inner_style = (
         f'style="transform: translate({icon_dx}px, {icon_dy}px);"'
@@ -157,18 +149,19 @@ def _metric_card_html(
         "metric-card--profile-combined",
         "metric-card--profile-speed",
     }
-    icon_size = 34 if icon_name == "log-exp-average" else 38 if extra_class == "metric-card--summary" else 30 if extra_class in profile_icon_classes else 22
+    icon_size = 30 if (extra_class == "metric-card--summary" or extra_class in profile_icon_classes) else 22
+    # KPI del mockup: ki círculo tintado (--kc) con el SVG existente dentro.
     return textwrap.dedent(
         f"""
-        <div class="metric-card metric-{tone}{' metric-card--compact' if compact else ''}{f' {extra_class}' if extra_class else ''}">
-            <div class="metric-icon metric-icon--{icon_name}{icon_color_class}">
+        <div class="f2-kpi{' f2-kpi--compact' if compact else ''}{f' {extra_class}' if extra_class else ''}" style="--kc:{icon_color}">
+            <div class="f2-ki">
                 <div class="metric-icon-inner" {icon_inner_style}>
                     {_icon_svg(icon_name, icon_size, icon_color)}
                 </div>
             </div>
-            <div class="metric-copy">
-                <div class="metric-label">{label}</div>
-                <div class="metric-value{' metric-value--green' if tone == 'green' else ''}">{value}</div>
+            <div class="f2-kpi-copy">
+                <small>{label}</small>
+                <b>{value}</b>
             </div>
         </div>
         """
@@ -2513,14 +2506,113 @@ _f2_data_source_saved = config.get("data_source", "NASA POWER")
 _f2_source_class = "nasa" if _f2_data_source_saved == "NASA POWER" else "gwa"
 _f2_source_label = _f2_data_source_saved
 
+st.markdown(
+    """
+<style>
+/* ═══════ Paridad F2 con el mockup 02_fase2 (Aurora, acento cian) ═══════ */
+.f2-hero{position:relative;overflow:hidden;border-radius:26px !important;padding:22px 28px !important;
+  background:linear-gradient(118deg,var(--ac,#0891b2) 0%, var(--ac2,#155e75) 80%) !important;border:none !important;
+  box-shadow:0 22px 44px color-mix(in srgb,var(--ac,#0891b2) 32%,transparent), inset 0 1px 0 rgba(255,255,255,.25) !important;margin:0 !important}
+.f2-hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(circle at 86% 12%, rgba(255,255,255,.20) 0 54px, transparent 55px),
+  radial-gradient(circle at 95% 70%, rgba(255,255,255,.12) 0 86px, transparent 87px),
+  linear-gradient(180deg, rgba(255,255,255,.08), transparent 40%)}
+.f2-wind{position:absolute;left:-30px;top:0;bottom:0;width:58%;height:100%;opacity:.45;pointer-events:none;z-index:1}
+.f2-wind path{stroke:rgba(255,255,255,.55);stroke-width:2;fill:none;stroke-dasharray:16 11;animation:f2windmove 2.6s linear infinite}
+.f2-wind path:nth-child(2){animation-duration:3.4s;opacity:.7}
+.f2-wind path:nth-child(3){animation-duration:4.2s;opacity:.5}
+@keyframes f2windmove{to{stroke-dashoffset:-54}}
+.f2-hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2}
+.f2-hero-icon{width:62px;height:62px;border-radius:19px;background:rgba(255,255,255,.17);
+  border:1.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:31px;flex-shrink:0;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 8px 18px rgba(0,0,0,.12)}
+.f2-hero-text{flex:1;min-width:0}
+.f2-hero .fase-hero-title{font-size:25px !important;font-weight:900 !important;color:#fff !important;letter-spacing:-.025em !important;
+  text-shadow:0 1px 2px rgba(0,0,0,.12) !important;margin:0 !important;line-height:1.15 !important}
+.f2-hero .fase-hero-subtitle{font-size:12.5px !important;color:rgba(255,255,255,.94) !important;font-weight:500 !important;
+  max-width:840px;margin:4px 0 0 0 !important;line-height:1.45 !important}
+.f2-hero-pills{display:flex;gap:9px;margin-left:auto;flex-shrink:0}
+.f2-hpill{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:15px;
+  padding:8px 15px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25);color:#fff}
+.f2-hpill b{display:block;font-size:16.5px;letter-spacing:-.01em}
+.f2-hpill span{font-size:9px;opacity:.92;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+
+/* Card-head */
+.f2-card-head{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+.f2-cicon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:linear-gradient(135deg, color-mix(in srgb,var(--ac,#0891b2) 16%,#fff), color-mix(in srgb,var(--ac,#0891b2) 7%,#fff));
+  border:1.5px solid color-mix(in srgb,var(--ac,#0891b2) 35%,#fff);
+  box-shadow:0 5px 12px color-mix(in srgb,var(--ac,#0891b2) 16%,transparent)}
+.f2-cicon svg{width:22px;height:22px}
+.f2-card-head h2{margin:0;font-size:16.5px;font-weight:900;color:#0b2447;letter-spacing:-.02em}
+.f2-card-head p{margin:2px 0 0;font-size:11px;color:#5a6b85;font-weight:600}
+
+/* KPI */
+.f2-kpi{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:13px 14px;display:flex;gap:12px;align-items:center;
+  box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06);min-height:74px;height:100%}
+.f2-ki{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:linear-gradient(135deg, color-mix(in srgb,var(--kc,#2563eb) 17%,#fff), color-mix(in srgb,var(--kc,#2563eb) 6%,#fff));
+  border:1.5px solid color-mix(in srgb,var(--kc,#2563eb) 38%,#fff);
+  box-shadow:0 5px 12px color-mix(in srgb,var(--kc,#2563eb) 18%,transparent)}
+.f2-ki svg{width:24px;height:24px}
+.f2-kpi-copy{min-width:0}
+.f2-kpi-copy small{display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
+.f2-kpi-copy b{font-size:19px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
+
+/* Banner */
+.f2-banner{display:flex;align-items:center;gap:12px;border-radius:15px;padding:12px 16px;font-weight:800;font-size:12.5px;margin:8px 0 0}
+.f2-banner .f2-bx{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(255,255,255,.7);flex-shrink:0}
+.f2-banner.ok{background:linear-gradient(120deg,#f0fdf4,#fff);border:1.5px solid #86efac;color:#15803d}
+.f2-banner.info{background:linear-gradient(120deg, color-mix(in srgb,var(--ac,#0891b2) 8%,#fff), #fff);border:1.5px solid color-mix(in srgb,var(--ac,#0891b2) 30%,#fff);color:var(--ac,#0891b2)}
+
+/* Look de card del mockup en todas las cards de F2 (excepto el header del hero) */
+div[data-testid="stVerticalBlock"][class*="st-key-f2_card_"]:not(.st-key-f2_card_header){
+  position:relative !important;overflow:hidden !important;
+  background:linear-gradient(180deg,#fff,#fcfdff) !important;
+  border:1px solid #d3e0f0 !important;border-radius:26px !important;
+  padding:20px 22px 18px !important;
+  box-shadow:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08) !important}
+.st-key-f2_card_header{padding:0 !important;border:none !important;background:transparent !important;box-shadow:none !important;overflow:visible !important;margin-bottom:14px !important}
+.st-key-f2_card_header::before{display:none !important}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+# Pills del hero (valores reales del proyecto): fuente activa, años de serie, altura operativa.
+try:
+    _ini_h = pd.to_datetime(config.get("nasa_inicio"))
+    _fin_h = pd.to_datetime(config.get("nasa_fin"))
+    _anios_h = max(1, round((_fin_h - _ini_h).days / 365))
+    _anios_pill = str(_anios_h)
+except Exception:
+    _anios_pill = "—"
+try:
+    _altura_pill = f"{float(config.get('altura', config.get('altura_deseada', 100))):.0f} m"
+except Exception:
+    _altura_pill = "100 m"
+_fuente_pill = "NASA" if "NASA" in str(_f2_source_label) else str(_f2_source_label).split()[0]
+
 with _phase_card("f2_card_header"):
     st.markdown(
         f"""
-        <div class="hero-card">
-            <div class="fase-hero-title">Fase 2 &middot; Perfiles de viento</div>
-            <div class="fase-hero-subtitle">
-                Consulta y an&aacute;lisis de datos horarios de viento y generaci&oacute;n de perfiles verticales.
-                <span class="f2-source-badge f2-source-badge--{_f2_source_class}">Fuente: {_f2_source_label}</span>
+        <div class="hero-card f2-hero">
+            <svg class="f2-wind" viewBox="0 0 600 190" preserveAspectRatio="none">
+                <path d="M0 42 Q150 24 300 44 T600 34"/>
+                <path d="M0 100 Q180 82 340 102 T600 92"/>
+                <path d="M0 156 Q140 142 300 158 T600 150"/>
+            </svg>
+            <div class="f2-hero-row">
+                <div class="f2-hero-icon">🌬️</div>
+                <div class="f2-hero-text">
+                    <h1 class="fase-hero-title">Fase 2 · Perfiles de viento</h1>
+                    <div class="fase-hero-subtitle">Consulta de datos horarios, torre meteorológica, MCP y generación de perfiles verticales.</div>
+                </div>
+                <div class="f2-hero-pills">
+                    <div class="f2-hpill"><b>{_fuente_pill}</b><span>Fuente</span></div>
+                    <div class="f2-hpill"><b>{_anios_pill}</b><span>Años</span></div>
+                    <div class="f2-hpill"><b>{_altura_pill}</b><span>Altura</span></div>
+                </div>
             </div>
         </div>
         """,
