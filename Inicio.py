@@ -178,27 +178,45 @@ box-shadow:0 5px 12px color-mix(in srgb, var(--acl,var(--ac,#2563eb)) 16%, trans
 .home-card-head p{margin:2px 0 0;font-size:11px;color:#5a6b85;font-weight:600}
 .home-muted, .stMarkdown p.home-muted{color:#5a6b85 !important;font-size:11px !important;font-weight:600 !important;line-height:1.55 !important;margin:0 !important}
 
-/* Cards reales (st.container con key) con el mismo look que .home-card */
-.st-key-home_card_projects > div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-home_card_config > div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-home_card_import > div[data-testid="stVerticalBlockBorderWrapper"]{
-position:relative;overflow:hidden;
+/* Cards reales (st.container con key): en esta versión de Streamlit la clase
+   st-key-* cae en el propio stVerticalBlock (no hay BorderWrapper). El look del
+   card (#d3e0f0 r26, degradado, sombra) se aplica DIRECTO a ese elemento. */
+.st-key-home_card_projects,
+.st-key-home_card_config,
+.st-key-home_card_import{
+position:relative !important;overflow:hidden !important;
 background:linear-gradient(180deg,#fff,#fcfdff) !important;
 border:1px solid #d3e0f0 !important;border-radius:26px !important;
-padding:20px 22px 18px !important;
+padding:20px 22px 18px !important;gap:.55rem !important;
 box-shadow:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08) !important}
-.st-key-home_card_projects [data-testid="stVerticalBlock"],
-.st-key-home_card_config [data-testid="stVerticalBlock"],
-.st-key-home_card_import [data-testid="stVerticalBlock"]{gap:.55rem !important}
 
-/* Columnas c21 del mockup (gap 14px) + columna derecha estirada */
+/* Columnas c21 del mockup (gap 14px), ambas columnas estiradas a la misma altura */
 div[data-testid="stHorizontalBlock"]{gap:14px !important;align-items:stretch !important}
 div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]{display:flex !important;flex-direction:column !important;min-width:0}
 div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"]{display:flex !important;flex-direction:column !important;flex:1 !important}
-div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(2) > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"]:last-child{flex:1 !important}
+
+/* Card Gestión: estira a la altura de la fila (la fija la columna derecha
+   Config+Importar) y deja que la TABLA (último elemento) absorba el espacio
+   sobrante → alto INDEPENDIENTE del nº de proyectos; escala con zoom.
+   Cadena real: stColumn(497) → stVerticalBlock(497,flex:1) → stLayoutWrapper
+   (eslabón roto: flex:0 1 auto) → stVerticalBlock.st-key(card). Se fuerza el
+   stLayoutWrapper a flex:1 1 auto para que el card herede la altura completa. */
+div[data-testid="stLayoutWrapper"]:has(> .st-key-home_card_projects){
+flex:1 1 auto !important;display:flex !important;flex-direction:column !important;min-height:0 !important}
+.st-key-home_card_projects{flex:1 1 auto !important;min-height:0 !important}
+/* La TABLA (último elemento) tiene tope fijo + scroll interno: con muchos
+   proyectos NO empuja el card (que sigue fijado por la columna derecha); con
+   pocos, el card estirado deja aire blanco abajo. max-height en px escala con zoom. */
+.st-key-home_card_projects > [data-testid="stElementContainer"]:last-child{
+max-height:250px !important;overflow-y:auto !important}
+.st-key-home_card_projects > [data-testid="stElementContainer"]:last-child::-webkit-scrollbar{width:8px}
+.st-key-home_card_projects > [data-testid="stElementContainer"]:last-child::-webkit-scrollbar-thumb{background:#cfe0f5;border-radius:8px}
+.st-key-home_card_projects > [data-testid="stElementContainer"]:last-child::-webkit-scrollbar-track{background:transparent}
+/* Label "PROYECTO GUARDADO": su element-container colapsa a h=0 → reservar alto */
+.st-key-home_card_projects [data-testid="stElementContainer"]:has(.home-flabel){min-height:16px !important;margin-bottom:3px !important}
 
 /* Label de campo en mayúsculas (PROYECTO GUARDADO) */
-.home-flabel{font-size:9.5px;font-weight:900;color:#64748b;margin:0 0 -4px;text-transform:uppercase;letter-spacing:.06em}
+.home-flabel{font-size:9.5px;font-weight:900;color:#64748b;margin:0;line-height:1.5;text-transform:uppercase;letter-spacing:.06em}
 
 /* Selectbox como .input del mockup, con conteo dentro a la derecha */
 .st-key-home_project_selectbox{position:relative}

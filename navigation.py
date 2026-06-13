@@ -775,9 +775,10 @@ html body *:not([data-testid="stIconMaterial"]):not([class*="material-symbols"])
   background:linear-gradient(135deg, color-mix(in srgb, var(--ac) 13%, #fff), color-mix(in srgb, var(--ac) 4%, #fff)) !important;
 }
 
-/* Franja de acento superior en las cards grandes (st.container con key) */
-div[class*="st-key-"][class*="card"] > div[data-testid="stVerticalBlockBorderWrapper"]{position:relative !important}
-div[class*="st-key-"][class*="card"] > div[data-testid="stVerticalBlockBorderWrapper"]::before{
+/* Franja de acento superior en las cards grandes (st.container con key).
+   La clase st-key-*card* cae en el propio stVerticalBlock → la franja va ahí. */
+div[data-testid="stVerticalBlock"][class*="st-key-"][class*="card"]{position:relative !important}
+div[data-testid="stVerticalBlock"][class*="st-key-"][class*="card"]::before{
   content:"";position:absolute;left:0;right:0;top:0;height:4px;z-index:5;
   border-radius:26px 26px 0 0;
   background:linear-gradient(90deg, var(--ac), color-mix(in srgb, var(--ac) 25%, #fff) 70%, transparent);
