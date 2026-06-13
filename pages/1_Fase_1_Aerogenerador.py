@@ -108,22 +108,26 @@ def _format_power_nominal(potencia_w):
     return f"{potencia_kw:,.2f} kW"
 
 
-def _section_title_html(icon_name: str, title: str, color: str = "#2563eb") -> str:
+def _section_title_html(emoji: str, title: str, subtitle: str = "") -> str:
+    """Card-head del mockup Aurora: cicon emoji en squircle + título + subtítulo."""
+    sub = f"<p>{subtitle}</p>" if subtitle else ""
     return (
-        '<div class="section-title">'
-        f'<span class="section-icon">{_icon_svg(icon_name, 18, color)}</span>'
-        f'<span>{title}</span>'
+        '<div class="f1-card-head">'
+        f'<div class="f1-cicon">{emoji}</div>'
+        f'<div><h2>{title}</h2>{sub}</div>'
         '</div>'
     )
 
-def _render_metric_card(icon, label, value, tone):
+def _render_metric_card(emoji, label, value, color, formula=""):
+    """KPI del mockup Aurora: ki círculo tintado (--kc) + label + valor + fórmula."""
     st.markdown(
         f"""
-        <div class="metric-card {tone}">
-            <div class="metric-icon">{icon}</div>
-            <div class="metric-copy">
-                <div class="metric-label">{label}</div>
-                <div class="metric-value">{value}</div>
+        <div class="f1-kpi" style="--kc:{color}">
+            <div class="f1-ki">{emoji}</div>
+            <div class="f1-kpi-copy">
+                <small>{label}</small>
+                <b>{value}</b>
+                <i>{formula}</i>
             </div>
         </div>
         """,
@@ -1277,12 +1281,129 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+st.markdown(
+    """
+<style>
+/* ═══════ Paridad F1 con el mockup 01_fase1 (Aurora, acento cian) ═══════ */
+/* Hero */
+.f1-hero{position:relative;overflow:hidden;border-radius:26px !important;padding:22px 28px !important;
+  background:linear-gradient(118deg,var(--ac,#0284c7) 0%, var(--ac2,#075985) 80%) !important;border:none !important;
+  box-shadow:0 22px 44px color-mix(in srgb,var(--ac,#0284c7) 32%,transparent), inset 0 1px 0 rgba(255,255,255,.25) !important;
+  margin:0 !important}
+.f1-hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(circle at 86% 12%, rgba(255,255,255,.20) 0 54px, transparent 55px),
+  radial-gradient(circle at 95% 70%, rgba(255,255,255,.12) 0 86px, transparent 87px),
+  linear-gradient(180deg, rgba(255,255,255,.08), transparent 40%)}
+.f1-wind{position:absolute;left:-30px;top:0;bottom:0;width:58%;height:100%;opacity:.45;pointer-events:none;z-index:1}
+.f1-wind path{stroke:rgba(255,255,255,.55);stroke-width:2;fill:none;stroke-dasharray:16 11;animation:f1windmove 2.6s linear infinite}
+.f1-wind path:nth-child(2){animation-duration:3.4s;opacity:.7}
+.f1-wind path:nth-child(3){animation-duration:4.2s;opacity:.5}
+@keyframes f1windmove{to{stroke-dashoffset:-54}}
+.f1-hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2}
+.f1-hero-icon{width:62px;height:62px;border-radius:19px;background:rgba(255,255,255,.17);
+  border:1.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:31px;flex-shrink:0;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 8px 18px rgba(0,0,0,.12)}
+.f1-hero-text{flex:1;min-width:0}
+.f1-hero .fase-hero-title{font-size:25px !important;font-weight:900 !important;color:#fff !important;letter-spacing:-.025em !important;
+  text-shadow:0 1px 2px rgba(0,0,0,.12) !important;margin:0 !important;line-height:1.15 !important}
+.f1-hero .fase-hero-subtitle{font-size:12.5px !important;color:rgba(255,255,255,.94) !important;font-weight:500 !important;
+  max-width:840px;margin:4px 0 0 0 !important;line-height:1.45 !important}
+.f1-hero-pills{display:flex;gap:9px;margin-left:auto;flex-shrink:0}
+.f1-hpill{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:15px;
+  padding:8px 15px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25);color:#fff}
+.f1-hpill b{display:block;font-size:16.5px;letter-spacing:-.01em}
+.f1-hpill span{font-size:9px;opacity:.92;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+
+/* Card-head (reemplaza .section-title) */
+.f1-card-head{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+.f1-cicon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+  background:linear-gradient(135deg, color-mix(in srgb,var(--ac,#0284c7) 16%,#fff), color-mix(in srgb,var(--ac,#0284c7) 7%,#fff));
+  border:1.5px solid color-mix(in srgb,var(--ac,#0284c7) 35%,#fff);
+  box-shadow:0 5px 12px color-mix(in srgb,var(--ac,#0284c7) 16%,transparent)}
+.f1-card-head h2{margin:0;font-size:16.5px;font-weight:900;color:#0b2447;letter-spacing:-.02em}
+.f1-card-head p{margin:2px 0 0;font-size:11px;color:#5a6b85;font-weight:600}
+
+/* KPI (reemplaza .metric-card) */
+.f1-kpi{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:13px 14px;display:flex;gap:12px;align-items:center;
+  box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06);min-height:74px}
+.f1-ki{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+  background:linear-gradient(135deg, color-mix(in srgb,var(--kc,#2563eb) 17%,#fff), color-mix(in srgb,var(--kc,#2563eb) 6%,#fff));
+  border:1.5px solid color-mix(in srgb,var(--kc,#2563eb) 38%,#fff);
+  box-shadow:0 5px 12px color-mix(in srgb,var(--kc,#2563eb) 18%,transparent)}
+.f1-kpi-copy{min-width:0}
+.f1-kpi small{display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
+.f1-kpi b{font-size:20px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
+.f1-kpi i{font-style:normal;font-size:10px;color:#5a6b85;display:block;margin-top:2.5px;font-weight:600}
+
+/* Banner */
+.f1-banner{display:flex;align-items:center;gap:12px;border-radius:15px;padding:12px 16px;font-weight:800;font-size:12.5px;margin:4px 0 0}
+.f1-banner .f1-bx{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(255,255,255,.7);flex-shrink:0}
+.f1-banner.info{background:linear-gradient(120deg, color-mix(in srgb,var(--ac,#0284c7) 8%,#fff), #fff);border:1.5px solid color-mix(in srgb,var(--ac,#0284c7) 30%,#fff);color:var(--ac,#0284c7)}
+.f1-banner.warn{background:linear-gradient(120deg,#fffbeb,#fff);border:1.5px solid #fde68a;color:#b45309}
+
+/* Look de card del mockup en las cards reales de F1 (la clase st-key cae en el
+   stVerticalBlock mismo, igual que en Inicio → se estila directo). */
+.st-key-f1_card_b, .st-key-f1_card_c,
+.st-key-f1_card_curva_potencia, .st-key-f1_card_resultados_graficos,
+.st-key-f1_card_f, .st-key-f1_card_g, .st-key-f1_card_multi_curvas{
+  position:relative !important;overflow:hidden !important;
+  background:linear-gradient(180deg,#fff,#fcfdff) !important;
+  border:1px solid #d3e0f0 !important;border-radius:26px !important;
+  padding:20px 22px 18px !important;
+  box-shadow:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08) !important}
+/* El card del hero es solo envoltura: sin card-look ni franja (el .f1-hero ya es el visual) */
+.st-key-f1_card_header{padding:0 !important;border:none !important;background:transparent !important;box-shadow:none !important;overflow:visible !important;margin-bottom:14px !important}
+.st-key-f1_card_header::before{display:none !important}
+/* Botón primary (Guardar y actualizar) con gradiente del acento, ganando al CSS local viejo */
+.st-key-f1_card_curva_potencia div[data-testid="stFormSubmitButton"] > button{
+  background:linear-gradient(120deg,var(--ac,#0284c7),var(--ac2,#075985)) !important;color:#fff !important;
+  border:none !important;border-radius:13px !important;font-weight:800 !important;
+  box-shadow:0 10px 20px color-mix(in srgb,var(--ac,#0284c7) 35%,transparent) !important}
+.st-key-f1_card_curva_potencia div[data-testid="stFormSubmitButton"] > button p{color:#fff !important;font-weight:800 !important}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+# Valores reales para las pills del hero (cálculo ligero con los defaults del
+# proyecto; el card de Parámetros recalcula igual más abajo).
+_d_pill = float(config.get("diametro", 100.0))
+_rho_pill = float(config.get("densidad", 1.22))
+try:
+    _df_pill = calcular_cp(
+        _preparar_datos_curva_fase1(st.session_state["f1_tabla_raw"]),
+        _rho_pill,
+        np.pi * (_d_pill / 2) ** 2,
+    )
+    _ms_pill = _build_metric_summary(_df_pill)
+    _pnom_pill = _format_power_nominal(_ms_pill["potencia_nominal_w"]) if _ms_pill else "—"
+    _cpmax = _df_pill["Cp"].dropna().max() if len(_df_pill) else float("nan")
+    _cpmax_pill = f"{_cpmax:.2f}".replace(".", ",") if pd.notna(_cpmax) else "—"
+except Exception:
+    _pnom_pill, _cpmax_pill = "—", "—"
+_d_pill_str = f"{_d_pill:.1f}".replace(".", ",") + " m"
+
 with _phase_card("f1_card_header"):
     st.markdown(
-        """
-        <div class="hero-card">
-            <div class="fase-hero-title">Fase 1 &middot; Aerogenerador y curva de potencia</div>
-            <div class="fase-hero-subtitle">Defina el aerogenerador, su di&aacute;metro, la densidad del aire y su curva de potencia para calcular el coeficiente de potencia Cp.</div>
+        f"""
+        <div class="hero-card f1-hero">
+            <svg class="f1-wind" viewBox="0 0 600 190" preserveAspectRatio="none">
+                <path d="M0 42 Q150 24 300 44 T600 34"/>
+                <path d="M0 100 Q180 82 340 102 T600 92"/>
+                <path d="M0 156 Q140 142 300 158 T600 150"/>
+            </svg>
+            <div class="f1-hero-row">
+                <div class="f1-hero-icon">🌀</div>
+                <div class="f1-hero-text">
+                    <h1 class="fase-hero-title">Fase 1 · Aerogenerador y curva de potencia</h1>
+                    <div class="fase-hero-subtitle">Defina el aerogenerador, su diámetro, la densidad del aire y la curva de potencia para calcular Cp.</div>
+                </div>
+                <div class="f1-hero-pills">
+                    <div class="f1-hpill"><b>{_d_pill_str}</b><span>Ø rotor</span></div>
+                    <div class="f1-hpill"><b>{_pnom_pill}</b><span>P. nominal</span></div>
+                    <div class="f1-hpill"><b>{_cpmax_pill}</b><span>Cp máx</span></div>
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1298,11 +1419,7 @@ df_resultados = pd.DataFrame()
 metric_summary = None
 
 with _phase_card("f1_card_b"):
-    st.markdown(_section_title_html("turbine", "Parámetros del aerogenerador"), unsafe_allow_html=True)
-    st.markdown(
-        '<div class="muted-text">Defina las condiciones base del rotor y del aire para la curva cargada.</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown(_section_title_html("🛠️", "Parámetros del aerogenerador", "Condiciones base del rotor y del aire"), unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
     with c1:
@@ -1332,22 +1449,22 @@ with _phase_card("f1_card_b"):
 
     m1, m2, m3 = st.columns([1, 1, 1], gap="medium")
     with m1:
-        _render_metric_card(_icon_svg("rotor", 22, "#16a34a"), "Área del rotor", f"{area:,.2f} m²", "metric-green")
+        _render_metric_card("⭕", "Área del rotor", f"{area:,.2f} m²", "#2563eb", "πD²/4")
     with m2:
         if metric_summary is not None:
-            _render_metric_card(_icon_svg("bolt", 22, "#2563eb"), "Potencia nominal estimada", _format_power_nominal(metric_summary["potencia_nominal_w"]), "metric-blue")
+            _render_metric_card("⚡", "Potencia nominal", _format_power_nominal(metric_summary["potencia_nominal_w"]), "#d97706", "desde la curva")
         else:
-            _render_metric_card(_icon_svg("bolt", 22, "#2563eb"), "Potencia nominal estimada", "Sin datos", "metric-blue")
+            _render_metric_card("⚡", "Potencia nominal", "Sin datos", "#d97706", "desde la curva")
     with m3:
         if metric_summary is not None:
-            _render_metric_card(_icon_svg("wind", 22, "#7c3aed"), "Velocidad nominal aproximada", f"{metric_summary['velocidad_nominal_ms']:.2f} m/s", "metric-violet")
+            _render_metric_card("🌬️", "Velocidad nominal", f"{metric_summary['velocidad_nominal_ms']:.2f} m/s", "#16a34a", "aprox. de la curva")
         else:
-            _render_metric_card(_icon_svg("wind", 22, "#7c3aed"), "Velocidad nominal aproximada", "Sin datos", "metric-violet")
+            _render_metric_card("🌬️", "Velocidad nominal", "Sin datos", "#16a34a", "aprox. de la curva")
 
 with _phase_card("f1_card_c"):
-    st.markdown(_section_title_html("globe", "Esquema interactivo del aerogenerador"), unsafe_allow_html=True)
+    st.markdown(_section_title_html("🎛️", "Esquema interactivo del aerogenerador", "El viento disponible se transforma en potencia eléctrica"), unsafe_allow_html=True)
     st.markdown(
-        '<div class="muted-text">Este esquema muestra cómo el viento disponible se transforma en potencia eléctrica según los datos ingresados.</div>',
+        '<div class="muted-text" style="display:none">Este esquema muestra cómo el viento disponible se transforma en potencia eléctrica según los datos ingresados.</div>',
         unsafe_allow_html=True,
     )
 
@@ -1388,15 +1505,15 @@ col_izq, col_der = st.columns([1, 1], gap="large")
 
 with col_izq:
     with st.container(border=True, key="f1_card_curva_potencia"):
-        st.markdown(_section_title_html("curve", "Curva de potencia"), unsafe_allow_html=True)
+        st.markdown(_section_title_html("📈", "Curva de potencia", "Potencia (kW) por velocidad — editable"), unsafe_allow_html=True)
         desc_col, clear_col = st.columns([0.68, 0.32], gap="large")
         with desc_col:
             st.markdown(
-                '<p class="f1-power-subtitle">Ingrese la potencia en kW para cada velocidad del viento.</p>',
+                '<p class="f1-power-subtitle" style="display:none">Ingrese la potencia en kW para cada velocidad del viento.</p>',
                 unsafe_allow_html=True,
             )
         with clear_col:
-            if st.button("Limpiar tabla", use_container_width=True):
+            if st.button("🧹 Limpiar tabla", use_container_width=True):
                 st.session_state["f1_tabla_raw"] = _tabla_curva_a_kw(tabla_vacia_curva())
                 # forzar_wipe=True porque el usuario lo pidió explícitamente.
                 # Sin esto, el guard defensivo de db.py rechazaría el wipe.
@@ -1433,7 +1550,7 @@ with col_izq:
                     ),
                 },
             )
-            guardar = st.form_submit_button("Guardar y actualizar")
+            guardar = st.form_submit_button("💾 Guardar y actualizar", type="primary")
 
         if guardar:
             st.session_state["f1_tabla_raw"] = tabla_editada.copy()
@@ -1448,11 +1565,7 @@ with col_izq:
 
 with col_der:
     with st.container(border=True, key="f1_card_resultados_graficos"):
-        st.markdown(_section_title_html("chart", "Resultados gráficos"), unsafe_allow_html=True)
-        st.markdown(
-            '<div class="muted-text">Relación entre velocidad del viento, potencia generada y coeficiente de potencia Cp.</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(_section_title_html("📊", "Resultados gráficos", "Curva de potencia y coeficiente Cp"), unsafe_allow_html=True)
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         if len(df_resultados) > 0:
@@ -1528,13 +1641,12 @@ with col_der:
         st.markdown("</div>", unsafe_allow_html=True)
 
 with _phase_card("f1_card_f"):
-    st.markdown(_section_title_html("document", "Notas técnicas"), unsafe_allow_html=True)
+    st.markdown(_section_title_html("📝", "Notas técnicas", "Recordatorios sobre el límite de Betz"), unsafe_allow_html=True)
     st.markdown(
         """
-        <div class="technical-note">
-        Cp representa la fracción de potencia del viento convertida en potencia mecánica o eléctrica.<br><br>
-        Valores de Cp mayores a 0.59 son físicamente sospechosos por el límite de Betz.<br><br>
-        Si Cp supera 1, revise unidades, diámetro, densidad o potencia ingresada.
+        <div class="f1-banner warn">
+            <span class="f1-bx">⚠️</span>
+            <span>Cp &gt; 0,59 es físicamente sospechoso (límite de Betz). Si Cp supera 1, revise unidades, diámetro, densidad o potencia.</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1572,8 +1684,7 @@ with _phase_card("f1_card_g"):
 
 # B6 - Catálogo multi-curva potencia (MVP gestor)
 with st.container(border=True, key="f1_card_multi_curvas"):
-    st.markdown("### 📚 Catálogo de curvas de potencia (B6)")
-    st.caption("Guarda múltiples modelos de turbina como curvas catalogadas. La curva activa es la usada por el cálculo AEP/wake actual (default).")
+    st.markdown(_section_title_html("📚", "Catálogo de curvas de potencia (B6)", "Guarde múltiples modelos; la curva activa alimenta el cálculo AEP/wake"), unsafe_allow_html=True)
     from db import cargar_power_curves as _cpc
     from db import eliminar_power_curve as _epc
     from db import guardar_power_curve as _gpc
@@ -1596,7 +1707,11 @@ with st.container(border=True, key="f1_card_multi_curvas"):
             })
         st.dataframe(pd.DataFrame(rows_curves), use_container_width=True, hide_index=True)
     else:
-        st.info("Aún sin curvas en catálogo. Guarda la curva editada arriba con un nombre.")
+        st.markdown(
+            '<div class="f1-banner info"><span class="f1-bx">💡</span>'
+            '<span>Aún sin curvas en catálogo. Guarde la curva editada arriba con un nombre.</span></div>',
+            unsafe_allow_html=True,
+        )
 
     with st.expander("Guardar curva actual al catálogo", expanded=False):
         col_n1, col_n2, col_n3 = st.columns([1.2, 1, 1])
