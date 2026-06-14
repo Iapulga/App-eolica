@@ -316,9 +316,9 @@ def _toggle_flag(state_key):
 
 def _render_fase2_plot_chip_controls():
     defaults = {
-        "f2_show_fig_exp": False,
-        "f2_show_fig_log_a": False,
-        "f2_show_fig_promedio": False,
+        "f2_show_fig_exp": True,
+        "f2_show_fig_log_a": True,
+        "f2_show_fig_promedio": True,
         "f2_show_fig_comparacion": False,
         "f2_show_fig_comparacion_log": False,
     }
@@ -3301,7 +3301,7 @@ if _f2_show_nasa:
             )
             c_l, c_btn, c_r = st.columns([1, 1.5, 1])
             with c_btn:
-                consultar_nasa = st.button("Consultar NASA POWER", key="btn_consultar_nasa_power", use_container_width=True)
+                consultar_nasa = st.button("Consultar NASA POWER", key="btn_consultar_nasa_power", use_container_width=True, type="primary")
             # Overlay the search icon inside the button text via CSS content trick on the <p> tag
             st.markdown(
                 """
@@ -3493,6 +3493,145 @@ if _f2_show_nasa:
                 )
             st.markdown('</div>', unsafe_allow_html=True)
 
+        # B2 + B3 — Torre meteorológica + MCP
+        with _phase_card("f2_card_mast"):
+            st.markdown(
+                _section_title_html("M", "controls", "Torre meteorológica (B2) + MCP (B3)", "Sube datos de torre 10-min para validación + Measure-Correlate-Predict contra NASA POWER."),
+                unsafe_allow_html=True,
+            )
+
+            import mast_import
+            from calculos import aplicar_mcp as _aplicar_mcp
+            from calculos import mcp_lineal_sectorial
+            from db import (
+                borrar_mast_data as _bmd,
+            )
+            from db import (
+                cargar_mast_data as _cmd,
+            )
+            from db import (
+                existe_mast_data as _exmd,
+            )
+            from db import (
+                guardar_mast_data as _gmd,
+            )
+            from db import (
+                guardar_ws_mcp as _gwm,
+            )
+
+            col_up, col_info = st.columns([1.4, 1])
+            with col_up:
+                uploaded_mast = st.file_uploader(
+                    "CSV/Excel torre met (formato auto-detect)",
+                    type=["csv", "xlsx", "xls"],
+                    key="f2_uploader_mast",
+                )
+                altura_objetivo_mast = st.number_input(
+                    "Altura del sensor (m)",
+                    min_value=10.0, max_value=200.0,
+                    value=float(config.get("f2_mast_altura_sensor") or 80.0),
+                    step=1.0, format="%.1f", key="f2_mast_altura_sensor",
+                )
+                if uploaded_mast is not None and st.button("Procesar e importar", key="f2_btn_import_mast", use_container_width=True):
+                    try:
+                        raw = uploaded_mast.getvalue()
+                        df_mast_10min = mast_import.parsear_torre_csv(raw, uploaded_mast.name, altura_objetivo=altura_objetivo_mast)
+                        df_mast_h = mast_import.agregar_10min_a_horario(df_mast_10min)
+                        val = mast_import.validar_torre_data(df_mast_10min)
+                        _gmd(df_mast_h, source_file=uploaded_mast.name)
+                        guardar_config_values({
+                            "f2_mast_disponible": "True",
+                            "f2_mast_source_file": uploaded_mast.name,
+                            "f2_mast_recovery_pct": val.get("recovery_pct", 0.0),
+                            "f2_mast_altura_sensor": altura_objetivo_mast,
+                        })
+                        st.success(f"Importado {len(df_mast_h)} horas. Recovery {val.get('recovery_pct', 0):.1f}%. ws_mean={val.get('ws_mean', 0):.2f} m/s.")
+                        st.rerun()
+                    except Exception as exc:
+                        st.error(f"Error importando torre: {exc}")
+
+            with col_info:
+                if _exmd():
+                    df_mast_db = _cmd()
+                    st.metric("Torre disponible", "✓ Sí")
+                    st.metric("Horas guardadas", f"{len(df_mast_db):,}")
+                    st.metric("Fuente", str(config.get("f2_mast_source_file", "—")))
+                    if st.button("Borrar torre", key="f2_btn_clear_mast"):
+                        _bmd()
+                        guardar_config_values({"f2_mast_disponible": "False", "f2_mast_source_file": ""})
+                        st.rerun()
+                else:
+                    st.info("Sin torre importada.")
+
+            if _exmd() and len(df_nasa) > 0:
+                df_mast_db = _cmd()
+                df_mast_db["timestamp"] = pd.to_datetime(df_mast_db["timestamp"], errors="coerce")
+
+                # Plot torre vs NASA overlap
+                overlap_start = max(df_nasa["timestamp"].min(), df_mast_db["timestamp"].min())
+                overlap_end = min(df_nasa["timestamp"].max(), df_mast_db["timestamp"].max())
+                st.markdown(f"**Periodo overlap NASA ↔ torre:** {overlap_start} → {overlap_end}")
+
+                st.markdown("### MCP (Measure-Correlate-Predict)")
+                if st.button("Calcular MCP sectorial", key="f2_btn_run_mcp", use_container_width=True, type="primary"):
+                    try:
+                        mcp_res = mcp_lineal_sectorial(df_nasa, df_mast_db, ws_sat_col="WS50M", wd_sat_col="WD50M", ws_torre_col="ws_10min", wd_torre_col="wd_10min", n_sectores=12)
+                        global_res = mcp_res["global"]
+                        st.success(f"MCP sectorial calculado. R² global = {global_res.get('r2', float('nan')):.3f} (n={global_res.get('n_samples', 0)} horas overlap, RMSE={global_res.get('rmse', float('nan')):.2f} m/s)")
+
+                        import json as _json_mcp
+                        coefs_serializable = {str(k): {kk: vv for kk, vv in v.items() if isinstance(vv, (int, float))} for k, v in mcp_res["sectores"].items()}
+                        coefs_serializable["global"] = {kk: vv for kk, vv in global_res.items() if isinstance(vv, (int, float))}
+
+                        guardar_config_values({
+                            "f2_mcp_calculado": "True",
+                            "f2_mcp_r2": global_res.get("r2", ""),
+                            "f2_mcp_rmse": global_res.get("rmse", ""),
+                            "f2_mcp_slope_global": global_res.get("a", ""),
+                            "mcp_coefs_json": _json_mcp.dumps(coefs_serializable),
+                        })
+
+                        # Scatter sat vs torre
+                        if "x_obs" in global_res and "y_obs" in global_res:
+                            import plotly.graph_objects as _go_mcp
+                            fig_sc = _go_mcp.Figure()
+                            fig_sc.add_trace(_go_mcp.Scatter(x=global_res["x_obs"], y=global_res["y_obs"], mode="markers", marker=dict(size=4, color="#2563eb", opacity=0.5), name="Obs"))
+                            x_min, x_max = float(np.nanmin(global_res["x_obs"])), float(np.nanmax(global_res["x_obs"]))
+                            xs_line = np.linspace(x_min, x_max, 50)
+                            fig_sc.add_trace(_go_mcp.Scatter(x=xs_line, y=global_res["a"] * xs_line + global_res["b"], mode="lines", line=dict(color="#dc2626", width=2), name=f"y = {global_res['a']:.3f}x + {global_res['b']:.2f}"))
+                            fig_sc.add_trace(_go_mcp.Scatter(x=xs_line, y=xs_line, mode="lines", line=dict(color="#7e22ce", width=1, dash="dash"), name="1:1"))
+                            fig_sc.update_layout(template="plotly_white", height=380, margin=dict(l=14, r=14, t=42, b=16), title="NASA POWER (WS50M) vs Torre", xaxis_title="NASA WS50M (m/s)", yaxis_title="Torre ws_10min (m/s)")
+                            st.plotly_chart(fig_sc, use_container_width=True)
+
+                        # Tabla coefs por sector
+                        rows_sec = []
+                        for s, c in mcp_res["sectores"].items():
+                            rows_sec.append({"Sector": s, "Rango (°)": f"{c.get('lo', 0):.0f}-{c.get('hi', 0):.0f}", "a": c.get("a"), "b": c.get("b"), "R²": c.get("r2"), "n": c.get("n_samples")})
+                        df_coefs = pd.DataFrame(rows_sec)
+                        st.dataframe(df_coefs, use_container_width=True, hide_index=True)
+
+                        # Apply MCP and save WS_MCP back to nasa_hourly
+                        ws_mcp_serie = _aplicar_mcp(df_nasa, mcp_res, ws_col="WS50M", wd_col="WD50M", sectorial=True)
+                        df_with_ts = df_nasa.copy()
+                        df_with_ts["WS_MCP"] = ws_mcp_serie.values
+                        ws_mcp_indexed = pd.Series(df_with_ts["WS_MCP"].values, index=df_with_ts["timestamp"].astype(str))
+                        _gwm(ws_mcp_indexed)
+                        st.success(f"WS_MCP aplicado a {len(ws_mcp_indexed)} horas de NASA y guardado en DB.")
+                    except Exception as exc:
+                        st.error(f"MCP falló: {exc}")
+
+                # Selector serie_uso global
+                serie_uso_options = ["nasa", "mcp"]
+                serie_uso_default = str(config.get("f2_serie_uso") or "nasa").lower()
+                serie_uso_ui = st.selectbox(
+                    "Serie usada para análisis downstream",
+                    serie_uso_options,
+                    index=serie_uso_options.index(serie_uso_default) if serie_uso_default in serie_uso_options else 0,
+                    key="f2_serie_uso",
+                    help="nasa: serie NASA cruda · mcp: serie NASA ajustada con MCP (requiere torre + MCP calculado)",
+                )
+                guardar_config_values({"f2_serie_uso": serie_uso_ui})
+
     if consultar_nasa:
         try:
             latitude = st.session_state["f2_latitude"]
@@ -3572,6 +3711,8 @@ if _f2_show_nasa:
 
         except Exception as e:
             st.error(f"No pude descargar los datos de NASA POWER: {e}")
+
+
 
 if len(df_nasa) > 0:
     cfg_saved = _load_current_config()
@@ -4045,145 +4186,6 @@ if len(df_nasa) > 0:
                 use_container_width=True,
             )
         st.markdown("</div>", unsafe_allow_html=True)
-
-    # B2 + B3 — Torre meteorológica + MCP
-    with _phase_card("f2_card_mast"):
-        st.markdown(
-            _section_title_html("M", "controls", "Torre meteorológica (B2) + MCP (B3)", "Sube datos de torre 10-min para validación + Measure-Correlate-Predict contra NASA POWER."),
-            unsafe_allow_html=True,
-        )
-
-        import mast_import
-        from calculos import aplicar_mcp as _aplicar_mcp
-        from calculos import mcp_lineal_sectorial
-        from db import (
-            borrar_mast_data as _bmd,
-        )
-        from db import (
-            cargar_mast_data as _cmd,
-        )
-        from db import (
-            existe_mast_data as _exmd,
-        )
-        from db import (
-            guardar_mast_data as _gmd,
-        )
-        from db import (
-            guardar_ws_mcp as _gwm,
-        )
-
-        col_up, col_info = st.columns([1.4, 1])
-        with col_up:
-            uploaded_mast = st.file_uploader(
-                "CSV/Excel torre met (formato auto-detect)",
-                type=["csv", "xlsx", "xls"],
-                key="f2_uploader_mast",
-            )
-            altura_objetivo_mast = st.number_input(
-                "Altura del sensor (m)",
-                min_value=10.0, max_value=200.0,
-                value=float(config.get("f2_mast_altura_sensor") or 80.0),
-                step=1.0, format="%.1f", key="f2_mast_altura_sensor",
-            )
-            if uploaded_mast is not None and st.button("Procesar e importar", key="f2_btn_import_mast", use_container_width=True):
-                try:
-                    raw = uploaded_mast.getvalue()
-                    df_mast_10min = mast_import.parsear_torre_csv(raw, uploaded_mast.name, altura_objetivo=altura_objetivo_mast)
-                    df_mast_h = mast_import.agregar_10min_a_horario(df_mast_10min)
-                    val = mast_import.validar_torre_data(df_mast_10min)
-                    _gmd(df_mast_h, source_file=uploaded_mast.name)
-                    guardar_config_values({
-                        "f2_mast_disponible": "True",
-                        "f2_mast_source_file": uploaded_mast.name,
-                        "f2_mast_recovery_pct": val.get("recovery_pct", 0.0),
-                        "f2_mast_altura_sensor": altura_objetivo_mast,
-                    })
-                    st.success(f"Importado {len(df_mast_h)} horas. Recovery {val.get('recovery_pct', 0):.1f}%. ws_mean={val.get('ws_mean', 0):.2f} m/s.")
-                    st.rerun()
-                except Exception as exc:
-                    st.error(f"Error importando torre: {exc}")
-
-        with col_info:
-            if _exmd():
-                df_mast_db = _cmd()
-                st.metric("Torre disponible", "✓ Sí")
-                st.metric("Horas guardadas", f"{len(df_mast_db):,}")
-                st.metric("Fuente", str(config.get("f2_mast_source_file", "—")))
-                if st.button("Borrar torre", key="f2_btn_clear_mast"):
-                    _bmd()
-                    guardar_config_values({"f2_mast_disponible": "False", "f2_mast_source_file": ""})
-                    st.rerun()
-            else:
-                st.info("Sin torre importada.")
-
-        if _exmd():
-            df_mast_db = _cmd()
-            df_mast_db["timestamp"] = pd.to_datetime(df_mast_db["timestamp"], errors="coerce")
-
-            # Plot torre vs NASA overlap
-            overlap_start = max(df_nasa["timestamp"].min(), df_mast_db["timestamp"].min())
-            overlap_end = min(df_nasa["timestamp"].max(), df_mast_db["timestamp"].max())
-            st.markdown(f"**Periodo overlap NASA ↔ torre:** {overlap_start} → {overlap_end}")
-
-            st.markdown("### MCP (Measure-Correlate-Predict)")
-            if st.button("Calcular MCP sectorial", key="f2_btn_run_mcp", use_container_width=True, type="primary"):
-                try:
-                    mcp_res = mcp_lineal_sectorial(df_nasa, df_mast_db, ws_sat_col="WS50M", wd_sat_col="WD50M", ws_torre_col="ws_10min", wd_torre_col="wd_10min", n_sectores=12)
-                    global_res = mcp_res["global"]
-                    st.success(f"MCP sectorial calculado. R² global = {global_res.get('r2', float('nan')):.3f} (n={global_res.get('n_samples', 0)} horas overlap, RMSE={global_res.get('rmse', float('nan')):.2f} m/s)")
-
-                    import json as _json_mcp
-                    coefs_serializable = {str(k): {kk: vv for kk, vv in v.items() if isinstance(vv, (int, float))} for k, v in mcp_res["sectores"].items()}
-                    coefs_serializable["global"] = {kk: vv for kk, vv in global_res.items() if isinstance(vv, (int, float))}
-
-                    guardar_config_values({
-                        "f2_mcp_calculado": "True",
-                        "f2_mcp_r2": global_res.get("r2", ""),
-                        "f2_mcp_rmse": global_res.get("rmse", ""),
-                        "f2_mcp_slope_global": global_res.get("a", ""),
-                        "mcp_coefs_json": _json_mcp.dumps(coefs_serializable),
-                    })
-
-                    # Scatter sat vs torre
-                    if "x_obs" in global_res and "y_obs" in global_res:
-                        import plotly.graph_objects as _go_mcp
-                        fig_sc = _go_mcp.Figure()
-                        fig_sc.add_trace(_go_mcp.Scatter(x=global_res["x_obs"], y=global_res["y_obs"], mode="markers", marker=dict(size=4, color="#2563eb", opacity=0.5), name="Obs"))
-                        x_min, x_max = float(np.nanmin(global_res["x_obs"])), float(np.nanmax(global_res["x_obs"]))
-                        xs_line = np.linspace(x_min, x_max, 50)
-                        fig_sc.add_trace(_go_mcp.Scatter(x=xs_line, y=global_res["a"] * xs_line + global_res["b"], mode="lines", line=dict(color="#dc2626", width=2), name=f"y = {global_res['a']:.3f}x + {global_res['b']:.2f}"))
-                        fig_sc.add_trace(_go_mcp.Scatter(x=xs_line, y=xs_line, mode="lines", line=dict(color="#7e22ce", width=1, dash="dash"), name="1:1"))
-                        fig_sc.update_layout(template="plotly_white", height=380, margin=dict(l=14, r=14, t=42, b=16), title="NASA POWER (WS50M) vs Torre", xaxis_title="NASA WS50M (m/s)", yaxis_title="Torre ws_10min (m/s)")
-                        st.plotly_chart(fig_sc, use_container_width=True)
-
-                    # Tabla coefs por sector
-                    rows_sec = []
-                    for s, c in mcp_res["sectores"].items():
-                        rows_sec.append({"Sector": s, "Rango (°)": f"{c.get('lo', 0):.0f}-{c.get('hi', 0):.0f}", "a": c.get("a"), "b": c.get("b"), "R²": c.get("r2"), "n": c.get("n_samples")})
-                    df_coefs = pd.DataFrame(rows_sec)
-                    st.dataframe(df_coefs, use_container_width=True, hide_index=True)
-
-                    # Apply MCP and save WS_MCP back to nasa_hourly
-                    ws_mcp_serie = _aplicar_mcp(df_nasa, mcp_res, ws_col="WS50M", wd_col="WD50M", sectorial=True)
-                    df_with_ts = df_nasa.copy()
-                    df_with_ts["WS_MCP"] = ws_mcp_serie.values
-                    ws_mcp_indexed = pd.Series(df_with_ts["WS_MCP"].values, index=df_with_ts["timestamp"].astype(str))
-                    _gwm(ws_mcp_indexed)
-                    st.success(f"WS_MCP aplicado a {len(ws_mcp_indexed)} horas de NASA y guardado en DB.")
-                except Exception as exc:
-                    st.error(f"MCP falló: {exc}")
-
-            # Selector serie_uso global
-            serie_uso_options = ["nasa", "mcp"]
-            serie_uso_default = str(config.get("f2_serie_uso") or "nasa").lower()
-            serie_uso_ui = st.selectbox(
-                "Serie usada para análisis downstream",
-                serie_uso_options,
-                index=serie_uso_options.index(serie_uso_default) if serie_uso_default in serie_uso_options else 0,
-                key="f2_serie_uso",
-                help="nasa: serie NASA cruda · mcp: serie NASA ajustada con MCP (requiere torre + MCP calculado)",
-            )
-            guardar_config_values({"f2_serie_uso": serie_uso_ui})
 
 else:
     with _phase_card("f2_card_empty"):
