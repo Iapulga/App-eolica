@@ -10,6 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 from calculos import (
     KAPPA,
@@ -164,6 +165,60 @@ def _metric_card_html(
                 <b>{value}</b>
             </div>
         </div>
+        """
+    ).strip()
+
+
+def render_cizalladura_svg(v10, v50, v100, alpha, h_alta=100.0):
+    """Diagrama de cizalladura del viento con la altura (mockup 02_fase2):
+    torre + 3 flechas cian animadas a 10/50/h_alta m con su velocidad + curva
+    de perfil + fórmula. Las longitudes de flecha y la curva son dinámicas."""
+    def _vx(v):
+        try:
+            return min(140.0 + float(v) * 60.0, 360.0)
+        except Exception:
+            return 140.0
+    def _fnum(x):
+        try:
+            return f"{float(x):.2f}".replace(".", ",")
+        except Exception:
+            return "—"
+    x10, x50, x100 = _vx(v10), _vx(v50), _vx(v100)
+    a_text = _fnum(alpha)
+
+    def _arrow(y, xe, v):
+        return (
+            f'<line x1="140" y1="{y}" x2="{xe - 6:.0f}" y2="{y}" stroke="#0891b2" stroke-width="5" '
+            f'stroke-linecap="round" stroke-dasharray="12 9" class="czflow"/>'
+            f'<path d="M{xe:.0f} {y} l-12 -7 v14 Z" fill="#0891b2"/>'
+            f'<text x="{xe + 10:.0f}" y="{y + 4}" font-size="11.5" font-weight="900" fill="#0b2447">{_fnum(v)} m/s</text>'
+        )
+
+    def _lbl(y, t):
+        return (
+            f'<text x="92" y="{y + 4}" text-anchor="end" font-size="10.5" font-weight="800" fill="#64748b">{t}</text>'
+            f'<line x1="98" y1="{y}" x2="132" y2="{y}" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="3 4"/>'
+        )
+
+    return textwrap.dedent(
+        f"""
+        <html style="margin:0;padding:0;width:100%;height:100%;">
+        <body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;">
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          <svg viewBox="0 0 560 300" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;">
+            <style>.czflow{{animation:czfl 1.6s linear infinite}}@keyframes czfl{{to{{stroke-dashoffset:-42}}}}</style>
+            <rect x="6" y="6" width="548" height="288" rx="18" fill="#f4fcff"/>
+            <line x1="120" y1="34" x2="120" y2="250" stroke="#94a3b8" stroke-width="2"/>
+            <rect x="112" y="246" width="16" height="8" rx="3" fill="#64748b"/>
+            <path d="M{x10:.0f} 200 Q {(x10 + x100) / 2:.0f} 140 {x100:.0f} 72" fill="none" stroke="#0e7490" stroke-width="3" opacity=".85"/>
+            {_arrow(200, x10, v10)}{_lbl(200, "10 m")}
+            {_arrow(140, x50, v50)}{_lbl(140, "50 m")}
+            {_arrow(72, x100, v100)}{_lbl(72, f"{h_alta:.0f} m")}
+            <text x="280" y="284" text-anchor="middle" font-size="10.5" font-weight="800" fill="#64748b">v(z) = v_ref · (z / z_ref)^α · α = {a_text}</text>
+          </svg>
+        </div>
+        </body>
+        </html>
         """
     ).strip()
 
@@ -2560,6 +2615,7 @@ st.markdown(
 .f2-kpi-copy b{font-size:19px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
 
 /* Banner */
+.f2-fig-title{font-size:12px;font-weight:900;color:#0b2447;margin:2px 0 6px;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
 .f2-banner{display:flex;align-items:center;gap:12px;border-radius:15px;padding:12px 16px;font-weight:800;font-size:12.5px;margin:8px 0 0}
 .f2-banner .f2-bx{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(255,255,255,.7);flex-shrink:0}
 .f2-banner.ok{background:linear-gradient(120deg,#f0fdf4,#fff);border:1.5px solid #86efac;color:#15803d}
@@ -2645,23 +2701,61 @@ cambios_pendientes_top = (
 
 consultar_nasa = False
 
-# ── Data source selector ──
-_f2_ds_options = ["NASA POWER", "Global Wind Atlas / Open-Meteo"]
+# ── Selector de fuente como CHIPS (estilo mockup Aurora) ──
+# Funcionalmente la app tiene 2 fuentes (NASA / GWA-Open-Meteo); el mockup muestra
+# 4 chips. NASA POWER es una; GWA, Open-Meteo y Torre mapean a la opción combinada.
+# El chip visualmente activo se guarda en session_state para distinguirlos.
+_F2_SOURCE_CHIPS = [
+    ("🛰️ NASA POWER", "NASA POWER"),
+    ("🌍 Global Wind Atlas", "Global Wind Atlas / Open-Meteo"),
+    ("⛅ Open-Meteo", "Global Wind Atlas / Open-Meteo"),
+    ("🗼 Torre meteorológica", "Global Wind Atlas / Open-Meteo"),
+]
 _f2_ds_default = config.get("data_source", "NASA POWER")
-if _f2_ds_default not in _f2_ds_options:
+if _f2_ds_default not in ("NASA POWER", "Global Wind Atlas / Open-Meteo"):
     _f2_ds_default = "NASA POWER"
-_f2_ds_idx = _f2_ds_options.index(_f2_ds_default)
+if "f2_source_chip" not in st.session_state:
+    st.session_state["f2_source_chip"] = "🛰️ NASA POWER" if _f2_ds_default == "NASA POWER" else "🌍 Global Wind Atlas"
 
-f2_data_source = st.radio(
-    "Fuente de datos de viento",
-    _f2_ds_options,
-    index=_f2_ds_idx,
-    horizontal=True,
-    key="f2_data_source",
+
+def _set_f2_source(label, ds_value):
+    st.session_state["f2_source_chip"] = label
+    guardar_config_values({"data_source": ds_value})
+
+
+st.markdown(
+    """
+    <style>
+    .st-key-f2_source_chip_panel{margin:0 0 .2rem 0}
+    .st-key-f2_source_chip_panel [data-testid="stHorizontalBlock"]{display:flex !important;flex-wrap:wrap !important;gap:.55rem !important}
+    .st-key-f2_source_chip_panel [data-testid="stButton"] > button{
+      display:inline-flex !important;align-items:center !important;gap:.4rem !important;
+      border-radius:999px !important;border:1.5px solid #cfe0f5 !important;background:#fff !important;
+      color:#5a6b85 !important;font-size:12px !important;font-weight:800 !important;
+      padding:9px 15px !important;min-height:0 !important;width:auto !important;
+      box-shadow:0 2px 6px rgba(11,36,71,.04) !important;white-space:nowrap !important}
+    .st-key-f2_source_chip_panel [data-testid="stButton"] > button[kind="primary"]{
+      background:linear-gradient(120deg, color-mix(in srgb,var(--ac,#0891b2) 13%,#fff), color-mix(in srgb,var(--ac,#0891b2) 6%,#fff)) !important;
+      border-color:var(--ac,#0891b2) !important;color:var(--ac,#0891b2) !important;
+      box-shadow:0 6px 14px color-mix(in srgb,var(--ac,#0891b2) 18%,transparent) !important}
+    .st-key-f2_source_chip_panel [data-testid="stButton"] > button p{margin:0 !important;font-weight:800 !important}
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
-# Persist choice
-if f2_data_source != _f2_ds_default:
-    guardar_config_values({"data_source": f2_data_source})
+_src_panel = st.container(horizontal=True, horizontal_alignment="left", gap="small", key="f2_source_chip_panel")
+with _src_panel:
+    for _lbl, _dsv in _F2_SOURCE_CHIPS:
+        st.button(
+            _lbl,
+            key=f"f2_src_{_lbl}",
+            type="primary" if _lbl == st.session_state["f2_source_chip"] else "secondary",
+            on_click=_set_f2_source,
+            args=(_lbl, _dsv),
+        )
+f2_data_source = config.get("data_source", "NASA POWER")
+if f2_data_source not in ("NASA POWER", "Global Wind Atlas / Open-Meteo"):
+    f2_data_source = "NASA POWER"
 
 # ── GWA block: shown only when Global Wind Atlas is selected ──
 if f2_data_source == "Global Wind Atlas / Open-Meteo":
@@ -3496,11 +3590,11 @@ if len(df_nasa) > 0:
         with s1:
             _render_metric_card("database-records", "Registros horarios", f"{len(df_nasa):,}", "blue", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=2)
         with s2:
-            _render_metric_card("wind", "Promedio WS10M", f"{df_nasa['WS10M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=-2)
+            _render_metric_card("wind", "Promedio WS10M", f"{df_nasa['WS10M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="wind", icon_dx=0, icon_dy=-2)
         with s3:
-            _render_metric_card("wind", "Promedio WS50M", f"{df_nasa['WS50M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=-2)
+            _render_metric_card("wind", "Promedio WS50M", f"{df_nasa['WS50M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="combined", icon_dx=0, icon_dy=-2)
         with s4:
-            _render_metric_card("target", "Promedio WD10M", valor_wd10, "blue", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=0)
+            _render_metric_card("target", "Promedio WD10M", valor_wd10, "green", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=0)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with _phase_card("f2_card_d"):
@@ -3580,40 +3674,41 @@ if len(df_nasa) > 0:
             _section_title_html("E", "profile", "Perfiles verticales del viento", "Comparación técnica entre los perfiles exponencial, logarítmico A y Promedio Log-Exp."),
             unsafe_allow_html=True,
         )
-        top_cards = "".join(
-            [
-                _metric_card_html("wind-10m", "Velocidad media a 10 m", f"{v10:.2f} m/s", "green", compact=True, extra_class="metric-card--profile", icon_variant="wind"),
-                _metric_card_html("wind-50m", "Velocidad media a 50 m", f"{v50:.2f} m/s", "green", compact=True, extra_class="metric-card--profile", icon_variant="wind"),
-                _metric_card_html("alpha-profile", "Alpha (2 puntos)", f"{alpha:.4f}", "green", compact=True, extra_class="metric-card--profile", icon_variant="param"),
-                _metric_card_html("friction-velocity", "u* modo A (2 puntos)", f"{u_star_a:.4f} m/s", "green", compact=True, extra_class="metric-card--profile", icon_variant="param"),
-                _metric_card_html("roughness-z0", "z0 modo A ajustada", f"{z0_ajustada:.6f} m", "green", compact=True, extra_class="metric-card--profile", icon_variant="param"),
-                _metric_card_html("log-exp-average", "Promedio Log-Exp", "Activo", "green", compact=True, extra_class="metric-card--profile", icon_variant="combined"),
-            ]
-        )
-        speed_cards = "".join(
-            [
-                _metric_card_html("exp-profile", "Exponencial", f"{v_exp_deseada:.2f} m/s", "green", compact=True, extra_class="metric-card--profile-speed", icon_variant="wind"),
-                _metric_card_html("log-profile", "Log A", f"{v_log_a_deseada:.2f} m/s" if np.isfinite(v_log_a_deseada) else "No válida", "green", compact=True, extra_class="metric-card--profile-speed", icon_variant="wind"),
-                _metric_card_html("log-exp-average", "Promedio Log-Exp", f"{v_promedio_deseada:.2f} m/s" if np.isfinite(v_promedio_deseada) else "No válida", "green", compact=True, extra_class="metric-card--profile-speed", icon_variant="combined"),
-            ]
-        )
-        combined_card = _metric_card_html("model-combo", "Modelo combinado", "Exp + Log A", "green", compact=True, extra_class="metric-card--profile-combined", icon_variant="combined")
-        note_html = f'<div class="profile-note"><div class="profile-note__icon">{_icon_svg("info", 22, "#2563eb")}</div><div class="profile-note__text">Promedio Log-Exp: promedio entre el perfil exponencial ajustado con 10 m y 50 m y el perfil logarítmico A ajustado con los mismos dos puntos.</div></div>'
+        # ── 4 KPIs arriba (α, u*, z₀, modelo activo) — colores del mockup ──
+        ek1, ek2, ek3, ek4 = st.columns(4, gap="small")
+        with ek1:
+            _render_metric_card("ruler", "α (2 puntos)", f"{alpha:.4f}", "blue")
+        with ek2:
+            _render_metric_card("friction-velocity", "u* modo A", f"{u_star_a:.4f} m/s", "blue", icon_variant="param")
+        with ek3:
+            _render_metric_card("roughness-z0", "z₀ ajustada", f"{z0_ajustada:.4f} m", "blue", icon_variant="wind")
+        with ek4:
+            _render_metric_card("model-combo", "Modelo activo", "Exp + Log A", "green")
 
-        profile_e_html = (
-            f'<div class="f2-e-compact">'
-            f'<div class="f2-e-grid-top">{top_cards}</div>'
-            f'<div class="f2-e-bottom">'
-            f'{combined_card}'
-            f'<div class="profile-speed-panel f2-e-speed-panel">'
-            f'<div class="profile-speed-title">Vel. a altura deseada ({altura_deseada:.2f} m)</div>'
-            f'<div class="f2-e-speed-grid">{speed_cards}</div>'
-            f'</div>'
-            f'</div>'
-            f'<div class="f2-e-note">{note_html}</div>'
-            f'</div>'
-        )
-        st.markdown(profile_e_html, unsafe_allow_html=True)
+        # ── Cizalladura (izq) + banner info y 3 KPIs de velocidad (der) ──
+        _logA_txt = f"{v_log_a_deseada:.2f} m/s" if np.isfinite(v_log_a_deseada) else "no válida"
+        _prom_txt = f"{v_promedio_deseada:.2f} m/s" if np.isfinite(v_promedio_deseada) else "no válida"
+        ec_left, ec_right = st.columns([1, 1], gap="medium")
+        with ec_left:
+            st.markdown(
+                '<div class="f2-fig-title">Cizalladura del viento con la altura (animado en la app)</div>',
+                unsafe_allow_html=True,
+            )
+            components.html(
+                render_cizalladura_svg(v10, v50, v_promedio_deseada, alpha, altura_deseada),
+                height=300,
+                scrolling=False,
+            )
+        with ec_right:
+            st.markdown(
+                f'<div class="f2-banner info"><span class="f2-bx">🎯</span>'
+                f'<span>Velocidad a {altura_deseada:.0f} m → Exponencial {v_exp_deseada:.2f} m/s · '
+                f'Log A {_logA_txt} · Promedio {_prom_txt}</span></div>',
+                unsafe_allow_html=True,
+            )
+            _render_metric_card("exp-profile", "Exponencial", f"{v_exp_deseada:.2f} m/s", "blue", icon_dy=0)
+            _render_metric_card("log-profile", "Log A", _logA_txt, "blue", icon_variant="combined")
+            _render_metric_card("log-exp-average", "Promedio Log-Exp", _prom_txt, "green")
 
         for advertencia in advertencias_altura:
             st.warning(advertencia)
