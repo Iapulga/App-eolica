@@ -145,8 +145,8 @@ box-shadow:0 22px 44px color-mix(in srgb, var(--ac,#2563eb) 32%, transparent), i
 radial-gradient(circle at 86% 12%, rgba(255,255,255,.20) 0 54px, transparent 55px),
 radial-gradient(circle at 95% 70%, rgba(255,255,255,.12) 0 86px, transparent 87px),
 linear-gradient(180deg, rgba(255,255,255,.08), transparent 40%)}
-.home-wind{position:absolute;left:-30px;top:0;bottom:0;width:58%;height:100%;opacity:.45;pointer-events:none;z-index:1}
-.home-wind path{stroke:rgba(255,255,255,.55);stroke-width:2;fill:none;stroke-dasharray:16 11;animation:homewindmove 2.6s linear infinite}
+.home-wind{position:absolute;left:-30px;top:0;bottom:0;width:58%;opacity:.32;pointer-events:none;z-index:1}
+.home-wind path{stroke:rgba(255,255,255,.5);stroke-width:1.6;fill:none;stroke-dasharray:16 11;animation:homewindmove 2.6s linear infinite}
 .home-wind path:nth-child(2){animation-duration:3.4s;opacity:.7}
 .home-wind path:nth-child(3){animation-duration:4.2s;opacity:.5}
 @keyframes homewindmove{to{stroke-dashoffset:-54}}
@@ -164,9 +164,9 @@ padding:8px 15px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25
 .home-ref-hpill span{font-size:9px;opacity:.92;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
 
 /* Card HTML genérica (idéntica a .card del mockup) */
-.home-card{position:relative;background:linear-gradient(180deg,#fff,#fcfdff);border:1px solid #d3e0f0;
+.home-card{position:relative;background:linear-gradient(180deg,#fff,#fcfdff);border:1.5px solid #c7d8ee;
 border-radius:26px;padding:20px 22px 18px;margin-bottom:16px;overflow:hidden;
-box-shadow:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08)}
+box-shadow:0 1px 2px rgba(11,36,71,.05), 0 12px 30px rgba(11,36,71,.10)}
 .home-card::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;
 background:linear-gradient(90deg, var(--acl,var(--ac,#2563eb)), color-mix(in srgb, var(--acl,var(--ac,#2563eb)) 25%, #fff) 70%, transparent)}
 .home-card-head{display:flex;align-items:center;gap:13px;margin-bottom:14px}
@@ -186,9 +186,9 @@ box-shadow:0 5px 12px color-mix(in srgb, var(--acl,var(--ac,#2563eb)) 16%, trans
 .st-key-home_card_import{
 position:relative !important;overflow:hidden !important;
 background:linear-gradient(180deg,#fff,#fcfdff) !important;
-border:1px solid #d3e0f0 !important;border-radius:26px !important;
+border:1.5px solid #c7d8ee !important;border-radius:26px !important;
 padding:20px 22px 18px !important;gap:.55rem !important;
-box-shadow:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08) !important}
+box-shadow:0 1px 2px rgba(11,36,71,.05), 0 12px 30px rgba(11,36,71,.10) !important}
 
 /* Columnas c21 del mockup (gap 14px), ambas columnas estiradas a la misma altura */
 div[data-testid="stHorizontalBlock"]{gap:14px !important;align-items:stretch !important}
@@ -204,14 +204,18 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] > div[data-te
 div[data-testid="stLayoutWrapper"]:has(> .st-key-home_card_projects){
 flex:1 1 auto !important;display:flex !important;flex-direction:column !important;min-height:0 !important}
 .st-key-home_card_projects{flex:1 1 auto !important;min-height:0 !important}
-/* La TABLA (último elemento) tiene tope fijo + scroll interno: con muchos
-   proyectos NO empuja el card (que sigue fijado por la columna derecha); con
-   pocos, el card estirado deja aire blanco abajo. max-height en px escala con zoom. */
+/* El element-container de la tabla NO se comprime: altura natural, sin scroll
+   propio (overflow visible). Con pocos proyectos queda arriba y el aire del card
+   estirado va debajo; con muchos, el wrapper interno limita y scrollea. */
 .st-key-home_card_projects > [data-testid="stElementContainer"]:last-child{
-max-height:250px !important;overflow-y:auto !important}
-.st-key-home_card_projects > [data-testid="stElementContainer"]:last-child::-webkit-scrollbar{width:8px}
-.st-key-home_card_projects > [data-testid="stElementContainer"]:last-child::-webkit-scrollbar-thumb{background:#cfe0f5;border-radius:8px}
-.st-key-home_card_projects > [data-testid="stElementContainer"]:last-child::-webkit-scrollbar-track{background:transparent}
+flex:0 0 auto !important;overflow:visible !important;max-height:none !important}
+/* El SCROLL vive en el wrapper con tope fijo (en px → escala con zoom). Con
+   pocas filas la tabla cabe sin barra; con muchas, scrollea por dentro y el
+   card NO crece (≈ altura de la columna derecha). 255 ≈ alto der − controles. */
+.home-tbl-wrap{max-height:255px;overflow-y:auto;border-radius:14px}
+.home-tbl-wrap::-webkit-scrollbar{width:8px}
+.home-tbl-wrap::-webkit-scrollbar-thumb{background:#cfe0f5;border-radius:8px}
+.home-tbl-wrap::-webkit-scrollbar-track{background:transparent}
 /* Label "PROYECTO GUARDADO": su element-container colapsa a h=0 → reservar alto */
 .st-key-home_card_projects [data-testid="stElementContainer"]:has(.home-flabel){min-height:16px !important;margin-bottom:3px !important}
 
@@ -288,13 +292,14 @@ box-shadow:0 6px 14px color-mix(in srgb, var(--ac,#2563eb) 18%, transparent) !im
 .st-key-home_upload_zone{position:relative}
 .home-upload{border:2px dashed color-mix(in srgb, var(--ac,#2563eb) 42%, #fff);
 background:linear-gradient(180deg, color-mix(in srgb, var(--ac,#2563eb) 5%, #fff), #fff);
-border-radius:18px;padding:24px;text-align:center;height:178px}
-.home-ui{width:58px;height:58px;margin:0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:27px;
+border-radius:18px;padding:18px 24px;text-align:center;height:138px;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.home-ui{width:52px;height:52px;margin:0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;
 background:#fff;border:1.5px solid color-mix(in srgb, var(--ac,#2563eb) 30%, #fff);
 box-shadow:0 8px 18px color-mix(in srgb, var(--ac,#2563eb) 14%, transparent)}
-.home-upload b{display:block;font-size:13px;margin-top:9px;color:#0b2447}
+.home-upload b{display:block;font-size:13px;margin-top:8px;color:#0b2447}
 .home-upload span{display:block;font-size:10.5px;color:#5a6b85;font-weight:600}
-.st-key-home_uploader{position:absolute !important;left:0;right:0;top:0;height:178px;z-index:6}
+.st-key-home_uploader{position:absolute !important;left:0;right:0;top:0;height:138px;z-index:6}
 .st-key-home_uploader [data-testid="stFileUploader"]{height:100%}
 .st-key-home_uploader [data-testid="stFileUploader"] section{height:100% !important;opacity:0 !important;cursor:pointer}
 .st-key-home_uploader [data-testid="stFileUploaderFile"],
@@ -500,9 +505,9 @@ with col_left:
                     f'<td>{_escape(_updated)}</td><td>{_estado}</td></tr>'
                 )
             st.markdown(
-                '<table class="home-tbl"><thead><tr><th>#</th><th>Nombre del proyecto</th>'
+                '<div class="home-tbl-wrap"><table class="home-tbl"><thead><tr><th>#</th><th>Nombre del proyecto</th>'
                 '<th>\u00daltima actualizaci\u00f3n</th><th>Estado</th></tr></thead>'
-                f'<tbody>{"".join(filas)}</tbody></table>',
+                f'<tbody>{"".join(filas)}</tbody></table></div>',
                 unsafe_allow_html=True,
             )
         else:
