@@ -189,6 +189,15 @@ background:linear-gradient(180deg,#fff,#fcfdff) !important;
 border:1.5px solid #c7d8ee !important;border-radius:26px !important;
 padding:20px 22px 18px !important;gap:.55rem !important;
 box-shadow:0 1px 2px rgba(11,36,71,.05), 0 12px 30px rgba(11,36,71,.10) !important}
+/* La franja de acento se mete DENTRO del borde redondeado (estos cards quedan con
+   overflow:visible por el dropdown-fix, así que sin esto la franja asoma por las
+   esquinas superiores). Inset lateral + radio que coincide con el padding-box. */
+.st-key-home_card_projects::before,
+.st-key-home_card_config::before,
+.st-key-home_card_import::before{
+left:0 !important;right:0 !important;top:0 !important;height:4px !important;
+border-radius:24px 24px 0 0 !important;overflow:hidden !important;
+clip-path:inset(0 round 24px 24px 0 0) !important}
 
 /* Columnas c21 del mockup (gap 14px), ambas columnas estiradas a la misma altura */
 div[data-testid="stHorizontalBlock"]{gap:14px !important;align-items:stretch !important}
