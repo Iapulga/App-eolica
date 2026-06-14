@@ -776,12 +776,18 @@ html body *:not([data-testid="stIconMaterial"]):not([class*="material-symbols"])
 }
 
 /* Franja de acento superior en las cards grandes (st.container con key).
-   La clase st-key-*card* cae en el propio stVerticalBlock → la franja va ahí. */
+   La clase st-key-*card* cae en el propio stVerticalBlock → la franja va ahí.
+   El ::before cubre TODO el card (inset:0) y un clip-path lo recorta a una banda
+   de 4px arriba CON el radio del card (26px), así la franja SIGUE la curva de las
+   esquinas en vez de salir recta (los cards quedan con overflow:visible por el
+   dropdown-fix, por eso no basta con height:4px). */
 div[data-testid="stVerticalBlock"][class*="st-key-"][class*="card"]{position:relative !important}
 div[data-testid="stVerticalBlock"][class*="st-key-"][class*="card"]::before{
-  content:"";position:absolute;left:0;right:0;top:0;height:4px;z-index:5;
-  border-radius:26px 26px 0 0;
+  content:"";position:absolute;inset:0;z-index:5;pointer-events:none;
   background:linear-gradient(90deg, var(--ac), color-mix(in srgb, var(--ac) 25%, #fff) 70%, transparent);
+  background-size:100% 4px;background-repeat:no-repeat;background-position:top left;
+  -webkit-clip-path:inset(0 round 26px 26px 0 0);
+  clip-path:inset(0 round 26px 26px 0 0);
 }
 
 /* Pulido global de los KPI e iconos de sección (todas las fases comparten sufijos) */
