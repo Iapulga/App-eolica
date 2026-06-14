@@ -202,150 +202,97 @@ def render_esquema_aerogenerador_svg(
     else:
         rotor_duration = 1.2
 
-    rotor_cx = 470
-    rotor_cy = 255
-    rotor_r = 182
-    blade_length = 176
-    box_x = 780
-    box_y = 188
-    box_w = 175
-    box_h = 110
-    box_cx = box_x + box_w / 2
-    box_cy = box_y + box_h / 2 + 10
-    rotor_animation = (
-        f"""
-              <animateTransform
-                attributeName="transform"
-                attributeType="XML"
-                type="rotate"
-                from="0 {rotor_cx} {rotor_cy}"
-                to="360 {rotor_cx} {rotor_cy}"
-                dur="{rotor_duration:.2f}s"
-                repeatCount="indefinite"
-              />
-        """
+    # Textos dinámicos (formato es-ES: coma decimal, punto de miles)
+    area_text = f"{area:,.0f} m²".replace(",", ".")
+    diam_text = f"{diametro:.1f}".replace(".", ",")
+    dens_text = f"{densidad:.2f}".replace(".", ",")
+    pv_text = f"{potencia_viento_kw:,.0f}".replace(",", ".")
+    pg_text = f"{potencia_generada_kw:,.0f}".replace(",", ".")
+    cp_box = f"{cp_value:.3f}".replace(".", ",") if np.isfinite(cp_value) else "N/A"
+
+    # Rotación del rotor (SMIL): la duración depende de la velocidad/potencia.
+    # rotor_duration is None ⇒ fuera de cut-in/cut-out (potencia ≤ 0) ⇒ NO gira.
+    rotor_anim = (
+        f'<animateTransform attributeName="transform" attributeType="XML" type="rotate" '
+        f'from="0 248 118" to="360 248 118" dur="{rotor_duration:.2f}s" repeatCount="indefinite"/>'
         if rotor_duration is not None
         else ""
     )
-
-    main_blades = "".join(
-        f'<polygon points="{_svg_blade_points(rotor_cx, rotor_cy, ang, blade_length, 7, 18, 7)}" fill="#b0b5bc" stroke="#8b949e" stroke-width="2"/>'
-        for ang in (90, 210, 330)
-    )
-
-    mini_hub_y = box_cy - 6
-    mini_tower_base = mini_hub_y + 42
-    mini_rotor_duration = max(1.0, rotor_duration * 0.9) if rotor_duration is not None else None
-    mini_rotor_animation = (
-        f"""
-              <animateTransform
-                attributeName="transform"
-                attributeType="XML"
-                type="rotate"
-                from="0 {box_cx} {mini_hub_y}"
-                to="360 {box_cx} {mini_hub_y}"
-                dur="{mini_rotor_duration:.2f}s"
-                repeatCount="indefinite"
-              />
-        """
-        if mini_rotor_duration is not None
-        else ""
-    )
-    mini_blades = "".join(
-        f'<line x1="{box_cx:.1f}" y1="{mini_hub_y:.1f}" x2="{box_cx + 34 * np.cos(np.deg2rad(ang)):.1f}" y2="{mini_hub_y + 34 * np.sin(np.deg2rad(ang)):.1f}" stroke="#64748b" stroke-width="4.6" stroke-linecap="round"/>'
-        for ang in (90, 210, 330)
-    )
+    blade = "M248,118 C236,80 240,52 248,40 C256,52 260,80 248,118 Z"
 
     return textwrap.dedent(
         f"""
-        <html style="margin:0; padding:0; width:100%; height:100%;">
-        <body style="margin:0; padding:0; background:white; width:100%; height:100%; overflow:hidden;">
-        <div style="width:100%; height:100%; background:white; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-          <svg viewBox="85 18 1030 515" preserveAspectRatio="xMidYMid meet" style="width:100%; height:100%; display:block; font-family: Inter, Segoe UI, Arial, sans-serif;">
+        <html style="margin:0;padding:0;width:100%;height:100%;">
+        <body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;">
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          <svg viewBox="0 0 760 320" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;">
             <defs>
-              <marker id="arrow-blue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#218bff"></path>
-              </marker>
-              <marker id="arrow-dark" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f172a"></path>
-              </marker>
-              <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="7" result="blur"/>
-                <feMerge>
-                  <feMergeNode in="blur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
+              <linearGradient id="f1sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8f4ff"/><stop offset="1" stop-color="#f8fcff"/></linearGradient>
+              <linearGradient id="f1gw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7dd3fc"/><stop offset="1" stop-color="#0284c7"/></linearGradient>
+              <linearGradient id="f1torre" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cbd5e1"/><stop offset="1" stop-color="#64748b"/></linearGradient>
+              <linearGradient id="f1aspa" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#94a3b8"/></linearGradient>
+              <marker id="f1arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#64748b"/></marker>
             </defs>
+            <style>
+              .f1flow{{animation:f1fl 1.4s linear infinite}}@keyframes f1fl{{to{{stroke-dashoffset:-52}}}}
+              .f1pulse{{animation:f1pl 1.8s ease-in-out infinite}}@keyframes f1pl{{0%,100%{{opacity:.55}}50%{{opacity:1}}}}
+            </style>
+            <rect x="6" y="6" width="748" height="308" rx="20" fill="url(#f1sky)"/>
+            <ellipse cx="248" cy="274" rx="86" ry="10" fill="#0b2447" opacity=".08"/>
 
-            <line x1="120" y1="182" x2="260" y2="182" stroke="#218bff" stroke-width="4.2" marker-end="url(#arrow-blue)"/>
-            <line x1="120" y1="226" x2="260" y2="226" stroke="#218bff" stroke-width="4.2" marker-end="url(#arrow-blue)"/>
-            <line x1="120" y1="270" x2="260" y2="270" stroke="#218bff" stroke-width="4.2" marker-end="url(#arrow-blue)"/>
-            <line x1="120" y1="314" x2="260" y2="314" stroke="#218bff" stroke-width="4.2" marker-end="url(#arrow-blue)"/>
-            <text x="190" y="384" text-anchor="middle" font-size="20" font-weight="700" fill="#2563eb">VIENTO</text>
-            <text x="190" y="418" text-anchor="middle" font-size="34" font-weight="800" fill="#2563eb">{velocidad:.1f} m/s</text>
+            <g><line x1="26" y1="88" x2="120" y2="88" stroke="url(#f1gw)" stroke-width="6" stroke-linecap="round" stroke-dasharray="15 11" class="f1flow" style="animation-duration:1.2s"/><path d="M126 88 l-13 -7.5 v15 Z" fill="#0284c7"/></g>
+            <g><line x1="26" y1="124" x2="120" y2="124" stroke="url(#f1gw)" stroke-width="5" stroke-linecap="round" stroke-dasharray="15 11" class="f1flow" style="animation-duration:1.45s"/><path d="M126 124 l-13 -7.5 v15 Z" fill="#0284c7"/></g>
+            <g><line x1="26" y1="160" x2="120" y2="160" stroke="url(#f1gw)" stroke-width="6" stroke-linecap="round" stroke-dasharray="15 11" class="f1flow" style="animation-duration:1.7s"/><path d="M126 160 l-13 -7.5 v15 Z" fill="#0284c7"/></g>
+            <g><line x1="26" y1="196" x2="120" y2="196" stroke="url(#f1gw)" stroke-width="5" stroke-linecap="round" stroke-dasharray="15 11" class="f1flow" style="animation-duration:1.95s"/><path d="M126 196 l-13 -7.5 v15 Z" fill="#0284c7"/></g>
+            <text x="64" y="262" text-anchor="middle" font-size="14" font-weight="900" fill="#0284c7">VIENTO</text>
+            <text x="64" y="280" text-anchor="middle" font-size="12" font-weight="800" fill="#0369a1">{velocidad:.1f} m/s</text>
 
-            <line x1="{rotor_cx - rotor_r}" y1="112" x2="{rotor_cx + rotor_r}" y2="112" stroke="#0f172a" stroke-width="2.2"/>
-            <line x1="{rotor_cx - rotor_r}" y1="104" x2="{rotor_cx - rotor_r}" y2="120" stroke="#0f172a" stroke-width="2.2"/>
-            <line x1="{rotor_cx + rotor_r}" y1="104" x2="{rotor_cx + rotor_r}" y2="120" stroke="#0f172a" stroke-width="2.2"/>
-            <line x1="{rotor_cx - rotor_r}" y1="112" x2="{rotor_cx - rotor_r}" y2="{rotor_cy + rotor_r}" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="2 4"/>
-            <line x1="{rotor_cx + rotor_r}" y1="112" x2="{rotor_cx + rotor_r}" y2="{rotor_cy + rotor_r}" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="2 4"/>
-            <text x="{rotor_cx}" y="42" text-anchor="middle" font-size="15" font-weight="800" fill="#1f2937">DIÁMETRO DEL ROTOR</text>
-            <text x="{rotor_cx}" y="64" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2937">{diametro:.2f} m</text>
-
-            <circle cx="{rotor_cx}" cy="{rotor_cy}" r="{rotor_r}" fill="none" stroke="#cbd5e1" stroke-width="2.2" stroke-dasharray="4 5"/>
+            <circle cx="248" cy="118" r="78" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="5 7"/>
+            <path d="M243 274 L253 274 L250 144 L246 144 Z" fill="url(#f1torre)"/>
             <g>
-              {rotor_animation}
-              {main_blades}
+              {rotor_anim}
+              <path d="{blade}" fill="url(#f1aspa)" stroke="#64748b" stroke-width="1"/>
+              <path d="{blade}" fill="url(#f1aspa)" stroke="#64748b" stroke-width="1" transform="rotate(120 248 118)"/>
+              <path d="{blade}" fill="url(#f1aspa)" stroke="#64748b" stroke-width="1" transform="rotate(240 248 118)"/>
             </g>
-            <line x1="{rotor_cx}" y1="{rotor_cy}" x2="{rotor_cx}" y2="445" stroke="#6b7280" stroke-width="14" stroke-linecap="round"/>
-            <circle cx="{rotor_cx}" cy="{rotor_cy}" r="16" fill="#9ca3af" stroke="#6b7280" stroke-width="2"/>
+            <circle cx="248" cy="118" r="10" fill="#1e3a8a"/><circle cx="248" cy="118" r="4.5" fill="#93c5fd"/>
+            <line x1="170" y1="196" x2="326" y2="196" stroke="#0284c7" stroke-width="1.6"/>
+            <line x1="170" y1="190" x2="170" y2="202" stroke="#0284c7" stroke-width="1.6"/>
+            <line x1="326" y1="190" x2="326" y2="202" stroke="#0284c7" stroke-width="1.6"/>
+            <text x="248" y="214" text-anchor="middle" font-size="11" font-weight="900" fill="#0284c7">Ø {diam_text} m · A = {area_text}</text>
 
-            <line x1="655" y1="{rotor_cy}" x2="758" y2="{rotor_cy}" stroke="#0f172a" stroke-width="3" marker-end="url(#arrow-dark)"/>
-
-            <rect x="{box_x}" y="{box_y}" width="{box_w}" height="{box_h}" rx="12" fill="#ffffff" stroke="#b8c4d6" stroke-width="2"/>
-            <text x="{box_cx}" y="206" text-anchor="middle" font-size="13" font-weight="800" fill="#334155">AEROGENERADOR</text>
-            <line x1="{box_cx}" y1="{mini_hub_y}" x2="{box_cx}" y2="{mini_tower_base}" stroke="#64748b" stroke-width="4.8" stroke-linecap="round"/>
+            <path d="M340 118 H408" stroke="#94a3b8" stroke-width="3" marker-end="url(#f1arr)" stroke-dasharray="9 7" class="f1flow"/>
             <g>
-              {mini_rotor_animation}
-              {mini_blades}
+              <rect x="414" y="84" width="98" height="68" rx="15" fill="#fff" stroke="#cbd5e1" stroke-width="1.6"/>
+              <text x="463" y="111" text-anchor="middle" font-size="21">⚙️</text>
+              <text x="463" y="134" text-anchor="middle" font-size="9.5" font-weight="900" fill="#475569">MULTIPLICADORA</text>
             </g>
-            <circle cx="{box_cx}" cy="{mini_hub_y}" r="9" fill="#334155"/>
+            <path d="M518 118 H552" stroke="#94a3b8" stroke-width="3" marker-end="url(#f1arr)" stroke-dasharray="9 7" class="f1flow"/>
+            <g>
+              <rect x="558" y="84" width="92" height="68" rx="15" fill="#fff" stroke="#cbd5e1" stroke-width="1.6"/>
+              <text x="604" y="111" text-anchor="middle" font-size="21">🔌</text>
+              <text x="604" y="134" text-anchor="middle" font-size="9.5" font-weight="900" fill="#475569">GENERADOR</text>
+            </g>
+            <path d="M656 118 H690" stroke="#94a3b8" stroke-width="3" marker-end="url(#f1arr)" stroke-dasharray="9 7" class="f1flow"/>
+            <g class="f1pulse"><text x="716" y="106" text-anchor="middle" font-size="26">💡</text></g>
+            <text x="716" y="134" text-anchor="middle" font-size="17" font-weight="900" fill="#16a34a">{pg_text} kW</text>
+            <text x="716" y="150" text-anchor="middle" font-size="9.5" font-weight="800" fill="#15803d">POTENCIA GENERADA</text>
 
-            <line x1="958" y1="{rotor_cy}" x2="1032" y2="{rotor_cy}" stroke="#0f172a" stroke-width="3" marker-end="url(#arrow-dark)"/>
-
-            <text x="1070" y="186" text-anchor="middle" font-size="18" font-weight="800" fill="#1f2937">POTENCIA GENERADA</text>
-            <text x="1070" y="222" text-anchor="middle" font-size="30" font-weight="800" fill="#16a34a">{generated_text}</text>
-
-            <circle cx="1070" cy="324" r="44" fill="rgba(255, 243, 205, 0.85)" filter="url(#softGlow)"/>
-            <circle cx="1070" cy="324" r="21" fill="#fff8db" stroke="#f59e0b" stroke-width="3"/>
-            <path d="M1061 325 C1061 315, 1068 309, 1070 309 C1072 309, 1079 315, 1079 325 C1079 330, 1075 333, 1074 336 L1066 336 C1065 333, 1061 330, 1061 325 Z" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-            <line x1="1070" y1="318" x2="1070" y2="334" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/>
-            <line x1="1064" y1="340" x2="1076" y2="340" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/>
-            <line x1="1065" y1="346" x2="1075" y2="346" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/>
-            <rect x="1064" y="347" width="12" height="7" rx="2" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.8"/>
-            <line x1="1070" y1="286" x2="1070" y2="276" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/>
-            <line x1="1045" y1="298" x2="1037" y2="291" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/>
-            <line x1="1095" y1="298" x2="1103" y2="291" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/>
-            <line x1="1035" y1="324" x2="1024" y2="324" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/>
-            <line x1="1105" y1="324" x2="1116" y2="324" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/>
-
-            <rect x="170" y="455" width="940" height="56" rx="10" fill="#eef5ff" stroke="#d7e6f8" stroke-width="1.5"/>
-            <text x="215" y="490" font-size="20" fill="#334155" font-family="Georgia, 'Times New Roman', serif">
-              <tspan font-style="italic">P</tspan><tspan baseline-shift="sub" font-size="12">viento</tspan>
-              <tspan> =  </tspan>
-              <tspan>1</tspan><tspan baseline-shift="super" font-size="12"> </tspan><tspan>/2 &middot; </tspan>
-              <tspan font-style="italic">&rho;</tspan><tspan> &middot; </tspan><tspan font-style="italic">A</tspan><tspan> &middot; </tspan><tspan font-style="italic">v</tspan><tspan baseline-shift="super" font-size="12">3</tspan>
-            </text>
-            <text x="500" y="490" font-size="22" font-weight="700" fill="#1f2937">{power_text}</text>
-            <text x="665" y="490" font-size="22" fill="#334155">&rarr;</text>
-            <text x="760" y="490" font-size="20" fill="#334155" font-family="Georgia, 'Times New Roman', serif">
-              <tspan font-style="italic">C</tspan><tspan font-style="italic">p</tspan><tspan> = </tspan>
-              <tspan font-style="italic">P</tspan><tspan baseline-shift="sub" font-size="12">gen</tspan>
-              <tspan> / </tspan>
-              <tspan font-style="italic">P</tspan><tspan baseline-shift="sub" font-size="12">viento</tspan>
-            </text>
-            <text x="1065" y="490" text-anchor="end" font-size="22" font-weight="800" fill="#16a34a">{cp_text}</text>
+            <g transform="translate(30,206)">
+              <rect x="0" y="0" width="146" height="42" rx="13" fill="#fff" stroke="#dce7f5" stroke-width="1.4"/>
+              <text x="73" y="17" text-anchor="middle" font-size="10" font-weight="900" fill="#64748b">ρ AIRE · DIÁMETRO</text>
+              <text x="73" y="33" text-anchor="middle" font-size="12" font-weight="900" fill="#0b2447">{dens_text} kg/m³ · {diam_text} m</text>
+            </g>
+            <g transform="translate(388,206)">
+              <rect x="0" y="0" width="158" height="42" rx="13" fill="#eff8ff" stroke="#bae0fd" stroke-width="1.4"/>
+              <text x="79" y="17" text-anchor="middle" font-size="10" font-weight="900" fill="#0369a1">P_viento = ½·ρ·A·v³</text>
+              <text x="79" y="33" text-anchor="middle" font-size="12" font-weight="900" fill="#0b2447">{pv_text} kW</text>
+            </g>
+            <g transform="translate(556,206)">
+              <rect x="0" y="0" width="158" height="42" rx="13" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.4"/>
+              <text x="79" y="17" text-anchor="middle" font-size="10" font-weight="900" fill="#15803d">Cp = P_gen / P_viento</text>
+              <text x="79" y="33" text-anchor="middle" font-size="12" font-weight="900" fill="#0b2447">{cp_box} · Betz 0,593</text>
+            </g>
           </svg>
         </div>
         </body>
