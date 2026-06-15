@@ -1694,7 +1694,7 @@ st.markdown(
         border: 1.5px dashed #bfdbfe;
         border-radius: 14px;
         background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-        padding: 0.78rem 0.78rem 0.52rem 0.78rem;
+        padding: 0.6rem 0.6rem 0.42rem 0.6rem;
         margin-top: 0.25rem !important;
         margin-bottom: 0.2rem;
     }
@@ -1712,34 +1712,34 @@ st.markdown(
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 72px !important;
-        height: 72px !important;
-        min-width: 72px !important;
-        min-height: 72px !important;
+        width: 58px !important;
+        height: 58px !important;
+        min-width: 58px !important;
+        min-height: 58px !important;
         border-radius: 999px;
         background: #eff6ff;
         border: 1.5px solid #bfdbfe;
-        margin: 0 auto 0.32rem auto;
-        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.12);
+        margin: 0 auto 0.3rem auto;
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.12);
     }
     /* Variantes/compatibilidad: wrapper y circulo del icono upload */
     .f2-upload-icon-wrap,
     .f2-upload-icon-circle {
-        width: 72px !important;
-        height: 72px !important;
-        min-width: 72px !important;
-        min-height: 72px !important;
+        width: 58px !important;
+        height: 58px !important;
+        min-width: 58px !important;
+        min-height: 58px !important;
         border-radius: 999px !important;
     }
-    /* SVG interno más grande y trazo más grueso */
+    /* SVG interno */
     .upload-dropzone__icon svg,
     .f2-upload-icon-wrap svg,
     .f2-upload-icon svg,
     .f2-upload-zone svg,
     .f2-csv-dropzone-wrapper svg {
-        width: 46px !important;
-        height: 46px !important;
-        stroke-width: 2.3 !important;
+        width: 34px !important;
+        height: 34px !important;
+        stroke-width: 2.1 !important;
     }
     .upload-dropzone__title {
         color: #1e3a8a;
@@ -3549,7 +3549,7 @@ if _f2_show_nasa:
                 ).add_to(mapa)
                 folium.LatLngPopup().add_to(mapa)
 
-                mapa_data = st_folium(mapa, width=1200, height=672, key="mapa_nasa_grande")
+                mapa_data = st_folium(mapa, width=1200, height=658, key="mapa_nasa_grande")
 
                 if mapa_data and mapa_data.get("last_clicked"):
                     st.session_state["f2_latitude"] = float(mapa_data["last_clicked"]["lat"])
@@ -3907,49 +3907,47 @@ if _f2_show_nasa:
             with _mk2:
                 _render_metric_card("🔗", "MCP R²", _r2_txt, "blue", icon_variant="param", sub="satélite ↔ torre")
 
-            col_up, col_info = st.columns([1.4, 1])
-            with col_up:
-                uploaded_mast = st.file_uploader(
-                    "CSV/Excel torre met (formato auto-detect)",
-                    type=["csv", "xlsx", "xls"],
-                    key="f2_uploader_mast",
-                )
-                altura_objetivo_mast = st.number_input(
-                    "Altura del sensor (m)",
-                    min_value=10.0, max_value=200.0,
-                    value=float(config.get("f2_mast_altura_sensor") or 80.0),
-                    step=1.0, format="%.1f", key="f2_mast_altura_sensor",
-                )
-                if uploaded_mast is not None and st.button("Procesar e importar", key="f2_btn_import_mast", use_container_width=True):
-                    try:
-                        raw = uploaded_mast.getvalue()
-                        df_mast_10min = mast_import.parsear_torre_csv(raw, uploaded_mast.name, altura_objetivo=altura_objetivo_mast)
-                        df_mast_h = mast_import.agregar_10min_a_horario(df_mast_10min)
-                        val = mast_import.validar_torre_data(df_mast_10min)
-                        _gmd(df_mast_h, source_file=uploaded_mast.name)
-                        guardar_config_values({
-                            "f2_mast_disponible": "True",
-                            "f2_mast_source_file": uploaded_mast.name,
-                            "f2_mast_recovery_pct": val.get("recovery_pct", 0.0),
-                            "f2_mast_altura_sensor": altura_objetivo_mast,
-                        })
-                        st.success(f"Importado {len(df_mast_h)} horas. Recovery {val.get('recovery_pct', 0):.1f}%. ws_mean={val.get('ws_mean', 0):.2f} m/s.")
-                        st.rerun()
-                    except Exception as exc:
-                        st.error(f"Error importando torre: {exc}")
+            uploaded_mast = st.file_uploader(
+                "CSV/Excel torre met (formato auto-detect)",
+                type=["csv", "xlsx", "xls"],
+                key="f2_uploader_mast",
+            )
+            altura_objetivo_mast = st.number_input(
+                "Altura del sensor (m)",
+                min_value=10.0, max_value=200.0,
+                value=float(config.get("f2_mast_altura_sensor") or 80.0),
+                step=1.0, format="%.1f", key="f2_mast_altura_sensor",
+            )
+            if uploaded_mast is not None and st.button("Procesar e importar", key="f2_btn_import_mast", use_container_width=True):
+                try:
+                    raw = uploaded_mast.getvalue()
+                    df_mast_10min = mast_import.parsear_torre_csv(raw, uploaded_mast.name, altura_objetivo=altura_objetivo_mast)
+                    df_mast_h = mast_import.agregar_10min_a_horario(df_mast_10min)
+                    val = mast_import.validar_torre_data(df_mast_10min)
+                    _gmd(df_mast_h, source_file=uploaded_mast.name)
+                    guardar_config_values({
+                        "f2_mast_disponible": "True",
+                        "f2_mast_source_file": uploaded_mast.name,
+                        "f2_mast_recovery_pct": val.get("recovery_pct", 0.0),
+                        "f2_mast_altura_sensor": altura_objetivo_mast,
+                    })
+                    st.success(f"Importado {len(df_mast_h)} horas. Recovery {val.get('recovery_pct', 0):.1f}%. ws_mean={val.get('ws_mean', 0):.2f} m/s.")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Error importando torre: {exc}")
 
-            with col_info:
-                if _exmd():
-                    df_mast_db = _cmd()
-                    st.metric("Torre disponible", "✓ Sí")
-                    st.metric("Horas guardadas", f"{len(df_mast_db):,}")
-                    st.metric("Fuente", str(config.get("f2_mast_source_file", "—")))
-                    if st.button("Borrar torre", key="f2_btn_clear_mast"):
-                        _bmd()
-                        guardar_config_values({"f2_mast_disponible": "False", "f2_mast_source_file": ""})
-                        st.rerun()
-                else:
-                    st.info("Sin torre importada.")
+            if _exmd():
+                df_mast_db = _cmd()
+                _mi1, _mi2, _mi3 = st.columns(3)
+                _mi1.metric("Torre disponible", "✓ Sí")
+                _mi2.metric("Horas guardadas", f"{len(df_mast_db):,}")
+                _mi3.metric("Fuente", str(config.get("f2_mast_source_file", "—")))
+                if st.button("Borrar torre", key="f2_btn_clear_mast"):
+                    _bmd()
+                    guardar_config_values({"f2_mast_disponible": "False", "f2_mast_source_file": ""})
+                    st.rerun()
+            else:
+                st.caption("Sin torre importada.")
 
             if _exmd() and len(df_nasa) > 0:
                 df_mast_db = _cmd()
@@ -4161,14 +4159,6 @@ if len(df_nasa) > 0:
             "f2_alpha_calc_p75": _alpha_serie["p75"] if _alpha_serie["p75"] == _alpha_serie["p75"] else "",
             "f2_alpha_calc_n": _alpha_serie["n_validos"],
         })
-        if _alpha_serie["n_validos"] >= 50 and _alpha_serie["mediana"] == _alpha_serie["mediana"]:
-            st.info(
-                f"α calculado desde serie NASA POWER (WS10M↔WS50M): "
-                f"mediana = **{_alpha_serie['mediana']:.3f}** "
-                f"(IQR {_alpha_serie['p25']:.3f}–{_alpha_serie['p75']:.3f}, "
-                f"n = {_alpha_serie['n_validos']:,}). "
-                f"α por medias = {alpha:.3f}. Diferencia indica heterogeneidad temporal."
-            )
     except Exception:
         pass
     u_star_a, z0_ajustada = ajustar_logaritmico_dos_puntos(v10, h1, v50, h2, kappa=KAPPA)
