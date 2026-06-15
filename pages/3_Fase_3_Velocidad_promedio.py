@@ -2299,8 +2299,8 @@ def _summary_sector_html(resumen: pd.DataFrame, direccion_fuente: str) -> str:
 
 
 def _render_card_header_native(title: str, icon_name: str, subtitle: str = ""):
-    """Card-head Aurora: squircle tintado (emoji o SVG) + título + subtítulo."""
-    if icon_name and not icon_name.isascii():
+    """Card-head Aurora: squircle tintado (emoji/glifo o SVG) + título + subtítulo."""
+    if icon_name and (not icon_name.isascii() or len(icon_name) <= 2):
         icon_html = f'<span class="aur-cicon-emoji">{icon_name}</span>'
     else:
         icon_html = _icon_svg(icon_name, 22, "#4f46e5")
@@ -2313,8 +2313,8 @@ def _render_card_header_native(title: str, icon_name: str, subtitle: str = ""):
 
 
 def _render_kpi_card_native(icon_name: str, label: str, value: str, sub: str = "", kc: str = "#4f46e5"):
-    """KPI Aurora: aro tintado (emoji o SVG) + label + valor + subtítulo."""
-    if icon_name and not icon_name.isascii():
+    """KPI Aurora: aro tintado (emoji/glifo o SVG) + label + valor + subtítulo."""
+    if icon_name and (not icon_name.isascii() or len(icon_name) <= 2):
         icon_html = f'<span class="aur-ki-emoji">{icon_name}</span>'
     else:
         icon_html = _icon_svg(icon_name, 24, kc)
@@ -3082,19 +3082,18 @@ with top_cols[1]:
         _render_card_header_native(f"2 · Análisis por sector ({fila_sector['Sector']})", "📊", "Weibull y Rayleigh con líneas de operación")
         with st.container(key="f3_sector_body_v3"):
             with st.container(key="f3_sector_stats_row_v3"):
-                mini_cols = st.columns(5, gap="small")
-                mini_items = [
-                    ("frecuencia", "Frecuencia", f"{fila_sector['Frecuencia (%)']:.2f}%"),
-                    ("horas", "Horas", f"{int(fila_sector['Horas observadas (h)']):,} h"),
-                    ("horas_eq", "Horas eq. anuales", f"{fila_sector['Horas equivalentes anuales (h/año)']:.1f} h"),
-                    ("k_weibull", "k Weibull", f"{fila_sector['k Weibull']:.4f}"),
-                    ("c_weibull", "c Weibull", f"{fila_sector['c Weibull (m/s)']:.4f}"),
+                mini_cols = st.columns(4, gap="small")
+                _ha_txt = f"{fila_sector['Horas equivalentes anuales (h/año)']:,.0f}".replace(",", ".")
+                sec_kpis = [
+                    ("📊", "Frecuencia", f"{fila_sector['Frecuencia (%)']:.2f} %".replace(".", ","), "", "#4f46e5"),
+                    ("⏱️", "Horas/año", f"{_ha_txt} h", "equivalentes", "#0e7490"),
+                    ("k", "k Weibull", f"{fila_sector['k Weibull']:.2f}".replace(".", ","), "", "#16a34a"),
+                    ("c", "c Weibull", f"{fila_sector['c Weibull (m/s)']:.2f} m/s".replace(".", ","), "", "#d97706"),
                 ]
-                for col, (key_suffix, label, value) in zip(mini_cols, mini_items):
+                for idx, (col, (emo, label, value, sub, kc)) in enumerate(zip(mini_cols, sec_kpis), 1):
                     with col:
-                        with st.container(border=True, key=f"f3_sector_mini_{key_suffix}"):
-                            st.markdown(f'<div class="f3-mini-stat__label">{label}</div>', unsafe_allow_html=True)
-                            st.markdown(f'<div class="f3-mini-stat__value">{value}</div>', unsafe_allow_html=True)
+                        with _phase_card(f"f3_skpi_{idx}"):
+                            _render_kpi_card_native(emo, label, value, sub, kc)
             with st.container(key="f3_sector_plot_wrap_v3"):
                 _f3_centers, _f3_pw, _f3_pr = _sector_curve_arrays(df_sector, fila_sector, bins)
                 components.html(
