@@ -427,6 +427,230 @@ def crear_tabla_operacion(df_sector, fila_sector, cut_in, nominal, cut_out):
 
     return pd.DataFrame(filas)
 
+def _f3_fmt_num(x):
+    try:
+        s = f"{float(x):.1f}".rstrip("0").rstrip(".")
+    except Exception:
+        return "—"
+    if s in ("", "-0"):
+        s = "0"
+    return s.replace(".", ",")
+
+
+def _f3_nice_ticks(lo, hi, n=5):
+    import math
+    if hi <= lo:
+        return [lo]
+    raw = (hi - lo) / max(1, n - 1)
+    mag = 10 ** math.floor(math.log10(raw)) if raw > 0 else 1
+    step = mag
+    for m in (1, 2, 2.5, 5, 10):
+        if (hi - lo) / (m * mag) <= n + 0.5:
+            step = m * mag
+            break
+    start = math.ceil(lo / step) * step
+    ticks, t = [], start
+    while t <= hi + step * 0.001:
+        ticks.append(round(t, 6))
+        t += step
+    return ticks
+
+
+def _f3_svg_html(viewbox, inner):
+    return (
+        '<html style="margin:0;padding:0;width:100%;height:100%;">'
+        '<body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;">'
+        '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">'
+        f'<svg viewBox="{viewbox}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;'
+        "font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;\">"
+        f"{inner}</svg></div></body></html>"
+    )
+
+
+def render_rosa_svg(resumen):
+    """Rosa de vientos polar (mockup): 16 cuñas (radio=Frecuencia %), anillos,
+    rótulos N/NE/E/SE/S/SW/W/NW, degradado índigo. Datos reales de `resumen`."""
+    import math
+    freqs = pd.to_numeric(resumen["Frecuencia (%)"], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+    bearings = pd.to_numeric(resumen["Centro (°)"], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+    fmax = float(np.nanmax(freqs)) if len(freqs) else 1.0
+    if fmax <= 0:
+        fmax = 1.0
+    rings = [r for r in _f3_nice_ticks(0, fmax, 4) if r > 0]
+    if rings and rings[-1] < fmax:
+        step = rings[1] - rings[0] if len(rings) > 1 else rings[0]
+        while rings[-1] < fmax:
+            rings.append(rings[-1] + step)
+    ring_max = rings[-1] if rings else fmax
+    CX, CY, RMAX = 260.0, 270.0, 198.0
+
+    def xy(r, b):
+        a = math.radians(b - 90.0)
+        return CX + r * math.cos(a), CY + r * math.sin(a)
+
+    grid = ""
+    for rv in rings:
+        rr = rv / ring_max * RMAX
+        grid += f'<circle cx="{CX}" cy="{CY}" r="{rr:.1f}" fill="none" stroke="#e6e9f5" stroke-width="1.2"/>'
+        grid += f'<text x="{CX + 4}" y="{CY - rr + 3:.1f}" font-size="10" fill="#94a3b8" font-weight="700">{_f3_fmt_num(rv)}%</text>'
+    spokes = ""
+    for lbl, b in [("N", 0), ("NE", 45), ("E", 90), ("SE", 135), ("S", 180), ("SW", 225), ("W", 270), ("NW", 315)]:
+        x2, y2 = xy(RMAX, b)
+        spokes += f'<line x1="{CX}" y1="{CY}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="#eef1fa" stroke-width="1"/>'
+        lx, ly = xy(RMAX + 20, b)
+        spokes += f'<text x="{lx:.1f}" y="{ly + 4:.1f}" text-anchor="middle" font-size="13" fill="#5a6b85" font-weight="900">{lbl}</text>'
+    wedges = ""
+    half = (360.0 / 16.0) / 2.0 * 0.84
+    for freq, bearing in zip(freqs, bearings):
+        if freq <= 0:
+            continue
+        r = freq / ring_max * RMAX
+        x0, y0 = xy(r, bearing - half)
+        x1, y1 = xy(r, bearing + half)
+        wedges += (
+            f'<path d="M{CX},{CY} L{x0:.1f},{y0:.1f} A{r:.1f},{r:.1f} 0 0 1 {x1:.1f},{y1:.1f} Z" '
+            f'fill="url(#f3rosegrad)" stroke="#4338ca" stroke-width="0.6" opacity="0.94"/>'
+        )
+    defs = (
+        '<defs><radialGradient id="f3rosegrad" gradientUnits="userSpaceOnUse" cx="260" cy="270" r="198">'
+        '<stop offset="0" stop-color="#c7d2fe"/><stop offset="1" stop-color="#4f46e5"/>'
+        "</radialGradient></defs>"
+    )
+    return _f3_svg_html("0 0 520 548", defs + grid + spokes + wedges)
+
+
+def _sector_curve_arrays(df_sector, fila_sector, bins):
+    v = df_sector["WS_ANALISIS"].dropna().to_numpy(dtype=float)
+    counts, edges = np.histogram(v, bins=bins)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    k = float(fila_sector["k Weibull"])
+    cw = float(fila_sector["c Weibull (m/s)"])
+    cr = float(fila_sector["c Rayleigh (m/s)"])
+    pw, pr = [], []
+    for i in range(len(edges) - 1):
+        a, b = edges[i], edges[i + 1]
+        pw.append(weibull_interval_prob(a, b, k, cw) * 100.0 if np.isfinite(k) and np.isfinite(cw) else np.nan)
+        pr.append(rayleigh_interval_prob(a, b, cr) * 100.0 if np.isfinite(cr) else np.nan)
+    return centers, np.asarray(pw, dtype=float), np.asarray(pr, dtype=float)
+
+
+def render_sector_curve_svg(centers, probs_weib, probs_ray, cut_in, nominal, cut_out, vmax):
+    """Curva de probabilidad por sector (mockup): Weibull (índigo) + Rayleigh
+    (naranja) + verticales cut-in/nominal/cut-out + ejes con números."""
+    cxs = np.asarray(centers, dtype=float)
+    pw = np.asarray(probs_weib, dtype=float)
+    pr = np.asarray(probs_ray, dtype=float)
+    if len(cxs) < 2:
+        return ""
+    x_lo = 0.0
+    x_hi = float(max(vmax, cut_out or 0, cxs.max()))
+    allp = np.concatenate([pw[np.isfinite(pw)], pr[np.isfinite(pr)]])
+    y_hi = float(np.nanmax(allp)) * 1.14 if len(allp) else 1.0
+    if y_hi <= 0:
+        y_hi = 1.0
+    X0, X1, YB, YT = 52.0, 686.0, 300.0, 26.0
+
+    def px(v):
+        return X0 + (float(v) - x_lo) / (x_hi - x_lo) * (X1 - X0)
+
+    def py(p):
+        return YB - (float(p) / y_hi) * (YB - YT)
+
+    y_ticks = _f3_nice_ticks(0, y_hi, 5)
+    x_ticks = _f3_nice_ticks(x_lo, x_hi, 6)
+    grid = "".join(f'<line x1="52" y1="{py(t):.1f}" x2="686" y2="{py(t):.1f}" stroke="#eef1fa" stroke-width="1"/>' for t in y_ticks)
+    axes = (
+        '<line x1="52" y1="300" x2="686" y2="300" stroke="#c4d4e8" stroke-width="1.4"/>'
+        '<line x1="52" y1="20" x2="52" y2="300" stroke="#c4d4e8" stroke-width="1.4"/>'
+    )
+    ylab = "".join(f'<text x="48" y="{py(t) + 3:.1f}" text-anchor="end" font-size="9" fill="#94a3b8" font-weight="700">{_f3_fmt_num(t)}</text>' for t in y_ticks)
+    xlab = "".join(f'<text x="{px(t):.1f}" y="316" text-anchor="middle" font-size="9" fill="#94a3b8" font-weight="700">{_f3_fmt_num(t)}</text>' for t in x_ticks)
+
+    def line(arr, color):
+        pts = [(px(cxs[i]), py(arr[i])) for i in range(len(arr)) if np.isfinite(arr[i])]
+        if len(pts) < 2:
+            return ""
+        d = "M" + f"{pts[0][0]:.1f},{pts[0][1]:.1f}" + "".join(f" L{x:.1f},{y:.1f}" for x, y in pts[1:])
+        marks = "".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.6" fill="#fff" stroke="{color}" stroke-width="1.8"/>' for x, y in pts)
+        return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' + marks
+
+    body = line(pw, "#4f46e5") + line(pr, "#f97316")
+    cuts = ""
+    for xv, nm in [(cut_in, "Cut-in"), (nominal, "Nominal"), (cut_out, "Cut-out")]:
+        if xv is None:
+            continue
+        xx = px(xv)
+        cuts += f'<line x1="{xx:.1f}" y1="26" x2="{xx:.1f}" y2="300" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 4"/>'
+        cuts += f'<text x="{xx:.1f}" y="20" text-anchor="middle" font-size="8.5" fill="#64748b" font-weight="800">{nm}</text>'
+    labels = (
+        '<text x="369" y="338" text-anchor="middle" font-size="10" fill="#64748b" font-weight="800">Velocidad (m/s)</text>'
+        '<text x="13" y="163" font-size="10" fill="#64748b" font-weight="800" transform="rotate(-90 13 163)" text-anchor="middle">Probabilidad (%)</text>'
+    )
+    return _f3_svg_html("0 0 700 352", grid + axes + cuts + body + ylab + xlab + labels)
+
+
+def _heatmap_matrix(df_rosa, bins):
+    mat = []
+    for sector in SECTOR_LABELS_16:
+        sub = df_rosa.loc[df_rosa["Sector"] == sector, "WS_ANALISIS"].dropna().to_numpy(dtype=float)
+        if len(sub) == 0:
+            probs = np.zeros(len(bins) - 1)
+        else:
+            counts, _ = np.histogram(sub, bins=bins)
+            s = counts.sum()
+            probs = counts / s * 100.0 if s > 0 else np.zeros(len(bins) - 1)
+        mat.append(probs)
+    return np.array(mat)
+
+
+def render_heatmap_svg(matrix, sector_labels, bins):
+    """Heatmap 16 sectores × intervalos (mockup): celdas redondeadas color
+    crema→naranja→rojo, rótulos de sector y eje de velocidad."""
+    M = np.asarray(matrix, dtype=float)
+    if M.size == 0:
+        return ""
+    nrow, ncol = M.shape
+    vmax = float(np.nanmax(M)) if np.isfinite(M).any() else 1.0
+    if vmax <= 0:
+        vmax = 1.0
+    LEFT, TOP = 56.0, 12.0
+    cw, ch, gap = 26.0, 23.0, 3.0
+    W = LEFT + ncol * cw + 24
+    H = TOP + nrow * ch + 46
+
+    def color(p):
+        t = max(0.0, min(1.0, p / vmax))
+        stops = [(1.0, 0.97, 0.92), (0.99, 0.68, 0.42), (0.84, 0.19, 0.12)]
+        if t <= 0.5:
+            f = t / 0.5
+            a, b = stops[0], stops[1]
+        else:
+            f = (t - 0.5) / 0.5
+            a, b = stops[1], stops[2]
+        rr = int((a[0] + (b[0] - a[0]) * f) * 255)
+        gg = int((a[1] + (b[1] - a[1]) * f) * 255)
+        bb = int((a[2] + (b[2] - a[2]) * f) * 255)
+        return f"rgb({rr},{gg},{bb})"
+
+    cells = ""
+    for i in range(nrow):
+        y = TOP + i * ch
+        cells += f'<text x="{LEFT - 8}" y="{y + ch / 2 + 3:.1f}" text-anchor="end" font-size="9.5" fill="#5a6b85" font-weight="800">{sector_labels[i]}</text>'
+        for j in range(ncol):
+            x = LEFT + j * cw
+            cells += f'<rect x="{x:.1f}" y="{y:.1f}" width="{cw - gap:.1f}" height="{ch - gap:.1f}" rx="3" fill="{color(M[i, j])}"/>'
+    # ticks de velocidad (cada ~5 m/s) bajo el eje
+    xticks = ""
+    bn = np.asarray(bins, dtype=float)
+    for j in range(ncol + 1):
+        vstart = bn[j] if j < len(bn) else bn[-1]
+        if abs(vstart - round(vstart)) < 1e-6 and int(round(vstart)) % 5 == 0:
+            xx = LEFT + j * cw
+            xticks += f'<text x="{xx:.1f}" y="{TOP + nrow * ch + 16:.1f}" text-anchor="middle" font-size="9" fill="#94a3b8" font-weight="700">{int(round(vstart))}</text>'
+    xlabel = f'<text x="{LEFT + ncol * cw / 2:.1f}" y="{H - 8:.1f}" text-anchor="middle" font-size="11" fill="#64748b" font-weight="800">Intervalo de velocidad (m/s) →</text>'
+    return _f3_svg_html(f"0 0 {W:.0f} {H:.0f}", cells + xticks + xlabel)
+
+
 def _phase_card(key: str | None = None):
     return st.container(border=True, key=key)
 
@@ -2836,7 +3060,7 @@ with top_cols[0]:
             rose_cols = st.columns([1.18, 0.96], gap="medium")
             with rose_cols[0]:
                 with st.container(key="f3_rose_plot_col_v3"):
-                    _render_plotly_iframe(fig_rosa, height=560, key_suffix="rose")
+                    components.html(render_rosa_svg(resumen), height=540, scrolling=False)
             with rose_cols[1]:
                 with st.container(key="f3_rose_side_col_v3"):
                     with st.container(border=True, key="f3_sector_summary"):
@@ -2872,7 +3096,19 @@ with top_cols[1]:
                             st.markdown(f'<div class="f3-mini-stat__label">{label}</div>', unsafe_allow_html=True)
                             st.markdown(f'<div class="f3-mini-stat__value">{value}</div>', unsafe_allow_html=True)
             with st.container(key="f3_sector_plot_wrap_v3"):
-                _render_plotly_iframe(fig_sector, height=500, key_suffix="sector")
+                _f3_centers, _f3_pw, _f3_pr = _sector_curve_arrays(df_sector, fila_sector, bins)
+                components.html(
+                    render_sector_curve_svg(_f3_centers, _f3_pw, _f3_pr, cut_in, nominal, cut_out, vmax),
+                    height=360, scrolling=False,
+                )
+                st.markdown(
+                    '<div class="aur-legend">'
+                    '<i style="--lc:#4f46e5">Histograma + Weibull</i>'
+                    '<i style="--lc:#f97316">Rayleigh</i>'
+                    '<i style="--lc:#94a3b8">Cut-in / Nominal / Cut-out</i>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
 
 if st.session_state.get("f3_show_sector_table", False):
     with _phase_card("f3_sector_table_detached"):
@@ -2901,7 +3137,19 @@ with _phase_card("f3_card_heatmap"):
     )
     _render_card_header_native("3 · Heatmap de probabilidad para 16 sectores", "🔥", "Probabilidad (%) por sector e intervalo de velocidad — toda la rosa de un vistazo")
     st.markdown('<div class="f3-heatmap-top-spacer"></div>', unsafe_allow_html=True)
-    st.plotly_chart(fig_heatmap, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+    _f3_hmat = _heatmap_matrix(df_rosa, bins)
+    components.html(
+        render_heatmap_svg(_f3_hmat[::-1], list(SECTOR_LABELS_16)[::-1], bins),
+        height=460, scrolling=False,
+    )
+    st.markdown(
+        '<div class="aur-legend">'
+        '<i style="--lc:#fdebcf">Baja probabilidad</i>'
+        '<i style="--lc:#f59e42">Media</i>'
+        '<i style="--lc:#d7301f">Alta (&gt;20%)</i>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 with _phase_card("f3_card_expanders"):
     with st.expander(_expander_icon_label("table-intervals", "Ver tabla de probabilidades por intervalos"), expanded=False):
