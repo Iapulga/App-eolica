@@ -238,19 +238,57 @@ def render_cizalladura_svg(v10, v50, v100, alpha, h_alta=100.0):
     ).strip()
 
 
+def _fmt_num(x):
+    """Formatea un número 'bonito': sin .0 sobrante y con coma decimal."""
+    try:
+        s = f"{float(x):.1f}".rstrip("0").rstrip(".")
+    except Exception:
+        return "—"
+    if s in ("", "-0"):
+        s = "0"
+    return s.replace(".", ",")
+
+
+def _nice_ticks(lo, hi, n=5, log=False):
+    """Devuelve ~n valores 'redondos' dentro de [lo, hi] (o décadas si log)."""
+    import math
+    if hi <= lo:
+        return [lo]
+    if log:
+        lo = max(lo, 1e-6)
+        e0, e1 = math.floor(math.log10(lo)), math.ceil(math.log10(hi))
+        ticks = [10 ** e for e in range(int(e0), int(e1) + 1) if lo <= 10 ** e <= hi * 1.0001]
+        return ticks or [lo, hi]
+    raw = (hi - lo) / max(1, n - 1)
+    mag = 10 ** math.floor(math.log10(raw)) if raw > 0 else 1
+    step = mag
+    for m in (1, 2, 2.5, 5, 10):
+        if (hi - lo) / (m * mag) <= n + 0.5:
+            step = m * mag
+            break
+    start = math.ceil(lo / step) * step
+    ticks, t = [], start
+    while t <= hi + step * 0.001:
+        ticks.append(round(t, 6))
+        t += step
+    return ticks
+
+
 def _perfil_svg_paths(alt, vel, px, py, baseline):
-    """Devuelve (d_line, d_area, markers) para una curva muestreada."""
+    """Devuelve (d_line, d_area, pts, midx, samples) para una curva muestreada.
+    samples[i] = (vel, alt) del punto pts[i]."""
     order = np.argsort(alt)
     a_s, v_s = alt[order], vel[order]
     n = len(a_s)
     idx = np.unique(np.linspace(0, n - 1, min(n, 40)).astype(int))
     pts = [(px(v_s[i]), py(a_s[i])) for i in idx]
+    samples = [(float(v_s[i]), float(a_s[i])) for i in idx]
     d_line = "M" + f"{pts[0][0]:.1f},{pts[0][1]:.1f}" + "".join(
         f" L{x:.1f},{y:.1f}" for x, y in pts[1:]
     )
     d_area = d_line + f" L{pts[-1][0]:.1f},{baseline:.0f} L{pts[0][0]:.1f},{baseline:.0f} Z"
     midx = np.unique(np.linspace(0, len(pts) - 1, 5).astype(int))
-    return d_line, d_area, pts, midx
+    return d_line, d_area, pts, midx, samples
 
 
 def render_perfil_fig_svg(df, color, altura_obj=None, v_obj=None):
@@ -283,23 +321,44 @@ def render_perfil_fig_svg(df, color, altura_obj=None, v_obj=None):
     def py(a):
         return YB + (float(a) - a_lo) / (a_hi - a_lo) * (YT - YB)
 
-    d_line, d_area, pts, midx = _perfil_svg_paths(alt, vel, px, py, YB)
+    d_line, d_area, pts, midx, samples = _perfil_svg_paths(alt, vel, px, py, YB)
+    y_ticks = _nice_ticks(a_lo, a_hi, 5)
+    x_ticks = _nice_ticks(v_lo, v_hi, 5)
     grid = "".join(
-        f'<line x1="46" y1="{y}" x2="346" y2="{y}" stroke="#eef4fb" stroke-width="1.2"/>'
-        for y in (28, 64, 100, 136, 172)
+        f'<line x1="46" y1="{py(t):.1f}" x2="346" y2="{py(t):.1f}" stroke="#eef4fb" stroke-width="1.2"/>'
+        for t in y_ticks
     )
     axes = (
         '<line x1="46" y1="172" x2="346" y2="172" stroke="#c4d4e8" stroke-width="1.6"/>'
         '<line x1="46" y1="18" x2="46" y2="172" stroke="#c4d4e8" stroke-width="1.6"/>'
     )
+    yticklabels = "".join(
+        f'<text x="42" y="{py(t) + 3:.1f}" text-anchor="end" font-size="8.5" fill="#94a3b8" font-weight="700">{_fmt_num(t)}</text>'
+        for t in y_ticks
+    )
+    xtickmarks = "".join(
+        f'<line x1="{px(t):.1f}" y1="172" x2="{px(t):.1f}" y2="176" stroke="#c4d4e8" stroke-width="1.2"/>'
+        for t in x_ticks
+    )
+    xticklabels = "".join(
+        f'<text x="{px(t):.1f}" y="185" text-anchor="middle" font-size="8.5" fill="#94a3b8" font-weight="700">{_fmt_num(t)}</text>'
+        for t in x_ticks
+    )
     markers = "".join(
         f'<circle cx="{pts[i][0]:.1f}" cy="{pts[i][1]:.1f}" r="3.6" fill="#fff" '
         f'stroke="{color}" stroke-width="2.4"/>' for i in midx
     )
+    # Valor (velocidad) en 3 puntos: inferior, medio y superior.
+    lbl_idx = list(dict.fromkeys([midx[0], midx[len(midx) // 2], midx[-1]]))
+    ptlabels = "".join(
+        f'<text x="{pts[i][0] + 1:.1f}" y="{pts[i][1] - 7:.1f}" text-anchor="middle" font-size="8" '
+        f'fill="{color}" font-weight="800">{_fmt_num(samples[i][0])}</text>'
+        for i in lbl_idx
+    )
     labels = (
-        '<text x="196" y="201" text-anchor="middle" font-size="10" fill="#64748b" font-weight="800">v (m/s)</text>'
-        '<text x="14" y="100" font-size="10" fill="#64748b" font-weight="800" '
-        'transform="rotate(-90 14 100)" text-anchor="middle">Altura (m)</text>'
+        '<text x="196" y="203" text-anchor="middle" font-size="9.5" fill="#64748b" font-weight="800">v (m/s)</text>'
+        '<text x="11" y="100" font-size="9.5" fill="#64748b" font-weight="800" '
+        'transform="rotate(-90 11 100)" text-anchor="middle">Altura (m)</text>'
     )
     return textwrap.dedent(
         f"""
@@ -307,10 +366,10 @@ def render_perfil_fig_svg(df, color, altura_obj=None, v_obj=None):
         <body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;">
         <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
           <svg viewBox="0 0 360 210" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;">
-            {grid}{axes}
+            {grid}{axes}{xtickmarks}
             <path d="{d_area}" fill="{color}" fill-opacity="0.09"/>
             <path d="{d_line}" fill="none" stroke="{color}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-            {markers}{labels}
+            {markers}{ptlabels}{yticklabels}{xticklabels}{labels}
           </svg>
         </div>
         </body>
@@ -371,19 +430,33 @@ def render_comparacion_fig_svg(df_exp, df_log_a, df_promedio, altura_obj=None,
         def py(a):
             return YB + (float(a) - a_lo) / (a_hi - a_lo) * (YT - YB)
 
+    y_ticks = _nice_ticks(a_lo, a_hi, 5, log=log)
+    x_ticks = _nice_ticks(v_lo, v_hi, 5)
     grid = "".join(
-        f'<line x1="46" y1="{y}" x2="406" y2="{y}" stroke="#eef4fb" stroke-width="1.2"/>'
-        for y in (28, 69, 110, 151, 192)
+        f'<line x1="46" y1="{py(t):.1f}" x2="406" y2="{py(t):.1f}" stroke="#eef4fb" stroke-width="1.2"/>'
+        for t in y_ticks
     )
     axes = (
         '<line x1="46" y1="192" x2="406" y2="192" stroke="#c4d4e8" stroke-width="1.6"/>'
         '<line x1="46" y1="18" x2="46" y2="192" stroke="#c4d4e8" stroke-width="1.6"/>'
     )
+    yticklabels = "".join(
+        f'<text x="42" y="{py(t) + 3:.1f}" text-anchor="end" font-size="8.5" fill="#94a3b8" font-weight="700">{_fmt_num(t)}</text>'
+        for t in y_ticks
+    )
+    xtickmarks = "".join(
+        f'<line x1="{px(t):.1f}" y1="192" x2="{px(t):.1f}" y2="196" stroke="#c4d4e8" stroke-width="1.2"/>'
+        for t in x_ticks
+    )
+    xticklabels = "".join(
+        f'<text x="{px(t):.1f}" y="205" text-anchor="middle" font-size="8.5" fill="#94a3b8" font-weight="700">{_fmt_num(t)}</text>'
+        for t in x_ticks
+    )
     body = ""
     for a, v, color in parsed:
         if len(a) < 2:
             continue
-        d_line, _d_area, pts, midx = _perfil_svg_paths(a, v, px, py, YB)
+        d_line, _d_area, pts, midx, _samples = _perfil_svg_paths(a, v, px, py, YB)
         body += (
             f'<path d="{d_line}" fill="none" stroke="{color}" stroke-width="3.0" '
             f'stroke-linecap="round" stroke-linejoin="round"/>'
@@ -394,9 +467,9 @@ def render_comparacion_fig_svg(df_exp, df_log_a, df_promedio, altura_obj=None,
         )
     ylab = "Altura (m, log)" if log else "Altura (m)"
     labels = (
-        '<text x="226" y="221" text-anchor="middle" font-size="10" fill="#64748b" font-weight="800">v (m/s)</text>'
-        f'<text x="14" y="110" font-size="10" fill="#64748b" font-weight="800" '
-        f'transform="rotate(-90 14 110)" text-anchor="middle">{ylab}</text>'
+        '<text x="226" y="221" text-anchor="middle" font-size="9.5" fill="#64748b" font-weight="800">v (m/s)</text>'
+        f'<text x="11" y="110" font-size="9.5" fill="#64748b" font-weight="800" '
+        f'transform="rotate(-90 11 110)" text-anchor="middle">{ylab}</text>'
     )
     return textwrap.dedent(
         f"""
@@ -404,7 +477,99 @@ def render_comparacion_fig_svg(df_exp, df_log_a, df_promedio, altura_obj=None,
         <body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;">
         <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
           <svg viewBox="0 0 420 230" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;">
-            {grid}{axes}{body}{labels}
+            {grid}{axes}{xtickmarks}{body}{yticklabels}{xticklabels}{labels}
+          </svg>
+        </div>
+        </body>
+        </html>
+        """
+    ).strip()
+
+
+def render_serie_horaria_svg(df_nasa):
+    """Serie horaria WS10M/WS50M estilo mockup D (viewBox 860x240): 2 líneas
+    (media semanal), gridlines, ticks Y de velocidad, años en X y títulos."""
+    try:
+        df = df_nasa[["timestamp", "WS10M", "WS50M"]].copy()
+    except Exception:
+        return ""
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    df = df.dropna(subset=["timestamp"]).sort_values("timestamp")
+    if len(df) < 2:
+        return ""
+    df["WS10M"] = pd.to_numeric(df["WS10M"], errors="coerce")
+    df["WS50M"] = pd.to_numeric(df["WS50M"], errors="coerce")
+    res = df.set_index("timestamp")[["WS10M", "WS50M"]].resample("W").mean().dropna(how="all")
+    if len(res) < 2:
+        res = df.set_index("timestamp")[["WS10M", "WS50M"]]
+    times = res.index
+    t0, t1 = times[0].value, times[-1].value
+    if t1 <= t0:
+        t1 = t0 + 1
+    w10 = res["WS10M"].to_numpy(dtype=float)
+    w50 = res["WS50M"].to_numpy(dtype=float)
+    finite = np.concatenate([w10[np.isfinite(w10)], w50[np.isfinite(w50)]])
+    vmax = float(np.nanmax(finite)) * 1.06 if len(finite) else 1.0
+    if vmax <= 0:
+        vmax = 1.0
+    X0, X1, YB, YT = 48.0, 844.0, 200.0, 16.0
+
+    def px(tv):
+        return X0 + (tv - t0) / (t1 - t0) * (X1 - X0)
+
+    def py(v):
+        return YB - (float(v) / vmax) * (YB - YT)
+
+    def path_for(arr):
+        pts = [(px(tt.value), py(vv)) for tt, vv in zip(times, arr) if vv == vv]
+        if len(pts) < 2:
+            return ""
+        return "M" + f"{pts[0][0]:.1f},{pts[0][1]:.1f}" + "".join(f" L{x:.1f},{y:.1f}" for x, y in pts[1:])
+
+    p10, p50 = path_for(w10), path_for(w50)
+    v_ticks = _nice_ticks(0, vmax, 5)
+    grid = "".join(
+        f'<line x1="48" y1="{py(t):.1f}" x2="844" y2="{py(t):.1f}" stroke="#eef4fb" stroke-width="1.1"/>'
+        for t in v_ticks
+    )
+    yticklabels = "".join(
+        f'<text x="44" y="{py(t) + 3:.1f}" text-anchor="end" font-size="9" fill="#94a3b8" font-weight="700">{_fmt_num(t)}</text>'
+        for t in v_ticks
+    )
+    axes = (
+        '<line x1="48" y1="200" x2="844" y2="200" stroke="#c4d4e8" stroke-width="1.5"/>'
+        '<line x1="48" y1="16" x2="48" y2="200" stroke="#c4d4e8" stroke-width="1.5"/>'
+    )
+    yearmarks = ""
+    _labeled = set()
+    for yr in range(times[0].year, times[-1].year + 2):
+        ts = pd.Timestamp(year=yr, month=1, day=1)
+        if times[0] <= ts <= times[-1]:
+            xx = px(ts.value)
+            _labeled.add(yr)
+            yearmarks += (
+                f'<line x1="{xx:.1f}" y1="200" x2="{xx:.1f}" y2="204" stroke="#c4d4e8" stroke-width="1.1"/>'
+                f'<text x="{xx:.1f}" y="216" text-anchor="middle" font-size="9.5" fill="#64748b" font-weight="800">{yr}</text>'
+            )
+    if times[0].year not in _labeled:
+        yearmarks += (
+            f'<text x="50" y="216" text-anchor="start" font-size="9.5" fill="#64748b" font-weight="800">{times[0].year}</text>'
+        )
+    labels = (
+        '<text x="446" y="233" text-anchor="middle" font-size="10" fill="#64748b" font-weight="800">Fecha y hora</text>'
+        '<text x="12" y="108" font-size="10" fill="#64748b" font-weight="800" '
+        'transform="rotate(-90 12 108)" text-anchor="middle">Velocidad del viento (m/s)</text>'
+    )
+    return textwrap.dedent(
+        f"""
+        <html style="margin:0;padding:0;width:100%;height:100%;">
+        <body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;">
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          <svg viewBox="0 0 860 240" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;">
+            {grid}{axes}{yearmarks}
+            <path d="{p10}" fill="none" stroke="#6366f1" stroke-width="1.3" opacity="0.92"/>
+            <path d="{p50}" fill="none" stroke="#ef4444" stroke-width="1.3" opacity="0.8"/>
+            {yticklabels}{labels}
           </svg>
         </div>
         </body>
@@ -3384,7 +3549,7 @@ if _f2_show_nasa:
                 ).add_to(mapa)
                 folium.LatLngPopup().add_to(mapa)
 
-                mapa_data = st_folium(mapa, width=1200, height=590, key="mapa_nasa_grande")
+                mapa_data = st_folium(mapa, width=1200, height=672, key="mapa_nasa_grande")
 
                 if mapa_data and mapa_data.get("last_clicked"):
                     st.session_state["f2_latitude"] = float(mapa_data["last_clicked"]["lat"])
@@ -3725,6 +3890,23 @@ if _f2_show_nasa:
                 guardar_ws_mcp as _gwm,
             )
 
+            # KPIs del mockup (Recovery torre + MCP R²); "—" si aún no hay datos.
+            _rec_raw = config.get("f2_mast_recovery_pct")
+            try:
+                _rec_txt = f"{float(_rec_raw):.1f} %" if _rec_raw not in (None, "", 0, 0.0, "0", "0.0") else "—"
+            except Exception:
+                _rec_txt = "—"
+            _r2_raw = config.get("f2_mcp_r2")
+            try:
+                _r2_txt = f"{float(_r2_raw):.2f}" if _r2_raw not in (None, "") else "—"
+            except Exception:
+                _r2_txt = "—"
+            _mk1, _mk2 = st.columns(2, gap="small")
+            with _mk1:
+                _render_metric_card("📡", "Recovery torre", _rec_txt, "green", sub="% de overlap NASA ↔ torre")
+            with _mk2:
+                _render_metric_card("🔗", "MCP R²", _r2_txt, "blue", icon_variant="param", sub="satélite ↔ torre")
+
             col_up, col_info = st.columns([1.4, 1])
             with col_up:
                 uploaded_mast = st.file_uploader(
@@ -3952,10 +4134,14 @@ if len(df_nasa) > 0:
             _section_title_html("D", "📉", "Serie horaria de velocidades", "Comportamiento temporal de WS10M y WS50M en la serie almacenada."),
             unsafe_allow_html=True,
         )
-        fig_nasa = crear_grafica_nasa_hourly(df_nasa, webgl=True)
-        st.markdown('<div class="chart-surface">', unsafe_allow_html=True)
-        st.plotly_chart(fig_nasa, use_container_width=True, config=PLOTLY_PERF_CONFIG)
-        st.markdown("</div>", unsafe_allow_html=True)
+        components.html(render_serie_horaria_svg(df_nasa), height=320, scrolling=False)
+        st.markdown(
+            '<div class="f2-legend">'
+            '<i style="--lc:#6366f1">WS10M</i>'
+            '<i style="--lc:#ef4444">WS50M</i>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     v10 = float(pd.to_numeric(df_nasa["WS10M"], errors="coerce").dropna().mean())
     v50 = float(pd.to_numeric(df_nasa["WS50M"], errors="coerce").dropna().mean())
@@ -4046,7 +4232,7 @@ if len(df_nasa) > 0:
             )
             components.html(
                 render_cizalladura_svg(v10, v50, v_promedio_deseada, alpha, altura_deseada),
-                height=300,
+                height=330,
                 scrolling=False,
             )
         with ec_right:
