@@ -84,10 +84,16 @@ def _section_title_html(letter: str, icon_name: str, title: str, subtitle: str |
     título (con la letra de sección prefijada) + subtítulo. Firma intacta."""
     sub = f"<p>{subtitle}</p>" if subtitle else ""
     full_title = f"{letter} · {title}" if letter else title
+    # Si icon_name es un emoji (no ASCII), renderizarlo como glifo dentro del
+    # squircle tintado; si es un nombre de icono SVG, usar _icon_svg.
+    if icon_name and not icon_name.isascii():
+        icon_html = f'<span class="f2-cicon-emoji">{icon_name}</span>'
+    else:
+        icon_html = _icon_svg(icon_name, 22, "#0891b2")
     return textwrap.dedent(
         f"""
         <div class="f2-card-head">
-            <div class="f2-cicon">{_icon_svg(icon_name, 22, "#0891b2")}</div>
+            <div class="f2-cicon">{icon_html}</div>
             <div><h2>{full_title}</h2>{sub}</div>
         </div>
         """
@@ -154,13 +160,18 @@ def _metric_card_html(
         "metric-card--profile-speed",
     }
     icon_size = 30 if (extra_class == "metric-card--summary" or extra_class in profile_icon_classes) else 22
-    # KPI del mockup: ki círculo tintado (--kc) con el SVG existente dentro.
+    # Emoji (no ASCII) → glifo; si es nombre SVG → _icon_svg. Aro tintado --kc.
+    if icon_name and not icon_name.isascii():
+        icon_inner = f'<span class="f2-ki-emoji">{icon_name}</span>'
+    else:
+        icon_inner = _icon_svg(icon_name, icon_size, icon_color)
+    # KPI del mockup: ki círculo tintado (--kc) con el icono dentro.
     return textwrap.dedent(
         f"""
         <div class="f2-kpi{' f2-kpi--compact' if compact else ''}{f' {extra_class}' if extra_class else ''}" style="--kc:{icon_color}">
             <div class="f2-ki">
                 <div class="metric-icon-inner" {icon_inner_style}>
-                    {_icon_svg(icon_name, icon_size, icon_color)}
+                    {icon_inner}
                 </div>
             </div>
             <div class="f2-kpi-copy">
@@ -219,6 +230,181 @@ def render_cizalladura_svg(v10, v50, v100, alpha, h_alta=100.0):
             {_arrow(140, x50, v50)}{_lbl(140, "50 m")}
             {_arrow(72, x100, v100)}{_lbl(72, f"{h_alta:.0f} m")}
             <text x="280" y="284" text-anchor="middle" font-size="10.5" font-weight="800" fill="#64748b">v(z) = v_ref · (z / z_ref)^α · α = {a_text}</text>
+          </svg>
+        </div>
+        </body>
+        </html>
+        """
+    ).strip()
+
+
+def _perfil_svg_paths(alt, vel, px, py, baseline):
+    """Devuelve (d_line, d_area, markers) para una curva muestreada."""
+    order = np.argsort(alt)
+    a_s, v_s = alt[order], vel[order]
+    n = len(a_s)
+    idx = np.unique(np.linspace(0, n - 1, min(n, 40)).astype(int))
+    pts = [(px(v_s[i]), py(a_s[i])) for i in idx]
+    d_line = "M" + f"{pts[0][0]:.1f},{pts[0][1]:.1f}" + "".join(
+        f" L{x:.1f},{y:.1f}" for x, y in pts[1:]
+    )
+    d_area = d_line + f" L{pts[-1][0]:.1f},{baseline:.0f} L{pts[0][0]:.1f},{baseline:.0f} Z"
+    midx = np.unique(np.linspace(0, len(pts) - 1, 5).astype(int))
+    return d_line, d_area, pts, midx
+
+
+def render_perfil_fig_svg(df, color, altura_obj=None, v_obj=None):
+    """Figura de perfil estilo mockup .fig (viewBox 360x210): gridlines, ejes,
+    área rellena bajo la curva, curva, 5 marcadores y etiquetas. Datos reales
+    (cols 'Altura (m)' y 'Velocidad (m/s)'); escala lineal como el mockup."""
+    alt = pd.to_numeric(df["Altura (m)"], errors="coerce").to_numpy(dtype=float)
+    vel = pd.to_numeric(df["Velocidad (m/s)"], errors="coerce").to_numpy(dtype=float)
+    mask = np.isfinite(alt) & np.isfinite(vel)
+    alt, vel = alt[mask], vel[mask]
+    if len(alt) < 2:
+        return ""
+    a_lo, a_hi = float(alt.min()), float(alt.max())
+    v_lo, v_hi = float(vel.min()), float(vel.max())
+    if altura_obj is not None and np.isfinite(altura_obj):
+        a_hi = max(a_hi, float(altura_obj))
+    if v_obj is not None and np.isfinite(v_obj):
+        v_hi, v_lo = max(v_hi, float(v_obj)), min(v_lo, float(v_obj))
+    v_pad = max((v_hi - v_lo) * 0.10, 0.3)
+    v_lo, v_hi = v_lo - v_pad, v_hi + v_pad
+    if a_hi <= a_lo:
+        a_hi = a_lo + 1.0
+    if v_hi <= v_lo:
+        v_hi = v_lo + 1.0
+    X0, X1, YB, YT = 46.0, 346.0, 172.0, 28.0
+
+    def px(v):
+        return X0 + (float(v) - v_lo) / (v_hi - v_lo) * (X1 - X0)
+
+    def py(a):
+        return YB + (float(a) - a_lo) / (a_hi - a_lo) * (YT - YB)
+
+    d_line, d_area, pts, midx = _perfil_svg_paths(alt, vel, px, py, YB)
+    grid = "".join(
+        f'<line x1="46" y1="{y}" x2="346" y2="{y}" stroke="#eef4fb" stroke-width="1.2"/>'
+        for y in (28, 64, 100, 136, 172)
+    )
+    axes = (
+        '<line x1="46" y1="172" x2="346" y2="172" stroke="#c4d4e8" stroke-width="1.6"/>'
+        '<line x1="46" y1="18" x2="46" y2="172" stroke="#c4d4e8" stroke-width="1.6"/>'
+    )
+    markers = "".join(
+        f'<circle cx="{pts[i][0]:.1f}" cy="{pts[i][1]:.1f}" r="3.6" fill="#fff" '
+        f'stroke="{color}" stroke-width="2.4"/>' for i in midx
+    )
+    labels = (
+        '<text x="196" y="201" text-anchor="middle" font-size="10" fill="#64748b" font-weight="800">v (m/s)</text>'
+        '<text x="14" y="100" font-size="10" fill="#64748b" font-weight="800" '
+        'transform="rotate(-90 14 100)" text-anchor="middle">Altura (m)</text>'
+    )
+    return textwrap.dedent(
+        f"""
+        <html style="margin:0;padding:0;width:100%;height:100%;">
+        <body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;">
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          <svg viewBox="0 0 360 210" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;">
+            {grid}{axes}
+            <path d="{d_area}" fill="{color}" fill-opacity="0.09"/>
+            <path d="{d_line}" fill="none" stroke="{color}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+            {markers}{labels}
+          </svg>
+        </div>
+        </body>
+        </html>
+        """
+    ).strip()
+
+
+def render_comparacion_fig_svg(df_exp, df_log_a, df_promedio, altura_obj=None,
+                               v_exp=None, v_log_a=None, v_promedio=None, log=False):
+    """Figura comparativa estilo mockup (viewBox 420x230): 3 curvas (exp cian,
+    Log A naranja, promedio verde) con marcadores. G1 lineal / G2 eje Y log."""
+    series = [
+        (df_exp, "#0891b2", v_exp),
+        (df_log_a, "#f97316", v_log_a),
+        (df_promedio, "#16a34a", v_promedio),
+    ]
+    parsed = []
+    A_all, V_all = [], []
+    for df, color, vo in series:
+        a = pd.to_numeric(df["Altura (m)"], errors="coerce").to_numpy(dtype=float)
+        v = pd.to_numeric(df["Velocidad (m/s)"], errors="coerce").to_numpy(dtype=float)
+        m = np.isfinite(a) & np.isfinite(v)
+        a, v = a[m], v[m]
+        parsed.append((a, v, color))
+        A_all.append(a)
+        V_all.append(v)
+    A = np.concatenate(A_all) if A_all else np.array([])
+    V = np.concatenate(V_all) if V_all else np.array([])
+    if len(A) < 2:
+        return ""
+    a_lo, a_hi = float(A.min()), float(A.max())
+    v_lo, v_hi = float(V.min()), float(V.max())
+    for vo in (v_exp, v_log_a, v_promedio):
+        if vo is not None and np.isfinite(vo):
+            v_hi, v_lo = max(v_hi, float(vo)), min(v_lo, float(vo))
+    if altura_obj is not None and np.isfinite(altura_obj):
+        a_hi = max(a_hi, float(altura_obj))
+    v_pad = max((v_hi - v_lo) * 0.08, 0.3)
+    v_lo, v_hi = v_lo - v_pad, v_hi + v_pad
+    if log:
+        a_lo = max(a_lo, 1.0)
+    if a_hi <= a_lo:
+        a_hi = a_lo + 1.0
+    if v_hi <= v_lo:
+        v_hi = v_lo + 1.0
+    X0, X1, YB, YT = 46.0, 406.0, 192.0, 28.0
+
+    def px(v):
+        return X0 + (float(v) - v_lo) / (v_hi - v_lo) * (X1 - X0)
+
+    if log:
+        la_lo, la_hi = np.log10(a_lo), np.log10(a_hi)
+
+        def py(a):
+            return YB + (np.log10(max(float(a), a_lo)) - la_lo) / (la_hi - la_lo) * (YT - YB)
+    else:
+        def py(a):
+            return YB + (float(a) - a_lo) / (a_hi - a_lo) * (YT - YB)
+
+    grid = "".join(
+        f'<line x1="46" y1="{y}" x2="406" y2="{y}" stroke="#eef4fb" stroke-width="1.2"/>'
+        for y in (28, 69, 110, 151, 192)
+    )
+    axes = (
+        '<line x1="46" y1="192" x2="406" y2="192" stroke="#c4d4e8" stroke-width="1.6"/>'
+        '<line x1="46" y1="18" x2="46" y2="192" stroke="#c4d4e8" stroke-width="1.6"/>'
+    )
+    body = ""
+    for a, v, color in parsed:
+        if len(a) < 2:
+            continue
+        d_line, _d_area, pts, midx = _perfil_svg_paths(a, v, px, py, YB)
+        body += (
+            f'<path d="{d_line}" fill="none" stroke="{color}" stroke-width="3.0" '
+            f'stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+        body += "".join(
+            f'<circle cx="{pts[i][0]:.1f}" cy="{pts[i][1]:.1f}" r="3.4" fill="#fff" '
+            f'stroke="{color}" stroke-width="2.2"/>' for i in midx
+        )
+    ylab = "Altura (m, log)" if log else "Altura (m)"
+    labels = (
+        '<text x="226" y="221" text-anchor="middle" font-size="10" fill="#64748b" font-weight="800">v (m/s)</text>'
+        f'<text x="14" y="110" font-size="10" fill="#64748b" font-weight="800" '
+        f'transform="rotate(-90 14 110)" text-anchor="middle">{ylab}</text>'
+    )
+    return textwrap.dedent(
+        f"""
+        <html style="margin:0;padding:0;width:100%;height:100%;">
+        <body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;">
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          <svg viewBox="0 0 420 230" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;">
+            {grid}{axes}{body}{labels}
           </svg>
         </div>
         </body>
@@ -323,8 +509,8 @@ def _render_fase2_plot_chip_controls():
         "f2_show_fig_exp": True,
         "f2_show_fig_log_a": True,
         "f2_show_fig_promedio": True,
-        "f2_show_fig_comparacion": False,
-        "f2_show_fig_comparacion_log": False,
+        "f2_show_fig_comparacion": True,
+        "f2_show_fig_comparacion_log": True,
     }
     for key, default in defaults.items():
         st.session_state.setdefault(key, default)
@@ -2608,6 +2794,7 @@ st.markdown(
   border:1.5px solid color-mix(in srgb,var(--ac,#0891b2) 35%,#fff);
   box-shadow:0 5px 12px color-mix(in srgb,var(--ac,#0891b2) 16%,transparent)}
 .f2-cicon svg{width:22px;height:22px}
+.f2-cicon-emoji{font-size:23px;line-height:1;display:flex;align-items:center;justify-content:center}
 .f2-card-head h2{margin:0;font-size:16.5px;font-weight:900;color:#0b2447;letter-spacing:-.02em}
 .f2-card-head p{margin:2px 0 0;font-size:11px;color:#5a6b85;font-weight:600}
 
@@ -2619,10 +2806,14 @@ st.markdown(
   border:1.5px solid color-mix(in srgb,var(--kc,#2563eb) 38%,#fff);
   box-shadow:0 5px 12px color-mix(in srgb,var(--kc,#2563eb) 18%,transparent)}
 .f2-ki svg{width:24px;height:24px}
+.f2-ki-emoji{font-size:23px;line-height:1;display:flex;align-items:center;justify-content:center}
 .f2-kpi-copy{min-width:0}
 .f2-kpi-copy small{display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
 .f2-kpi-copy b{font-size:19px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
 .f2-kpi-copy i{font-style:normal;font-size:10px;color:#5a6b85;display:block;margin-top:2.5px;font-weight:600;line-height:1.25}
+.f2-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-weight:800;color:#5a6b85;margin:12px 0 2px;justify-content:center}
+.f2-legend i{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+.f2-legend i::before{content:"";width:12px;height:12px;border-radius:4px;background:var(--lc);box-shadow:0 2px 5px color-mix(in srgb,var(--lc) 40%,transparent)}
 
 /* Banner */
 .f2-fig-title{font-size:12px;font-weight:900;color:#0b2447;margin:2px 0 6px;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
@@ -2755,7 +2946,7 @@ st.markdown(
 )
 with _phase_card("f2_card_source"):
     st.markdown(
-        _section_title_html("", "globe", "Fuente de datos de viento", "Elija el origen de la serie horaria."),
+        _section_title_html("", "🛰️", "Fuente de datos de viento", "Elija el origen de la serie horaria."),
         unsafe_allow_html=True,
     )
     _src_panel = st.container(horizontal=True, horizontal_alignment="left", gap="small", key="f2_source_chip_panel")
@@ -2793,7 +2984,7 @@ if f2_data_source == "Global Wind Atlas / Open-Meteo":
     with _gwa_col_a:
         with _phase_card("f2_card_gwa_a"):
             st.markdown(
-                _section_title_html("A", "map-pin", "Ubicaci\u00f3n y periodo", "Seleccione coordenadas y rango de fechas para consultar Open-Meteo."),
+                _section_title_html("A", "📍", "Ubicaci\u00f3n y periodo", "Seleccione coordenadas y rango de fechas para consultar Open-Meteo."),
                 unsafe_allow_html=True,
             )
             st.markdown('<div class="ab-card-shell ab-card-shell--a">', unsafe_allow_html=True)
@@ -2906,7 +3097,7 @@ if f2_data_source == "Global Wind Atlas / Open-Meteo":
     with _gwa_col_b:
         with _phase_card("f2_card_gwa_b"):
             st.markdown(
-                _section_title_html("B", "cloud-upload", "Par\u00e1metros y datos opcionales", "Gestione la altura operativa y, opcionalmente, cargue un CSV de GWA."),
+                _section_title_html("B", "☁️", "Par\u00e1metros y datos opcionales", "Gestione la altura operativa y, opcionalmente, cargue un CSV de GWA."),
                 unsafe_allow_html=True,
             )
 
@@ -3168,7 +3359,7 @@ if _f2_show_nasa:
     with col_a:
         with _phase_card("f2_card_a"):
             st.markdown(
-                _section_title_html("A", "map-pin", "Consulta por coordenadas", "Ubique el sitio y el rango temporal."),
+                _section_title_html("A", "📍", "Consulta por coordenadas", "Ubique el sitio y el rango temporal."),
                 unsafe_allow_html=True,
             )
             st.markdown('<div class="ab-card-shell ab-card-shell--a">', unsafe_allow_html=True)
@@ -3193,7 +3384,7 @@ if _f2_show_nasa:
                 ).add_to(mapa)
                 folium.LatLngPopup().add_to(mapa)
 
-                mapa_data = st_folium(mapa, width=1200, height=300, key="mapa_nasa_grande")
+                mapa_data = st_folium(mapa, width=1200, height=590, key="mapa_nasa_grande")
 
                 if mapa_data and mapa_data.get("last_clicked"):
                     st.session_state["f2_latitude"] = float(mapa_data["last_clicked"]["lat"])
@@ -3347,7 +3538,7 @@ if _f2_show_nasa:
     with col_b:
         with _phase_card("f2_card_b"):
             st.markdown(
-                _section_title_html("B", "cloud-upload", "Cargar archivo NASA", "CSV o JSON descargado + altura operativa."),
+                _section_title_html("B", "☁️", "Cargar archivo NASA", "CSV o JSON descargado + altura operativa."),
                 unsafe_allow_html=True,
             )
 
@@ -3511,7 +3702,7 @@ if _f2_show_nasa:
         # B2 + B3 — Torre meteorológica + MCP
         with _phase_card("f2_card_mast"):
             st.markdown(
-                _section_title_html("M", "tower", "Torre meteorológica + MCP", "Datos 10-min reales y corrección a largo plazo."),
+                _section_title_html("M", "🗼", "Torre meteorológica + MCP", "Datos 10-min reales y corrección a largo plazo."),
                 unsafe_allow_html=True,
             )
 
@@ -3741,24 +3932,24 @@ if len(df_nasa) > 0:
 
     with _phase_card("f2_card_c"):
         st.markdown(
-            _section_title_html("C", "database", "Resumen de datos horarios guardados", "Síntesis de la base horaria disponible para el proyecto actual."),
+            _section_title_html("C", "🗃️", "Resumen de datos horarios guardados", "Síntesis de la base horaria disponible para el proyecto actual."),
             unsafe_allow_html=True,
         )
         st.markdown('<div class="summary-strip summary-strip--featured">', unsafe_allow_html=True)
         s1, s2, s3, s4 = st.columns(4, gap="small")
         with s1:
-            _render_metric_card("database-records", "Registros horarios", f"{len(df_nasa):,}", "blue", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=2, sub=f"{_c_anios} años de serie")
+            _render_metric_card("🧾", "Registros horarios", f"{len(df_nasa):,}", "blue", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=2, sub=f"{_c_anios} años de serie")
         with s2:
-            _render_metric_card("wind", "Promedio WS10M", f"{df_nasa['WS10M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="wind", icon_dx=0, icon_dy=-2, sub="a 10 metros")
+            _render_metric_card("💨", "Promedio WS10M", f"{df_nasa['WS10M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="wind", icon_dx=0, icon_dy=-2, sub="a 10 metros")
         with s3:
-            _render_metric_card("wind", "Promedio WS50M", f"{df_nasa['WS50M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="combined", icon_dx=0, icon_dy=-2, sub="a 50 metros")
+            _render_metric_card("🌬️", "Promedio WS50M", f"{df_nasa['WS50M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="combined", icon_dx=0, icon_dy=-2, sub="a 50 metros")
         with s4:
-            _render_metric_card("target", "Promedio WD10M", valor_wd10, "green", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=0, sub=f"dirección dominante {_wd_card}")
+            _render_metric_card("🧭", "Promedio WD10M", valor_wd10, "green", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=0, sub=f"dirección dominante {_wd_card}")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with _phase_card("f2_card_d"):
         st.markdown(
-            _section_title_html("D", "chart", "Serie horaria de velocidades", "Comportamiento temporal de WS10M y WS50M en la serie almacenada."),
+            _section_title_html("D", "📉", "Serie horaria de velocidades", "Comportamiento temporal de WS10M y WS50M en la serie almacenada."),
             unsafe_allow_html=True,
         )
         fig_nasa = crear_grafica_nasa_hourly(df_nasa, webgl=True)
@@ -3830,19 +4021,19 @@ if len(df_nasa) > 0:
 
     with _phase_card("f2_card_e"):
         st.markdown(
-            _section_title_html("E", "profile", "Perfiles verticales del viento", "Comparación técnica entre los perfiles exponencial, logarítmico A y Promedio Log-Exp."),
+            _section_title_html("E", "⛰️", "Perfiles verticales del viento", "Comparación técnica entre los perfiles exponencial, logarítmico A y Promedio Log-Exp."),
             unsafe_allow_html=True,
         )
         # ── 4 KPIs arriba (α, u*, z₀, modelo activo) — colores del mockup ──
         ek1, ek2, ek3, ek4 = st.columns(4, gap="small")
         with ek1:
-            _render_metric_card("ruler", "α (2 puntos)", f"{alpha:.4f}", "blue", sub="exponente de corte")
+            _render_metric_card("📏", "α (2 puntos)", f"{alpha:.4f}", "blue", sub="exponente de corte")
         with ek2:
-            _render_metric_card("friction-velocity", "u* modo A", f"{u_star_a:.4f} m/s", "blue", icon_variant="param", sub="fricción")
+            _render_metric_card("🌀", "u* modo A", f"{u_star_a:.4f} m/s", "blue", icon_variant="param", sub="fricción")
         with ek3:
-            _render_metric_card("roughness-z0", "z₀ ajustada", f"{z0_ajustada:.4f} m", "blue", icon_variant="wind", sub="rugosidad")
+            _render_metric_card("🌱", "z₀ ajustada", f"{z0_ajustada:.4f} m", "blue", icon_variant="wind", sub="rugosidad")
         with ek4:
-            _render_metric_card("model-combo", "Modelo activo", "Exp + Log A", "green", sub="promedio Log-Exp")
+            _render_metric_card("🧪", "Modelo activo", "Exp + Log A", "green", sub="promedio Log-Exp")
 
         # ── Cizalladura (izq) + banner info y 3 KPIs de velocidad (der) ──
         _logA_txt = f"{v_log_a_deseada:.2f} m/s" if np.isfinite(v_log_a_deseada) else "no válida"
@@ -3865,9 +4056,9 @@ if len(df_nasa) > 0:
                 f'Log A {_logA_txt} · Promedio {_prom_txt}</span></div>',
                 unsafe_allow_html=True,
             )
-            _render_metric_card("exp-profile", "Exponencial", f"{v_exp_deseada:.2f} m/s", "blue", icon_dy=0, sub=f"a {altura_deseada:.0f} m")
-            _render_metric_card("log-profile", "Log A", _logA_txt, "blue", icon_variant="combined", sub=f"a {altura_deseada:.0f} m")
-            _render_metric_card("log-exp-average", "Promedio Log-Exp", _prom_txt, "green", sub="valor de diseño")
+            _render_metric_card("⚡", "Exponencial", f"{v_exp_deseada:.2f} m/s", "blue", icon_dy=0, sub=f"a {altura_deseada:.0f} m")
+            _render_metric_card("📐", "Log A", _logA_txt, "blue", icon_variant="combined", sub=f"a {altura_deseada:.0f} m")
+            _render_metric_card("⭐", "Promedio Log-Exp", _prom_txt, "green", sub="valor de diseño")
 
         for advertencia in advertencias_altura:
             st.warning(advertencia)
@@ -3883,7 +4074,7 @@ if len(df_nasa) > 0:
 
     with _phase_card("f2_card_f"):
         st.markdown(
-            _section_title_html("F", "chart", "Panel de gráficas de perfiles", "Use los chips para mostrar u ocultar cada figura sin recargar cálculos."),
+            _section_title_html("F", "🖼️", "Panel de gráficas de perfiles", "Use los chips para mostrar u ocultar cada figura sin recargar cálculos."),
             unsafe_allow_html=True,
         )
         _render_fase2_plot_chip_controls()
@@ -3956,21 +4147,22 @@ if len(df_nasa) > 0:
                 plot_bgcolor="#ffffff",
             )
         fig_cols = st.columns(3, gap="medium")
+        _F_FIG_H = 250
         if st.session_state.get("f2_show_fig_exp", False):
             with fig_cols[0]:
                 with st.container(border=True, key="f2_f_chart_card_1"):
-                    st.markdown('<div class="f2-f-chart-header">F1 · Gráfica individual - Perfil exponencial</div>', unsafe_allow_html=True)
-                    st.plotly_chart(fig_exp, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+                    st.markdown('<div class="f2-f-chart-header">F1 · Exponencial</div>', unsafe_allow_html=True)
+                    components.html(render_perfil_fig_svg(df_exp, "#0891b2", altura_deseada, v_exp_deseada), height=_F_FIG_H, scrolling=False)
         if st.session_state.get("f2_show_fig_log_a", False):
             with fig_cols[1]:
                 with st.container(border=True, key="f2_f_chart_card_2"):
-                    st.markdown('<div class="f2-f-chart-header">F2 · Gráfica individual - Perfil logarítmico modo A</div>', unsafe_allow_html=True)
-                    st.plotly_chart(fig_log_a, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+                    st.markdown('<div class="f2-f-chart-header">F2 · Logarítmico A</div>', unsafe_allow_html=True)
+                    components.html(render_perfil_fig_svg(df_log_a, "#f97316", altura_deseada, v_log_a_deseada), height=_F_FIG_H, scrolling=False)
         if st.session_state.get("f2_show_fig_promedio", False):
             with fig_cols[2]:
                 with st.container(border=True, key="f2_f_chart_card_3"):
-                    st.markdown('<div class="f2-f-chart-header">F3 · Gráfica individual - Promedio Log-Exp</div>', unsafe_allow_html=True)
-                    st.plotly_chart(fig_log_b, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+                    st.markdown('<div class="f2-f-chart-header">F3 · Promedio Log-Exp</div>', unsafe_allow_html=True)
+                    components.html(render_perfil_fig_svg(df_promedio, "#16a34a", altura_deseada, v_promedio_deseada), height=_F_FIG_H, scrolling=False)
 
     fig_compare_linear = crear_grafica_modos(
         df_exp=df_exp,
@@ -4044,20 +4236,29 @@ if len(df_nasa) > 0:
 
     with _phase_card("f2_card_g"):
         st.markdown(
-            _section_title_html("G", "profile", "Comparación entre perfiles", "Lectura comparativa de los tres modelos en escala lineal y logarítmica."),
+            _section_title_html("G", "🏁", "Comparación entre perfiles", "Lectura comparativa de los tres modelos en escala lineal y logarítmica."),
             unsafe_allow_html=True,
         )
         compare_cols = st.columns(2, gap="medium")
+        _G_FIG_H = 270
         if st.session_state.get("f2_show_fig_comparacion", False):
             with compare_cols[0]:
                 with st.container(border=True, key="f2_g_chart_card_1"):
-                    st.markdown('<div class="f2-g-chart-header">G1 · Comparación entre perfiles - altura en escala normal</div>', unsafe_allow_html=True)
-                    st.plotly_chart(fig_compare_linear, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+                    st.markdown('<div class="f2-g-chart-header">Escala lineal</div>', unsafe_allow_html=True)
+                    components.html(render_comparacion_fig_svg(df_exp, df_log_a, df_promedio, altura_deseada, v_exp_deseada, v_log_a_deseada, v_promedio_deseada, log=False), height=_G_FIG_H, scrolling=False)
         if st.session_state.get("f2_show_fig_comparacion_log", False):
             with compare_cols[1]:
                 with st.container(border=True, key="f2_g_chart_card_2"):
-                    st.markdown('<div class="f2-g-chart-header">G2 · Comparación entre perfiles - altura en escala logarítmica</div>', unsafe_allow_html=True)
-                    st.plotly_chart(fig_compare_log, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+                    st.markdown('<div class="f2-g-chart-header">Escala logarítmica</div>', unsafe_allow_html=True)
+                    components.html(render_comparacion_fig_svg(df_exp, df_log_a, df_promedio, altura_deseada, v_exp_deseada, v_log_a_deseada, v_promedio_deseada, log=True), height=_G_FIG_H, scrolling=False)
+        st.markdown(
+            '<div class="f2-legend">'
+            '<i style="--lc:#0891b2">Exponencial</i>'
+            '<i style="--lc:#f97316">Logarítmico A</i>'
+            '<i style="--lc:#16a34a">Promedio Log-Exp</i>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     with _phase_card("f2_card_final"):
         st.markdown('<div class="final-expanders">', unsafe_allow_html=True)
@@ -4208,7 +4409,7 @@ if len(df_nasa) > 0:
 else:
     with _phase_card("f2_card_empty"):
         st.markdown(
-            _section_title_html("C", "database", "Datos horarios pendientes", "Cuando exista una base horaria guardada, aquí­ aparecerán el resumen, las gráficas y los perfiles verticales."),
+            _section_title_html("C", "🗃️", "Datos horarios pendientes", "Cuando exista una base horaria guardada, aquí­ aparecerán el resumen, las gráficas y los perfiles verticales."),
             unsafe_allow_html=True,
         )
         st.info("Todavía no hay datos horarios de NASA POWER guardados.")
