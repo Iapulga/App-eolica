@@ -103,6 +103,7 @@ def _render_metric_card(
     icon_dx: int = 0,
     icon_dy: int = 0,
     icon_variant: str = "",
+    sub: str = "",
 ):
     st.markdown(
         _metric_card_html(
@@ -115,6 +116,7 @@ def _render_metric_card(
             icon_dx=icon_dx,
             icon_dy=icon_dy,
             icon_variant=icon_variant,
+            sub=sub,
         ),
         unsafe_allow_html=True,
     )
@@ -130,6 +132,7 @@ def _metric_card_html(
     icon_dx: int = 0,
     icon_dy: int = 0,
     icon_variant: str = "",
+    sub: str = "",
 ) -> str:
     # Color del aro/icono (--kc del mockup) derivado del tono/variante existente.
     icon_color = "#2563eb" if tone != "green" else "#16a34a"
@@ -163,6 +166,7 @@ def _metric_card_html(
             <div class="f2-kpi-copy">
                 <small>{label}</small>
                 <b>{value}</b>
+                {f'<i>{sub}</i>' if sub else ''}
             </div>
         </div>
         """
@@ -2618,6 +2622,7 @@ st.markdown(
 .f2-kpi-copy{min-width:0}
 .f2-kpi-copy small{display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
 .f2-kpi-copy b{font-size:19px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
+.f2-kpi-copy i{font-style:normal;font-size:10px;color:#5a6b85;display:block;margin-top:2.5px;font-weight:600;line-height:1.25}
 
 /* Banner */
 .f2-fig-title{font-size:12px;font-weight:900;color:#0b2447;margin:2px 0 6px;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
@@ -2748,16 +2753,21 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-_src_panel = st.container(horizontal=True, horizontal_alignment="left", gap="small", key="f2_source_chip_panel")
-with _src_panel:
-    for _lbl, _dsv in _F2_SOURCE_CHIPS:
-        st.button(
-            _lbl,
-            key=f"f2_src_{_lbl}",
-            type="primary" if _lbl == st.session_state["f2_source_chip"] else "secondary",
-            on_click=_set_f2_source,
-            args=(_lbl, _dsv),
-        )
+with _phase_card("f2_card_source"):
+    st.markdown(
+        _section_title_html("", "globe", "Fuente de datos de viento", "Elija el origen de la serie horaria."),
+        unsafe_allow_html=True,
+    )
+    _src_panel = st.container(horizontal=True, horizontal_alignment="left", gap="small", key="f2_source_chip_panel")
+    with _src_panel:
+        for _lbl, _dsv in _F2_SOURCE_CHIPS:
+            st.button(
+                _lbl,
+                key=f"f2_src_{_lbl}",
+                type="primary" if _lbl == st.session_state["f2_source_chip"] else "secondary",
+                on_click=_set_f2_source,
+                args=(_lbl, _dsv),
+            )
 f2_data_source = config.get("data_source", "NASA POWER")
 if f2_data_source not in ("NASA POWER", "Global Wind Atlas / Open-Meteo"):
     f2_data_source = "NASA POWER"
@@ -3725,6 +3735,9 @@ if len(df_nasa) > 0:
 
     wd10 = df_nasa["WD10M"].dropna()
     valor_wd10 = f"{wd10.mean():.2f}°" if len(wd10) > 0 else "Sin dato"
+    _dirs8 = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
+    _wd_card = _dirs8[int((wd10.mean() % 360) / 45 + 0.5) % 8] if len(wd10) > 0 else "—"
+    _c_anios = max(1, round(len(df_nasa) / 8760))
 
     with _phase_card("f2_card_c"):
         st.markdown(
@@ -3734,13 +3747,13 @@ if len(df_nasa) > 0:
         st.markdown('<div class="summary-strip summary-strip--featured">', unsafe_allow_html=True)
         s1, s2, s3, s4 = st.columns(4, gap="small")
         with s1:
-            _render_metric_card("database-records", "Registros horarios", f"{len(df_nasa):,}", "blue", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=2)
+            _render_metric_card("database-records", "Registros horarios", f"{len(df_nasa):,}", "blue", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=2, sub=f"{_c_anios} años de serie")
         with s2:
-            _render_metric_card("wind", "Promedio WS10M", f"{df_nasa['WS10M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="wind", icon_dx=0, icon_dy=-2)
+            _render_metric_card("wind", "Promedio WS10M", f"{df_nasa['WS10M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="wind", icon_dx=0, icon_dy=-2, sub="a 10 metros")
         with s3:
-            _render_metric_card("wind", "Promedio WS50M", f"{df_nasa['WS50M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="combined", icon_dx=0, icon_dy=-2)
+            _render_metric_card("wind", "Promedio WS50M", f"{df_nasa['WS50M'].mean():.2f} m/s", "blue", compact=True, extra_class="metric-card--summary", icon_variant="combined", icon_dx=0, icon_dy=-2, sub="a 50 metros")
         with s4:
-            _render_metric_card("target", "Promedio WD10M", valor_wd10, "green", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=0)
+            _render_metric_card("target", "Promedio WD10M", valor_wd10, "green", compact=True, extra_class="metric-card--summary", icon_dx=0, icon_dy=0, sub=f"dirección dominante {_wd_card}")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with _phase_card("f2_card_d"):
@@ -3823,13 +3836,13 @@ if len(df_nasa) > 0:
         # ── 4 KPIs arriba (α, u*, z₀, modelo activo) — colores del mockup ──
         ek1, ek2, ek3, ek4 = st.columns(4, gap="small")
         with ek1:
-            _render_metric_card("ruler", "α (2 puntos)", f"{alpha:.4f}", "blue")
+            _render_metric_card("ruler", "α (2 puntos)", f"{alpha:.4f}", "blue", sub="exponente de corte")
         with ek2:
-            _render_metric_card("friction-velocity", "u* modo A", f"{u_star_a:.4f} m/s", "blue", icon_variant="param")
+            _render_metric_card("friction-velocity", "u* modo A", f"{u_star_a:.4f} m/s", "blue", icon_variant="param", sub="fricción")
         with ek3:
-            _render_metric_card("roughness-z0", "z₀ ajustada", f"{z0_ajustada:.4f} m", "blue", icon_variant="wind")
+            _render_metric_card("roughness-z0", "z₀ ajustada", f"{z0_ajustada:.4f} m", "blue", icon_variant="wind", sub="rugosidad")
         with ek4:
-            _render_metric_card("model-combo", "Modelo activo", "Exp + Log A", "green")
+            _render_metric_card("model-combo", "Modelo activo", "Exp + Log A", "green", sub="promedio Log-Exp")
 
         # ── Cizalladura (izq) + banner info y 3 KPIs de velocidad (der) ──
         _logA_txt = f"{v_log_a_deseada:.2f} m/s" if np.isfinite(v_log_a_deseada) else "no válida"
@@ -3852,9 +3865,9 @@ if len(df_nasa) > 0:
                 f'Log A {_logA_txt} · Promedio {_prom_txt}</span></div>',
                 unsafe_allow_html=True,
             )
-            _render_metric_card("exp-profile", "Exponencial", f"{v_exp_deseada:.2f} m/s", "blue", icon_dy=0)
-            _render_metric_card("log-profile", "Log A", _logA_txt, "blue", icon_variant="combined")
-            _render_metric_card("log-exp-average", "Promedio Log-Exp", _prom_txt, "green")
+            _render_metric_card("exp-profile", "Exponencial", f"{v_exp_deseada:.2f} m/s", "blue", icon_dy=0, sub=f"a {altura_deseada:.0f} m")
+            _render_metric_card("log-profile", "Log A", _logA_txt, "blue", icon_variant="combined", sub=f"a {altura_deseada:.0f} m")
+            _render_metric_card("log-exp-average", "Promedio Log-Exp", _prom_txt, "green", sub="valor de diseño")
 
         for advertencia in advertencias_altura:
             st.warning(advertencia)
