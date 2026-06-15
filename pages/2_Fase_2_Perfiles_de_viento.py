@@ -1440,13 +1440,13 @@ st.markdown(
         height: 46px !important;
         min-width: 46px !important;
         border-radius: 999px;
-        background: #e9f1ff;
-        border: 3px solid #2563eb;
+        background: #dcfce7;
+        border: 3px solid #16a34a;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.14);
+        box-shadow: 0 4px 12px rgba(22, 163, 74, 0.16);
     }
     .f2-status-check svg {
         width: 26px !important;
@@ -1457,7 +1457,7 @@ st.markdown(
         font-size: 1rem;
         font-weight: 800;
         line-height: 1.3;
-        color: #1e40af;
+        color: #15803d;
     }
     /* â”€â”€ Button icon prefix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     .st-key-btn_consultar_nasa_power [data-testid="stButton"] > button p::before {
@@ -2159,6 +2159,11 @@ st.markdown(
     .st-key-f2_card_b .f2-status-inline {
         border-radius: 16px !important;
     }
+    /* Banner "coinciden" en verde ok como el mockup (.banner.ok) */
+    .st-key-f2_card_b .f2-status-inline {
+        background: linear-gradient(120deg, #f0fdf4, #ffffff) !important;
+        border: 1.5px solid #86efac !important;
+    }
     .st-key-f2_card_b [data-testid="stButton"] > button,
     .st-key-f2_card_a [data-testid="stButton"] > button,
     .st-key-f2_card_gwa_a [data-testid="stButton"] > button,
@@ -2771,14 +2776,14 @@ if f2_data_source == "Global Wind Atlas / Open-Meteo":
     if st.session_state.get("f2_gwa_fin") is None:
         st.session_state["f2_gwa_fin"] = datetime.date(2023, 12, 31)
 
-    _gwa_col_a, _gwa_col_b = st.columns([1.38, 1.0], gap="large")
+    _gwa_col_a, _gwa_col_b = st.columns([1, 1], gap="large")
 
     # ── Column A: Map, coords, dates & query ──
     _consultar_open_meteo_flag = False
     with _gwa_col_a:
         with _phase_card("f2_card_gwa_a"):
             st.markdown(
-                _section_title_html("A", "globe", "Ubicaci\u00f3n y periodo", "Seleccione coordenadas y rango de fechas para consultar Open-Meteo."),
+                _section_title_html("A", "map-pin", "Ubicaci\u00f3n y periodo", "Seleccione coordenadas y rango de fechas para consultar Open-Meteo."),
                 unsafe_allow_html=True,
             )
             st.markdown('<div class="ab-card-shell ab-card-shell--a">', unsafe_allow_html=True)
@@ -2803,7 +2808,7 @@ if f2_data_source == "Global Wind Atlas / Open-Meteo":
                 ).add_to(_gwa_mapa)
                 folium.LatLngPopup().add_to(_gwa_mapa)
 
-                _gwa_mapa_data = st_folium(_gwa_mapa, width=1200, height=360, key="mapa_gwa")
+                _gwa_mapa_data = st_folium(_gwa_mapa, width=1200, height=300, key="mapa_gwa")
 
                 if _gwa_mapa_data and _gwa_mapa_data.get("last_clicked"):
                     st.session_state["f2_gwa_latitude"] = float(_gwa_mapa_data["last_clicked"]["lat"])
@@ -2891,7 +2896,7 @@ if f2_data_source == "Global Wind Atlas / Open-Meteo":
     with _gwa_col_b:
         with _phase_card("f2_card_gwa_b"):
             st.markdown(
-                _section_title_html("B", "upload", "Par\u00e1metros y datos opcionales", "Gestione la altura operativa y, opcionalmente, cargue un CSV de GWA."),
+                _section_title_html("B", "cloud-upload", "Par\u00e1metros y datos opcionales", "Gestione la altura operativa y, opcionalmente, cargue un CSV de GWA."),
                 unsafe_allow_html=True,
             )
 
@@ -3044,7 +3049,7 @@ if f2_data_source == "Global Wind Atlas / Open-Meteo":
                     '<div class="f2-status-inline">'
                     '<div class="f2-status-check">'
                     '<svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
-                    'stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">'
+                    'stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">'
                     '<polyline points="20 6 9 17 4 12"/>'
                     '</svg>'
                     '</div>'
@@ -3148,12 +3153,12 @@ else:
     _f2_show_nasa = False
 
 if _f2_show_nasa:
-    col_a, col_b = st.columns([1.38, 1.0], gap="large")
+    col_a, col_b = st.columns([1, 1], gap="large")
 
     with col_a:
         with _phase_card("f2_card_a"):
             st.markdown(
-                _section_title_html("A", "globe", "Consulta NASA POWER por coordenadas", "Ubique el sitio, defina el rango temporal y consulte la serie horaria."),
+                _section_title_html("A", "map-pin", "Consulta por coordenadas", "Ubique el sitio y el rango temporal."),
                 unsafe_allow_html=True,
             )
             st.markdown('<div class="ab-card-shell ab-card-shell--a">', unsafe_allow_html=True)
@@ -3178,7 +3183,7 @@ if _f2_show_nasa:
                 ).add_to(mapa)
                 folium.LatLngPopup().add_to(mapa)
 
-                mapa_data = st_folium(mapa, width=1200, height=360, key="mapa_nasa_grande")
+                mapa_data = st_folium(mapa, width=1200, height=300, key="mapa_nasa_grande")
 
                 if mapa_data and mapa_data.get("last_clicked"):
                     st.session_state["f2_latitude"] = float(mapa_data["last_clicked"]["lat"])
@@ -3332,7 +3337,7 @@ if _f2_show_nasa:
     with col_b:
         with _phase_card("f2_card_b"):
             st.markdown(
-                _section_title_html("B", "upload", "O cargar un CSV descargado desde NASA POWER", "Importe un CSV existente y gestione la altura operativa usada en los perfiles."),
+                _section_title_html("B", "cloud-upload", "Cargar archivo NASA", "CSV o JSON descargado + altura operativa."),
                 unsafe_allow_html=True,
             )
 
@@ -3483,7 +3488,7 @@ if _f2_show_nasa:
                     '<div class="f2-status-inline">'
                     '<div class="f2-status-check">'
                     '<svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
-                    'stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">'
+                    'stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">'
                     '<polyline points="20 6 9 17 4 12"/>'
                     '</svg>'
                     '</div>'
@@ -3496,7 +3501,7 @@ if _f2_show_nasa:
         # B2 + B3 — Torre meteorológica + MCP
         with _phase_card("f2_card_mast"):
             st.markdown(
-                _section_title_html("M", "controls", "Torre meteorológica (B2) + MCP (B3)", "Sube datos de torre 10-min para validación + Measure-Correlate-Predict contra NASA POWER."),
+                _section_title_html("M", "tower", "Torre meteorológica + MCP", "Datos 10-min reales y corrección a largo plazo."),
                 unsafe_allow_html=True,
             )
 

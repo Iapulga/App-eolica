@@ -135,6 +135,15 @@ def _icon_svg(name: str, size: int = 18, color: str = "#2563eb") -> str:
             f'<circle cx="15" cy="12" r="1.9" fill="{color}" opacity="0.9"/>'
             f'<circle cx="11" cy="17" r="1.9" fill="{color}" opacity="0.85"/>'
         )
+    elif name == "tower":
+        body = (
+            f'<path d="M8.5 20 L12 3.6 L15.5 20" {stroke}/>'
+            f'<path d="M7.8 20h8.4" {stroke}/>'
+            f'<path d="M10.8 10.2h2.4" {stroke}/>'
+            f'<path d="M10 13.6h4" {stroke}/>'
+            f'<path d="M9.2 17h5.6" {stroke}/>'
+            f'<path d="M12 3.6V1.9" {stroke}/>'
+        )
     elif name == "arrow":
         body = (
             f'<path d="M12 19V5.4" {stroke}/>'
