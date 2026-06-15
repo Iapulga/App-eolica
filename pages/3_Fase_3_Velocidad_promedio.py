@@ -2075,38 +2075,31 @@ def _summary_sector_html(resumen: pd.DataFrame, direccion_fuente: str) -> str:
 
 
 def _render_card_header_native(title: str, icon_name: str, subtitle: str = ""):
-    icon_col, text_col = st.columns([0.12, 0.88], gap="small")
-
-    with icon_col:
-        st.markdown(
-            f'<div class="f3-header-icon-fixed">{_icon_svg(icon_name, 28, "#2563eb")}</div>',
-            unsafe_allow_html=True,
-        )
-
-    with text_col:
-        st.markdown(
-            f'<div class="f3-header-title-fixed">{title}</div>',
-            unsafe_allow_html=True,
-        )
-        if subtitle:
-            st.markdown(
-                f'<div class="f3-header-subtitle-fixed">{subtitle}</div>',
-                unsafe_allow_html=True,
-            )
+    """Card-head Aurora: squircle tintado (emoji o SVG) + título + subtítulo."""
+    if icon_name and not icon_name.isascii():
+        icon_html = f'<span class="aur-cicon-emoji">{icon_name}</span>'
+    else:
+        icon_html = _icon_svg(icon_name, 22, "#4f46e5")
+    sub = f"<p>{subtitle}</p>" if subtitle else ""
+    st.markdown(
+        f'<div class="aur-card-head"><div class="aur-cicon">{icon_html}</div>'
+        f"<div><h2>{title}</h2>{sub}</div></div>",
+        unsafe_allow_html=True,
+    )
 
 
-def _render_kpi_card_native(icon_name: str, label: str, value: str):
-    icon_col, text_col = st.columns([0.24, 0.76], gap="small")
-    with icon_col:
-        st.markdown(
-            f'<div class="f3-kpi-card__icon">{_icon_svg(icon_name, 34, "#2563eb")}</div>',
-            unsafe_allow_html=True,
-        )
-    with text_col:
-        st.markdown(
-            f'<div class="f3-kpi-card__body"><div class="f3-kpi-card__label">{label}</div><div class="f3-kpi-card__value">{value}</div></div>',
-            unsafe_allow_html=True,
-        )
+def _render_kpi_card_native(icon_name: str, label: str, value: str, sub: str = "", kc: str = "#4f46e5"):
+    """KPI Aurora: aro tintado (emoji o SVG) + label + valor + subtítulo."""
+    if icon_name and not icon_name.isascii():
+        icon_html = f'<span class="aur-ki-emoji">{icon_name}</span>'
+    else:
+        icon_html = _icon_svg(icon_name, 24, kc)
+    sub_html = f"<i>{sub}</i>" if sub else ""
+    st.markdown(
+        f'<div class="aur-kpi" style="--kc:{kc}"><div class="aur-ki">{icon_html}</div>'
+        f'<div class="aur-kpi-copy"><small>{label}</small><b>{value}</b>{sub_html}</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _render_summary_sector_native(resumen: pd.DataFrame, direccion_fuente: str):
@@ -2144,6 +2137,68 @@ def _render_soft_note_native(text: str):
 
 
 _render_phase3_css()
+
+# ═══════ Aurora (paridad mockup 03_fase3, acento índigo) — hero + card-head + KPI ═══════
+st.markdown(
+    """
+    <style>
+    .f3-hero{position:relative;overflow:hidden;border-radius:26px !important;padding:22px 28px !important;
+      background:linear-gradient(118deg,#4f46e5 0%, #3730a3 80%) !important;border:none !important;
+      box-shadow:0 22px 44px rgba(79,70,229,.32), inset 0 1px 0 rgba(255,255,255,.25) !important;margin:0 !important}
+    .f3-hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:
+      radial-gradient(circle at 86% 12%, rgba(255,255,255,.20) 0 54px, transparent 55px),
+      radial-gradient(circle at 95% 70%, rgba(255,255,255,.12) 0 86px, transparent 87px),
+      linear-gradient(180deg, rgba(255,255,255,.08), transparent 40%)}
+    .f3-wind{position:absolute;left:-30px;top:0;bottom:0;width:58%;height:100%;opacity:.45;pointer-events:none;z-index:1}
+    .f3-wind path{stroke:rgba(255,255,255,.55);stroke-width:2;fill:none;stroke-dasharray:16 11;animation:f3windmove 2.6s linear infinite}
+    .f3-wind path:nth-child(2){animation-duration:3.4s;opacity:.7}
+    .f3-wind path:nth-child(3){animation-duration:4.2s;opacity:.5}
+    @keyframes f3windmove{to{stroke-dashoffset:-54}}
+    .f3-hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2}
+    .f3-hero-icon{width:62px;height:62px;border-radius:19px;background:rgba(255,255,255,.17);
+      border:1.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:31px;flex-shrink:0;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 8px 18px rgba(0,0,0,.12)}
+    .f3-hero-text{flex:1;min-width:0}
+    .f3-hero .f3-hero-title{font-size:25px;font-weight:900;color:#fff;letter-spacing:-.025em;
+      text-shadow:0 1px 2px rgba(0,0,0,.12);margin:0;line-height:1.15}
+    .f3-hero .f3-hero-subtitle{font-size:12.5px;color:rgba(255,255,255,.94);font-weight:500;
+      max-width:840px;margin:4px 0 0 0;line-height:1.45}
+    .f3-hero-pills{display:flex;gap:9px;margin-left:auto;flex-shrink:0}
+    .f3-hpill{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:15px;
+      padding:8px 15px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25);color:#fff}
+    .f3-hpill b{display:block;font-size:16.5px;letter-spacing:-.01em}
+    .f3-hpill span{font-size:9px;opacity:.92;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+    /* Card-head Aurora */
+    .aur-card-head{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+    .aur-cicon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      background:linear-gradient(135deg, color-mix(in srgb,#4f46e5 16%,#fff), color-mix(in srgb,#4f46e5 7%,#fff));
+      border:1.5px solid color-mix(in srgb,#4f46e5 35%,#fff);box-shadow:0 5px 12px color-mix(in srgb,#4f46e5 16%,transparent)}
+    .aur-cicon svg{width:22px;height:22px}
+    .aur-cicon-emoji{font-size:23px;line-height:1;display:flex;align-items:center;justify-content:center}
+    .aur-card-head h2{margin:0;font-size:16.5px;font-weight:900;color:#0b2447;letter-spacing:-.02em}
+    .aur-card-head p{margin:2px 0 0;font-size:11px;color:#5a6b85;font-weight:600}
+    /* KPI Aurora */
+    .aur-kpi{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:13px 14px;display:flex;gap:12px;align-items:center;
+      box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06);min-height:74px;height:100%}
+    .aur-ki{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      background:linear-gradient(135deg, color-mix(in srgb,var(--kc,#4f46e5) 17%,#fff), color-mix(in srgb,var(--kc,#4f46e5) 6%,#fff));
+      border:1.5px solid color-mix(in srgb,var(--kc,#4f46e5) 38%,#fff);box-shadow:0 5px 12px color-mix(in srgb,var(--kc,#4f46e5) 18%,transparent)}
+    .aur-ki svg{width:24px;height:24px}
+    .aur-ki-emoji{font-size:23px;line-height:1;display:flex;align-items:center;justify-content:center}
+    .aur-kpi-copy{min-width:0}
+    .aur-kpi-copy small{display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
+    .aur-kpi-copy b{font-size:19px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
+    .aur-kpi-copy i{font-style:normal;font-size:10px;color:#5a6b85;display:block;margin-top:2.5px;font-weight:600;line-height:1.25}
+    .aur-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-weight:800;color:#5a6b85;margin:12px 0 2px;justify-content:center}
+    .aur-legend i{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+    .aur-legend i::before{content:"";width:12px;height:12px;border-radius:4px;background:var(--lc);box-shadow:0 2px 5px color-mix(in srgb,var(--lc) 40%,transparent)}
+    /* Hero ocupa el contenedor sin borde/padding del wrapper */
+    .st-key-f3_card_header div[data-testid="stVerticalBlockBorderWrapper"]{border:none !important;background:transparent !important;padding:0 !important;box-shadow:none !important}
+    .st-key-f3_card_header::before{display:none !important}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Override visual puntual: empatar acabado SMA 2.0 para el card del heatmap (Fase 3)
 st.markdown(
@@ -2547,21 +2602,44 @@ tabla_operacion = crear_tabla_operacion(
     cut_out=cut_out,
 )
 kpi_items = [
-    ("database-stack", "Registros válidos", f"{len(df_rosa):,}"),
-    ("wind", "Velocidad media", f"{df_rosa['WS_ANALISIS'].mean():.2f} m/s"),
-    ("sector-pie", "Sectores con datos", f"{int((resumen['Datos'] > 0).sum())} / 16"),
-    ("chart", "Modelo", modelo),
-    ("sigma", "Alpha promedio", _extract_alpha_promedio(meta)),
+    ("🧾", "Registros válidos", f"{len(df_rosa):,}", "tras filtros", "#2563eb"),
+    ("💨", "Velocidad media", f"{df_rosa['WS_ANALISIS'].mean():.2f} m/s", "serie completa", "#4f46e5"),
+    ("🎯", "Sectores con datos", f"{int((resumen['Datos'] > 0).sum())} / 16", "rosa completa", "#16a34a"),
+    ("📐", "Modelo", modelo, "perfil activo", "#0e7490"),
+    ("α", "Alpha promedio", _extract_alpha_promedio(meta), "de la Fase 2", "#d97706"),
 ]
 if "f3_show_sector_table" not in st.session_state:
     st.session_state["f3_show_sector_table"] = False
 
+_n_sec_dato = int((resumen["Datos"] > 0).sum())
+_v_med_hero = float(df_rosa["WS_ANALISIS"].mean())
+try:
+    _sec_dom = str(resumen.loc[resumen["Frecuencia (%)"].idxmax(), "Sector"])
+except Exception:
+    _sec_dom = "—"
+_v_med_txt = f"{_v_med_hero:.2f}".replace(".", ",")
+
 with _phase_card("f3_card_header"):
     st.markdown(
-        """
-        <div class="hero-card">
-            <div class="fase-hero-title">Fase 3 &middot; Velocidad promedio</div>
-            <div class="fase-hero-subtitle">Caracterizaci&oacute;n direccional del viento y estimaci&oacute;n de la velocidad media con su probabilidad de ocurrencia.</div>
+        f"""
+        <div class="f3-hero">
+            <svg class="f3-wind" viewBox="0 0 600 190" preserveAspectRatio="none">
+                <path d="M0 42 Q150 24 300 44 T600 34"/>
+                <path d="M0 100 Q180 82 340 102 T600 92"/>
+                <path d="M0 156 Q140 142 300 158 T600 150"/>
+            </svg>
+            <div class="f3-hero-row">
+                <div class="f3-hero-icon">🧭</div>
+                <div class="f3-hero-text">
+                    <div class="f3-hero-title">Fase 3 · Rosa y velocidad promedio</div>
+                    <div class="f3-hero-subtitle">Caracterización direccional del viento y probabilidad de ocurrencia por sector.</div>
+                </div>
+                <div class="f3-hero-pills">
+                    <div class="f3-hpill"><b>{_n_sec_dato}/16</b><span>Sectores</span></div>
+                    <div class="f3-hpill"><b>{_v_med_txt} m/s</b><span>V</span></div>
+                    <div class="f3-hpill"><b>{_sec_dom}</b><span>Dominante</span></div>
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2589,7 +2667,7 @@ with config_cols[0]:
     with _phase_card("f3_cfg_general"):
         _hdr_left, _hdr_right = st.columns([0.62, 0.38], gap="small")
         with _hdr_left:
-            _render_card_header_native("Parámetros generales", "controls")
+            _render_card_header_native("Parámetros generales", "🎛️", "Altura, modelo y discretización")
         with _hdr_right:
             if _alpha_show:
                 if st.button("Usar α calculado", key="f3_use_alpha_calc"):
@@ -2657,7 +2735,7 @@ with config_cols[0]:
 
 with config_cols[1]:
     with _phase_card("f3_cfg_cuts"):
-        _render_card_header_native("Dirección y cortes", "arrow")
+        _render_card_header_native("Dirección y cortes", "🧭", "Sectores y ventana de operación")
         if True:
             top1, top2 = st.columns([1.18, 1.0], gap="small")
             with top1:
@@ -2710,13 +2788,7 @@ with config_cols[1]:
 
 with config_cols[2]:
     with _phase_card("f3_cfg_sector"):
-        st.markdown(
-            f'''<div class="f3-sector-title-row">
-                <span class="f3-sector-title-icon">{_icon_svg("sector-pie", 28, "#2563eb")}</span>
-                <span class="f3-sector-title-text">Sector</span>
-            </div>''',
-            unsafe_allow_html=True,
-        )
+        _render_card_header_native("Sector", "🎯", "Análisis individual")
         sector_elegido = st.selectbox(
             "Seleccionar sector",
             sectores_disponibles,
@@ -2748,10 +2820,10 @@ guardar_config_values({
 })
 
 kpi_cols = st.columns(5, gap="small")
-for idx, ((icon_name, label, value), col) in enumerate(zip(kpi_items, kpi_cols), start=1):
+for idx, ((icon_name, label, value, sub, kc), col) in enumerate(zip(kpi_items, kpi_cols), start=1):
     with col:
         with _phase_card(f"f3_kpi_{idx}"):
-            _render_kpi_card_native(icon_name, label, value)
+            _render_kpi_card_native(icon_name, label, value, sub, kc)
 
 if MOSTRAR_HISTOGRAMA_SUPERIOR:
     st.plotly_chart(fig_hist, use_container_width=True, config=PLOTLY_PERF_CONFIG)
@@ -2759,10 +2831,7 @@ if MOSTRAR_HISTOGRAMA_SUPERIOR:
 top_cols = st.columns([1.03, 1.03], gap="small")
 with top_cols[0]:
     with st.container(border=True, key="f3_card_rose_v3"):
-        st.markdown(
-            f'<div class="f3-main-card-header"><div class="f3-main-card-header__title">1. Rosa de vientos</div><div class="f3-main-card-header__icon">{_icon_svg("info", 16, "#2563eb")}</div></div>',
-            unsafe_allow_html=True,
-        )
+        _render_card_header_native("1 · Rosa de vientos", "🌹", "Frecuencia por dirección — 16 sectores")
         with st.container(key="f3_rose_body_v3"):
             rose_cols = st.columns([1.18, 0.96], gap="medium")
             with rose_cols[0]:
@@ -2786,10 +2855,7 @@ with top_cols[0]:
 
 with top_cols[1]:
     with st.container(border=True, key="f3_card_sector_v3"):
-        st.markdown(
-            f'<div class="f3-main-card-header"><div class="f3-main-card-header__title">2. Análisis por sector</div><div class="f3-main-card-header__icon">{_icon_svg("info", 16, "#2563eb")}</div></div>',
-            unsafe_allow_html=True,
-        )
+        _render_card_header_native(f"2 · Análisis por sector ({fila_sector['Sector']})", "📊", "Weibull y Rayleigh con líneas de operación")
         with st.container(key="f3_sector_body_v3"):
             with st.container(key="f3_sector_stats_row_v3"):
                 mini_cols = st.columns(5, gap="small")
@@ -2830,9 +2896,10 @@ if st.session_state.get("f3_show_sector_table", False):
 
 with _phase_card("f3_card_heatmap"):
     st.markdown(
-        f'<div class="f3-heatmap-title-row"><span class="f3-heatmap-title-text">3. Heatmap de probabilidad para 16 sectores</span><span class="f3-heatmap-title-info">{_icon_svg("info", 14, "#2563eb")}</span></div>',
+        '',
         unsafe_allow_html=True,
     )
+    _render_card_header_native("3 · Heatmap de probabilidad para 16 sectores", "🔥", "Probabilidad (%) por sector e intervalo de velocidad — toda la rosa de un vistazo")
     st.markdown('<div class="f3-heatmap-top-spacer"></div>', unsafe_allow_html=True)
     st.plotly_chart(fig_heatmap, use_container_width=True, config=PLOTLY_PERF_CONFIG)
 
