@@ -2419,6 +2419,22 @@ st.markdown(
     /* Hero ocupa el contenedor sin borde/padding del wrapper */
     .st-key-f3_card_header div[data-testid="stVerticalBlockBorderWrapper"]{border:none !important;background:transparent !important;padding:0 !important;box-shadow:none !important}
     .st-key-f3_card_header::before{display:none !important}
+    /* KPIs del sector (4 en card mitad): compactos y sin texto cortado */
+    .st-key-f3_skpi_1 .aur-kpi,.st-key-f3_skpi_2 .aur-kpi,.st-key-f3_skpi_3 .aur-kpi,.st-key-f3_skpi_4 .aur-kpi{padding:9px 9px;gap:8px;min-height:62px}
+    .st-key-f3_skpi_1 .aur-ki,.st-key-f3_skpi_2 .aur-ki,.st-key-f3_skpi_3 .aur-ki,.st-key-f3_skpi_4 .aur-ki{width:34px;height:34px}
+    .st-key-f3_skpi_1 .aur-ki-emoji,.st-key-f3_skpi_2 .aur-ki-emoji,.st-key-f3_skpi_3 .aur-ki-emoji,.st-key-f3_skpi_4 .aur-ki-emoji{font-size:16px}
+    .st-key-f3_skpi_1 .aur-kpi-copy small,.st-key-f3_skpi_2 .aur-kpi-copy small,.st-key-f3_skpi_3 .aur-kpi-copy small,.st-key-f3_skpi_4 .aur-kpi-copy small{font-size:8px;letter-spacing:.02em;white-space:nowrap}
+    .st-key-f3_skpi_1 .aur-kpi-copy b,.st-key-f3_skpi_2 .aur-kpi-copy b,.st-key-f3_skpi_3 .aur-kpi-copy b,.st-key-f3_skpi_4 .aur-kpi-copy b{font-size:14px;white-space:nowrap}
+    .st-key-f3_skpi_1 .aur-kpi-copy i,.st-key-f3_skpi_2 .aur-kpi-copy i,.st-key-f3_skpi_3 .aur-kpi-copy i,.st-key-f3_skpi_4 .aur-kpi-copy i{font-size:9px;white-space:nowrap}
+    /* Rosa centrada en su columna */
+    .st-key-f3_rose_plot_col_v3{display:flex;align-items:center;justify-content:center}
+    /* Botones a índigo (acento F3) */
+    .st-key-f3_btn_toggle_sector_table [data-testid="stButton"]>button,
+    .st-key-f3_use_alpha_calc [data-testid="stButton"]>button{color:#4f46e5 !important;border-color:#c7d2fe !important}
+    .st-key-f3_btn_toggle_sector_table [data-testid="stButton"]>button p,
+    .st-key-f3_use_alpha_calc [data-testid="stButton"]>button p{color:#4f46e5 !important}
+    .st-key-f3_use_alpha_calc [data-testid="stButton"]>button:hover,
+    .st-key-f3_btn_toggle_sector_table [data-testid="stButton"]>button:hover{border-color:#4f46e5 !important}
     </style>
     """,
     unsafe_allow_html=True,
@@ -2826,11 +2842,11 @@ tabla_operacion = crear_tabla_operacion(
     cut_out=cut_out,
 )
 kpi_items = [
-    ("🧾", "Registros válidos", f"{len(df_rosa):,}", "tras filtros", "#2563eb"),
-    ("💨", "Velocidad media", f"{df_rosa['WS_ANALISIS'].mean():.2f} m/s", "serie completa", "#4f46e5"),
+    ("🧾", "Registros válidos", f"{len(df_rosa):,}".replace(",", "."), "tras filtros", "#2563eb"),
+    ("💨", "Velocidad media", f"{df_rosa['WS_ANALISIS'].mean():.2f} m/s".replace(".", ","), "serie completa", "#4f46e5"),
     ("🎯", "Sectores con datos", f"{int((resumen['Datos'] > 0).sum())} / 16", "rosa completa", "#16a34a"),
     ("📐", "Modelo", modelo, "perfil activo", "#0e7490"),
-    ("α", "Alpha promedio", _extract_alpha_promedio(meta), "de la Fase 2", "#d97706"),
+    ("α", "Alpha promedio", str(_extract_alpha_promedio(meta)).replace(".", ","), "de la Fase 2", "#d97706"),
 ]
 if "f3_show_sector_table" not in st.session_state:
     st.session_state["f3_show_sector_table"] = False
@@ -3082,15 +3098,17 @@ with top_cols[1]:
         _render_card_header_native(f"2 · Análisis por sector ({fila_sector['Sector']})", "📊", "Weibull y Rayleigh con líneas de operación")
         with st.container(key="f3_sector_body_v3"):
             with st.container(key="f3_sector_stats_row_v3"):
-                mini_cols = st.columns(4, gap="small")
                 _ha_txt = f"{fila_sector['Horas equivalentes anuales (h/año)']:,.0f}".replace(",", ".")
                 sec_kpis = [
-                    ("📊", "Frecuencia", f"{fila_sector['Frecuencia (%)']:.2f} %".replace(".", ","), "", "#4f46e5"),
+                    ("📊", "Frecuencia", f"{fila_sector['Frecuencia (%)']:.1f} %".replace(".", ","), "", "#4f46e5"),
                     ("⏱️", "Horas/año", f"{_ha_txt} h", "equivalentes", "#0e7490"),
                     ("k", "k Weibull", f"{fila_sector['k Weibull']:.2f}".replace(".", ","), "", "#16a34a"),
-                    ("c", "c Weibull", f"{fila_sector['c Weibull (m/s)']:.2f} m/s".replace(".", ","), "", "#d97706"),
+                    ("c", "c Weibull", f"{fila_sector['c Weibull (m/s)']:.1f} m/s".replace(".", ","), "", "#d97706"),
                 ]
-                for idx, (col, (emo, label, value, sub, kc)) in enumerate(zip(mini_cols, sec_kpis), 1):
+                _srow1 = st.columns(2, gap="small")
+                _srow2 = st.columns(2, gap="small")
+                _scells = [_srow1[0], _srow1[1], _srow2[0], _srow2[1]]
+                for idx, (col, (emo, label, value, sub, kc)) in enumerate(zip(_scells, sec_kpis), 1):
                     with col:
                         with _phase_card(f"f3_skpi_{idx}"):
                             _render_kpi_card_native(emo, label, value, sub, kc)
@@ -3098,7 +3116,7 @@ with top_cols[1]:
                 _f3_centers, _f3_pw, _f3_pr = _sector_curve_arrays(df_sector, fila_sector, bins)
                 components.html(
                     render_sector_curve_svg(_f3_centers, _f3_pw, _f3_pr, cut_in, nominal, cut_out, vmax),
-                    height=360, scrolling=False,
+                    height=440, scrolling=False,
                 )
                 st.markdown(
                     '<div class="aur-legend">'
