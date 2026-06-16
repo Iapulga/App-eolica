@@ -548,7 +548,7 @@ def render_sector_curve_svg(centers, probs_weib, probs_ray, cut_in, nominal, cut
     y_hi = float(np.nanmax(allp)) * 1.14 if len(allp) else 1.0
     if y_hi <= 0:
         y_hi = 1.0
-    X0, X1, YB, YT = 52.0, 686.0, 300.0, 26.0
+    X0, X1, YB, YT = 52.0, 686.0, 390.0, 26.0
 
     def px(v):
         return X0 + (float(v) - x_lo) / (x_hi - x_lo) * (X1 - X0)
@@ -560,11 +560,11 @@ def render_sector_curve_svg(centers, probs_weib, probs_ray, cut_in, nominal, cut
     x_ticks = _f3_nice_ticks(x_lo, x_hi, 6)
     grid = "".join(f'<line x1="52" y1="{py(t):.1f}" x2="686" y2="{py(t):.1f}" stroke="#eef1fa" stroke-width="1"/>' for t in y_ticks)
     axes = (
-        '<line x1="52" y1="300" x2="686" y2="300" stroke="#c4d4e8" stroke-width="1.4"/>'
-        '<line x1="52" y1="20" x2="52" y2="300" stroke="#c4d4e8" stroke-width="1.4"/>'
+        '<line x1="52" y1="390" x2="686" y2="390" stroke="#c4d4e8" stroke-width="1.4"/>'
+        '<line x1="52" y1="20" x2="52" y2="390" stroke="#c4d4e8" stroke-width="1.4"/>'
     )
     ylab = "".join(f'<text x="48" y="{py(t) + 3:.1f}" text-anchor="end" font-size="9" fill="#94a3b8" font-weight="700">{_f3_fmt_num(t)}</text>' for t in y_ticks)
-    xlab = "".join(f'<text x="{px(t):.1f}" y="316" text-anchor="middle" font-size="9" fill="#94a3b8" font-weight="700">{_f3_fmt_num(t)}</text>' for t in x_ticks)
+    xlab = "".join(f'<text x="{px(t):.1f}" y="406" text-anchor="middle" font-size="9" fill="#94a3b8" font-weight="700">{_f3_fmt_num(t)}</text>' for t in x_ticks)
 
     def line(arr, color):
         pts = [(px(cxs[i]), py(arr[i])) for i in range(len(arr)) if np.isfinite(arr[i])]
@@ -580,13 +580,13 @@ def render_sector_curve_svg(centers, probs_weib, probs_ray, cut_in, nominal, cut
         if xv is None:
             continue
         xx = px(xv)
-        cuts += f'<line x1="{xx:.1f}" y1="26" x2="{xx:.1f}" y2="300" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 4"/>'
+        cuts += f'<line x1="{xx:.1f}" y1="26" x2="{xx:.1f}" y2="390" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 4"/>'
         cuts += f'<text x="{xx:.1f}" y="20" text-anchor="middle" font-size="8.5" fill="#64748b" font-weight="800">{nm}</text>'
     labels = (
-        '<text x="369" y="338" text-anchor="middle" font-size="10" fill="#64748b" font-weight="800">Velocidad (m/s)</text>'
-        '<text x="13" y="163" font-size="10" fill="#64748b" font-weight="800" transform="rotate(-90 13 163)" text-anchor="middle">Probabilidad (%)</text>'
+        '<text x="369" y="426" text-anchor="middle" font-size="10" fill="#64748b" font-weight="800">Velocidad (m/s)</text>'
+        '<text x="13" y="208" font-size="10" fill="#64748b" font-weight="800" transform="rotate(-90 13 208)" text-anchor="middle">Probabilidad (%)</text>'
     )
-    return _f3_svg_html("0 0 700 352", grid + axes + cuts + body + ylab + xlab + labels)
+    return _f3_svg_html("0 0 700 440", grid + axes + cuts + body + ylab + xlab + labels)
 
 
 def _heatmap_matrix(df_rosa, bins):
@@ -2428,6 +2428,15 @@ st.markdown(
     .st-key-f3_skpi_1 .aur-kpi-copy i,.st-key-f3_skpi_2 .aur-kpi-copy i,.st-key-f3_skpi_3 .aur-kpi-copy i,.st-key-f3_skpi_4 .aur-kpi-copy i{font-size:9px;white-space:nowrap}
     /* Rosa centrada en su columna */
     .st-key-f3_rose_plot_col_v3{display:flex;align-items:center;justify-content:center}
+    /* Anular alturas fijas viejas (600px) de las cards rosa/sector → ajustar al contenido SVG */
+    .st-key-f3_card_rose_v3,.st-key-f3_card_sector_v3{height:auto !important;min-height:0 !important;max-height:none !important}
+    .st-key-f3_card_rose_v3 div[data-testid="stVerticalBlockBorderWrapper"],.st-key-f3_card_sector_v3 div[data-testid="stVerticalBlockBorderWrapper"]{height:auto !important;min-height:0 !important;max-height:none !important}
+    .st-key-f3_card_rose_v3 [data-testid="stVerticalBlock"],.st-key-f3_card_sector_v3 [data-testid="stVerticalBlock"]{height:auto !important;min-height:0 !important;max-height:none !important;overflow:visible !important}
+    .st-key-f3_rose_plot_col_v3 [data-testid="stPlotlyChart"]{height:auto !important;min-height:0 !important}
+    /* KPI strip: 5 cards del mismo alto (tile altura fija) y contenido centrado */
+    .st-key-f3_kpi_1 .aur-kpi,.st-key-f3_kpi_2 .aur-kpi,.st-key-f3_kpi_3 .aur-kpi,.st-key-f3_kpi_4 .aur-kpi,.st-key-f3_kpi_5 .aur-kpi{height:78px !important;min-height:78px !important}
+    .st-key-f3_kpi_1 .aur-kpi-copy small,.st-key-f3_kpi_2 .aur-kpi-copy small,.st-key-f3_kpi_3 .aur-kpi-copy small,.st-key-f3_kpi_4 .aur-kpi-copy small,.st-key-f3_kpi_5 .aur-kpi-copy small{white-space:nowrap}
+    .st-key-f3_kpi_1 .aur-kpi-copy b,.st-key-f3_kpi_2 .aur-kpi-copy b,.st-key-f3_kpi_3 .aur-kpi-copy b,.st-key-f3_kpi_4 .aur-kpi-copy b,.st-key-f3_kpi_5 .aur-kpi-copy b{white-space:nowrap}
     /* Botones a índigo (acento F3) */
     .st-key-f3_btn_toggle_sector_table [data-testid="stButton"]>button,
     .st-key-f3_use_alpha_calc [data-testid="stButton"]>button{color:#4f46e5 !important;border-color:#c7d2fe !important}
@@ -3073,25 +3082,16 @@ with top_cols[0]:
     with st.container(border=True, key="f3_card_rose_v3"):
         _render_card_header_native("1 · Rosa de vientos", "🌹", "Frecuencia por dirección — 16 sectores")
         with st.container(key="f3_rose_body_v3"):
-            rose_cols = st.columns([1.18, 0.96], gap="medium")
-            with rose_cols[0]:
-                with st.container(key="f3_rose_plot_col_v3"):
-                    components.html(render_rosa_svg(resumen), height=540, scrolling=False)
-            with rose_cols[1]:
-                with st.container(key="f3_rose_side_col_v3"):
-                    with st.container(border=True, key="f3_sector_summary"):
-                        _render_summary_sector_native(resumen, direccion_fuente)
-                    st.markdown(
-                        '<div class="f3-rose-button-big-spacer"></div>',
-                        unsafe_allow_html=True,
-                    )
-                    with st.container(key="f3_rose_table_button_lower"):
-                        if st.button(
-                            "▦  Ver tabla sectorial",
-                            key="f3_btn_toggle_sector_table",
-                            use_container_width=True,
-                        ):
-                            st.session_state["f3_show_sector_table"] = not st.session_state["f3_show_sector_table"]
+            with st.container(key="f3_rose_plot_col_v3"):
+                components.html(render_rosa_svg(resumen), height=355, scrolling=False)
+            with st.container(border=True, key="f3_sector_summary"):
+                _render_summary_sector_native(resumen, direccion_fuente)
+            if st.button(
+                "▦  Ver tabla sectorial",
+                key="f3_btn_toggle_sector_table",
+                use_container_width=True,
+            ):
+                st.session_state["f3_show_sector_table"] = not st.session_state["f3_show_sector_table"]
 
 with top_cols[1]:
     with st.container(border=True, key="f3_card_sector_v3"):
@@ -3116,7 +3116,7 @@ with top_cols[1]:
                 _f3_centers, _f3_pw, _f3_pr = _sector_curve_arrays(df_sector, fila_sector, bins)
                 components.html(
                     render_sector_curve_svg(_f3_centers, _f3_pw, _f3_pr, cut_in, nominal, cut_out, vmax),
-                    height=440, scrolling=False,
+                    height=345, scrolling=False,
                 )
                 st.markdown(
                     '<div class="aur-legend">'
