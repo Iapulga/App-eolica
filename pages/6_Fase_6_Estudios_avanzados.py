@@ -155,18 +155,219 @@ _F6_SERIE_CAPTION = (
 
 
 # -----------------------------------------------------------------------------
-# CSS local (idioma SMA 2.0: cards .st-key-f6_card_*)
+# CSS local Aurora — paridad 06_fase6_estudios_avanzados.html (acento teal #0d9488)
+# Idioma SMA 2.0: cards .st-key-f6_card_*  + helpers .aur-* compartidos con F3
 # -----------------------------------------------------------------------------
 st.markdown(
     """
 <style>
-[data-testid="stAppViewContainer"] {
-    background: linear-gradient(180deg, #f5f9ff 0%, #eef5ff 100%) !important;
+:root{--f6-ac:#0d9488;--f6-ac2:#115e59;--f6-ink:#0b2447;--f6-sub:#5a6b85;--f6-line:#dce7f5;
+  --f6-ok:#16a34a;--f6-warn:#d97706;--f6-bad:#dc2626;--f6-muted:#94a3b8;
+  --f6-rlg:26px;--f6-rmd:18px;--f6-rsm:13px;
+  --f6-shc:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08);
+  --f6-sht:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06)}
+[data-testid="stAppViewContainer"]{
+  background:
+    radial-gradient(1100px 420px at 90% -120px, color-mix(in srgb,#0d9488 16%,transparent), transparent 70%),
+    radial-gradient(900px 500px at -150px 45%, color-mix(in srgb,#0d9488 7%,transparent), transparent 70%),
+    linear-gradient(180deg,#f7fbff 0%, #eef5fd 60%, #f4f8fe 100%) !important;
 }
-.hero-card{position:relative;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);border: 1px solid #cbd5e1;border-radius:20px;padding:1.45rem 1.55rem 1.35rem 1.55rem;margin-bottom:1rem;box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045);min-height:unset !important;height:auto !important}
-.hero-card::after{content:"";position:absolute;right:-10px;top:-8px;width:260px;max-width:260px;height:140px;max-height:140px;background:radial-gradient(circle at 78% 25%,rgba(147,197,253,.28) 0 18px,transparent 19px),radial-gradient(circle at 56% 18%,rgba(191,219,254,.30) 0 26px,transparent 27px);opacity:.9;pointer-events:none}
-.fase-hero-title{font-size:2.1rem;line-height:1.05;font-weight:800;color:#1e3a8a;margin:0 0 .28rem 0;position:relative;z-index:2}
-.fase-hero-subtitle{color:#000000;font-size:.94rem;line-height:1.42;font-weight:400;max-width:74rem;margin:0;position:relative;z-index:2}
+
+/* ════════ Hero teal Aurora (paridad mockup) ════════ */
+.f6-hero{position:relative;overflow:hidden;border-radius:26px;padding:22px 28px;color:#fff;
+  background:linear-gradient(118deg,#0d9488 0%, #115e59 80%);
+  box-shadow:0 22px 44px rgba(13,148,136,.32), inset 0 1px 0 rgba(255,255,255,.25);margin:0}
+.f6-hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(circle at 86% 12%, rgba(255,255,255,.20) 0 54px, transparent 55px),
+  radial-gradient(circle at 95% 70%, rgba(255,255,255,.12) 0 86px, transparent 87px),
+  linear-gradient(180deg, rgba(255,255,255,.08), transparent 40%)}
+.f6-wind{position:absolute;left:-30px;top:0;bottom:0;width:58%;height:100%;opacity:.45;pointer-events:none;z-index:1}
+.f6-wind path{stroke:rgba(255,255,255,.55);stroke-width:2;fill:none;stroke-dasharray:16 11;animation:f6windmove 2.6s linear infinite}
+.f6-wind path:nth-child(2){animation-duration:3.4s;opacity:.7}
+.f6-wind path:nth-child(3){animation-duration:4.2s;opacity:.5}
+@keyframes f6windmove{to{stroke-dashoffset:-54}}
+.f6-hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2}
+.f6-hero-icon{width:62px;height:62px;border-radius:19px;background:rgba(255,255,255,.17);
+  border:1.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:31px;flex-shrink:0;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 8px 18px rgba(0,0,0,.12)}
+.f6-hero-text{flex:1;min-width:0}
+.f6-hero h1{margin:0;font-size:25px;font-weight:900;color:#fff;letter-spacing:-.025em;
+  text-shadow:0 1px 2px rgba(0,0,0,.12);line-height:1.15}
+.f6-hero p{margin:4px 0 0 0;font-size:12.5px;color:rgba(255,255,255,.94);font-weight:500;max-width:840px;line-height:1.45}
+.f6-hero-pills{display:flex;gap:9px;margin-left:auto;flex-shrink:0;position:relative;z-index:2}
+.f6-hpill{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:15px;
+  padding:8px 15px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25);color:#fff}
+.f6-hpill b{display:block;font-size:16.5px;letter-spacing:-.01em}
+.f6-hpill span{font-size:9px;opacity:.92;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+/* El container del hero queda sin borde/padding: solo el f6-hero pintado */
+.st-key-f6_card_header div[data-testid="stVerticalBlockBorderWrapper"]{border:none !important;background:transparent !important;padding:0 !important;box-shadow:none !important}
+.st-key-f6_card_header{background:transparent !important;border:none !important;box-shadow:none !important;padding:0 !important;margin-bottom:14px !important}
+.st-key-f6_card_header::before{display:none !important}
+
+/* ════════ Card-head Aurora (squircle tintado + h2 + sub) ════════ */
+.aur-card-head{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+.aur-cicon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:linear-gradient(135deg, color-mix(in srgb,#0d9488 16%,#fff), color-mix(in srgb,#0d9488 7%,#fff));
+  border:1.5px solid color-mix(in srgb,#0d9488 35%,#fff);box-shadow:0 5px 12px color-mix(in srgb,#0d9488 16%,transparent)}
+.aur-cicon svg{width:22px;height:22px}
+.aur-cicon-emoji{font-size:23px;line-height:1;display:flex;align-items:center;justify-content:center}
+.aur-card-head h2{margin:0;font-size:16.5px;font-weight:900;color:#0b2447;letter-spacing:-.02em}
+.aur-card-head p{margin:2px 0 0;font-size:11px;color:#5a6b85;font-weight:600}
+
+/* ════════ KPI Aurora (aro tintado + label/valor/sub) ════════ */
+.aur-kpi{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:13px 14px;display:flex;gap:12px;align-items:center;
+  box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06);min-height:74px;height:100%}
+.aur-ki{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:linear-gradient(135deg, color-mix(in srgb,var(--kc,#0d9488) 17%,#fff), color-mix(in srgb,var(--kc,#0d9488) 6%,#fff));
+  border:1.5px solid color-mix(in srgb,var(--kc,#0d9488) 38%,#fff);box-shadow:0 5px 12px color-mix(in srgb,var(--kc,#0d9488) 18%,transparent)}
+.aur-ki svg{width:24px;height:24px}
+.aur-ki-emoji{font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center}
+.aur-kpi-copy{min-width:0}
+.aur-kpi-copy small{display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
+.aur-kpi-copy b{font-size:19px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
+.aur-kpi-copy i{font-style:normal;font-size:10px;color:#5a6b85;display:block;margin-top:2.5px;font-weight:600;line-height:1.25}
+
+/* ════════ Divider de sección (icono tintado + título + línea) ════════ */
+.f6-divider{display:flex;align-items:center;gap:13px;margin:24px 2px 12px}
+.f6-divider .dx{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--dc,#0d9488) 88%, #fff), var(--dc,#0d9488));
+  box-shadow:0 8px 18px color-mix(in srgb, var(--dc,#0d9488) 35%, transparent)}
+.f6-divider b{font-size:15.5px;letter-spacing:-.01em;display:block;color:#0b2447}
+.f6-divider small{display:block;font-size:10.5px;color:#5a6b85;font-weight:700}
+.f6-divider .dline{flex:1;height:2px;border-radius:2px;
+  background:linear-gradient(90deg, color-mix(in srgb, var(--dc,#0d9488) 45%, #fff), transparent)}
+
+/* ════════ Banners, badges, chips, frow, fig, upload, tabla, leyenda ════════ */
+.f6-banner{display:flex;align-items:center;gap:12px;border-radius:15px;padding:12px 16px;font-weight:800;font-size:12.5px;margin:10px 0}
+.f6-banner .bx{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(255,255,255,.7);flex-shrink:0}
+.f6-banner.ok{background:linear-gradient(120deg,#f0fdf4,#fff);border:1.5px solid #86efac;color:#15803d}
+.f6-banner.warn{background:linear-gradient(120deg,#fffbeb,#fff);border:1.5px solid #fde68a;color:#b45309}
+.f6-banner.bad{background:linear-gradient(120deg,#fef2f2,#fff);border:1.5px solid #fecaca;color:#b91c1c}
+.f6-banner.info{background:linear-gradient(120deg, color-mix(in srgb,#0d9488 8%,#fff), #fff);border:1.5px solid color-mix(in srgb,#0d9488 30%,#fff);color:#0d9488}
+.f6-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:10.5px;font-weight:800;border:1px solid;white-space:nowrap}
+.f6-pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 18%,transparent)}
+.f6-pill.ok{color:#15803d;background:#f0fdf4;border-color:#bbf7d0}
+.f6-pill.warn{color:#b45309;background:#fffbeb;border-color:#fde68a}
+.f6-pill.bad{color:#b91c1c;background:#fef2f2;border-color:#fecaca}
+.f6-pill.info{color:#0d9488;background:color-mix(in srgb,#0d9488 8%,#fff);border-color:color-mix(in srgb,#0d9488 35%,#fff)}
+.f6-fig{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:13px 14px;box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06)}
+.f6-fig svg{display:block;width:100%;height:auto}
+.f6-gtitle{font-size:12px;font-weight:900;color:#0b2447;margin-bottom:7px;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
+.f6-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:10px;font-weight:800;color:#5a6b85;margin-top:9px;justify-content:center}
+.f6-legend i{font-style:normal;display:inline-flex;align-items:center;gap:5px}
+.f6-legend i::before{content:"";width:11px;height:11px;border-radius:4px;background:var(--lc);box-shadow:0 2px 5px color-mix(in srgb,var(--lc) 40%,transparent)}
+.f6-tbl{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #d8e5f5;border-radius:14px;overflow:hidden;font-size:11.5px}
+.f6-tbl th{background:linear-gradient(180deg, color-mix(in srgb,#0d9488 9%,#fff), color-mix(in srgb,#0d9488 5%,#fff));
+  color:#0b2447;text-align:left;padding:9px 12px;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:900}
+.f6-tbl td{padding:8px 12px;border-top:1px solid #eef4fb;font-weight:650;color:#0b2447}
+.f6-tbl tr:nth-child(even) td{background:#fafcff}
+.f6-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:750}
+.f6-upload{border:2px dashed color-mix(in srgb,#0d9488 42%,#fff);
+  background:linear-gradient(180deg, color-mix(in srgb,#0d9488 5%,#fff), #fff);
+  border-radius:18px;padding:24px;text-align:center;margin:8px 0}
+.f6-upload .ui{width:58px;height:58px;margin:0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:27px;
+  background:#fff;border:1.5px solid color-mix(in srgb,#0d9488 30%,#fff);box-shadow:0 8px 18px color-mix(in srgb,#0d9488 14%,transparent)}
+.f6-upload b{display:block;font-size:13px;margin-top:9px;color:#0b2447}
+.f6-upload span{font-size:10.5px;color:#5a6b85;font-weight:600}
+
+/* ════════ Cards backbone (las 13 cards mantienen su container st-key) ════════ */
+.st-key-f6_card_secciones,
+.st-key-f6_card_iec,
+.st-key-f6_card_flow,
+.st-key-f6_card_cold,
+.st-key-f6_card_receptores,
+.st-key-f6_card_ruido,
+.st-key-f6_card_flicker,
+.st-key-f6_card_aves,
+.st-key-f6_card_lca,
+.st-key-f6_card_scada,
+.st-key-f6_card_curtail,
+.st-key-f6_card_hibrido,
+.st-key-f6_card_optim,
+.st-key-f6_card_repower,
+.st-key-f6_card_audit{
+    position:relative !important;
+    border:1px solid #d3e0f0 !important;
+    border-radius:var(--f6-rlg) !important;
+    background:linear-gradient(180deg,#fff,#fcfdff) !important;
+    box-shadow:var(--f6-shc) !important;
+    overflow:hidden !important;
+    box-sizing:border-box !important;
+    margin-bottom:16px !important;
+}
+/* Franja teal de 4px arriba (acento Aurora) */
+.st-key-f6_card_secciones::before,
+.st-key-f6_card_iec::before,
+.st-key-f6_card_flow::before,
+.st-key-f6_card_cold::before,
+.st-key-f6_card_receptores::before,
+.st-key-f6_card_ruido::before,
+.st-key-f6_card_flicker::before,
+.st-key-f6_card_aves::before,
+.st-key-f6_card_lca::before,
+.st-key-f6_card_scada::before,
+.st-key-f6_card_curtail::before,
+.st-key-f6_card_hibrido::before,
+.st-key-f6_card_optim::before,
+.st-key-f6_card_repower::before,
+.st-key-f6_card_audit::before{
+    content:"";position:absolute;left:0;right:0;top:0;height:4px;z-index:5;
+    background:linear-gradient(90deg, var(--acl,#0d9488), color-mix(in srgb,var(--acl,#0d9488) 25%,#fff) 70%, transparent);
+}
+.st-key-f6_card_secciones div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_iec div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_flow div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_cold div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_receptores div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_ruido div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_flicker div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_aves div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_lca div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_scada div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_curtail div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_hibrido div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_optim div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_repower div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f6_card_audit div[data-testid="stVerticalBlockBorderWrapper"]{
+    border:none !important;box-shadow:none !important;border-radius:var(--f6-rlg) !important;
+    background:transparent !important;overflow:visible !important;box-sizing:border-box !important;
+    padding:20px 22px 18px !important;
+}
+
+/* ════════ Selector de sección como CHIPS (5 chips horizontales) ════════ */
+.st-key-f6_card_secciones [data-testid="stRadio"] > label,
+.st-key-f6_card_secciones [data-testid="stWidgetLabel"]{display:none !important}
+.st-key-f6_card_secciones [data-testid="stRadio"] [role="radiogroup"]{display:flex;gap:9px;flex-wrap:wrap;margin:2px 0}
+.st-key-f6_card_secciones [data-testid="stRadio"] [role="radiogroup"] label{
+  padding:9px 15px;border-radius:999px;border:1.5px solid #cfe0f5;background:#fff;font-size:12px;font-weight:800;
+  color:#5a6b85;display:inline-flex;gap:7px;align-items:center;box-shadow:0 2px 6px rgba(11,36,71,.04);
+  cursor:pointer;transition:all .15s;margin:0 !important}
+.st-key-f6_card_secciones [data-testid="stRadio"] [role="radiogroup"] label:hover{border-color:#0d9488;color:#0d9488}
+.st-key-f6_card_secciones [data-testid="stRadio"] [role="radiogroup"] label > div:first-child{display:none !important}
+.st-key-f6_card_secciones [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked){
+  background:linear-gradient(120deg, color-mix(in srgb,#0d9488 13%,#fff), color-mix(in srgb,#0d9488 6%,#fff));
+  border-color:#0d9488;color:#0d9488;box-shadow:0 6px 14px color-mix(in srgb,#0d9488 18%,transparent)}
+.st-key-f6_card_secciones [data-testid="stRadio"] [role="radiogroup"] label > div p{font-weight:800 !important;color:inherit !important;margin:0 !important}
+
+/* ════════ Inputs Aurora (frow simulada en columnas reales de Streamlit) ════════ */
+.st-key-f6_card_iec div[data-testid="stNumberInput"] input,
+.st-key-f6_card_flow div[data-testid="stNumberInput"] input,
+.st-key-f6_card_cold div[data-testid="stNumberInput"] input,
+.st-key-f6_card_ruido div[data-testid="stNumberInput"] input,
+.st-key-f6_card_flicker div[data-testid="stNumberInput"] input,
+.st-key-f6_card_curtail div[data-testid="stNumberInput"] input,
+.st-key-f6_card_hibrido div[data-testid="stNumberInput"] input,
+.st-key-f6_card_optim div[data-testid="stNumberInput"] input,
+.st-key-f6_card_repower div[data-testid="stNumberInput"] input{font-weight:800 !important;color:#0b2447 !important}
+
+/* ════════ Botones — primary teal y ghost teal ════════ */
+div[data-testid="stButton"]>button,div[data-testid="stDownloadButton"]>button{border-radius:13px !important;min-height:42px !important;font-weight:800 !important}
+div[data-testid="stButton"]>button[kind="primary"]{
+  background:linear-gradient(120deg,#0d9488,#115e59) !important;border:none !important;color:#fff !important;
+  box-shadow:0 10px 20px color-mix(in srgb,#0d9488 35%,transparent), inset 0 1px 0 rgba(255,255,255,.28) !important}
+div[data-testid="stButton"]>button[kind="primary"]:hover{filter:brightness(1.05)}
+
+/* Helpers viejos compatibles (transición — se eliminan al rehacer cada sección) */
 .f6-section-header{display:flex;align-items:center;gap:14px;margin:6px 0 16px}
 .f6-section-title{color:#0a2444;font-size:21px;font-weight:900;letter-spacing:-.02em}
 .f6-section-subtitle{color:#000000;font-size:13px;font-weight:400;margin-top:3px}
@@ -184,73 +385,64 @@ st.markdown(
 .f6-badge-bad{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
 @media(max-width:1200px){.f6-kpi-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:700px){.f6-kpi-grid{grid-template-columns:1fr}}
-
-/* =========================================================
-   Estilo SMA 2.0 para cards grandes - Fase 6
-   ========================================================= */
-.st-key-f6_card_header,
-.st-key-f6_card_secciones,
-.st-key-f6_card_iec,
-.st-key-f6_card_flow,
-.st-key-f6_card_cold,
-.st-key-f6_card_receptores,
-.st-key-f6_card_ruido,
-.st-key-f6_card_flicker,
-.st-key-f6_card_aves,
-.st-key-f6_card_lca,
-.st-key-f6_card_scada,
-.st-key-f6_card_curtail,
-.st-key-f6_card_hibrido,
-.st-key-f6_card_optim,
-.st-key-f6_card_repower,
-.st-key-f6_card_audit {
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 28px !important;
-    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-    box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-    overflow: visible !important;
-    box-sizing: border-box !important;
-    margin-bottom: 16px !important;
-}
-.st-key-f6_card_header div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_secciones div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_iec div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_flow div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_cold div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_receptores div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_ruido div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_flicker div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_aves div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_lca div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_scada div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_curtail div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_hibrido div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_optim div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_repower div[data-testid="stVerticalBlockBorderWrapper"],
-.st-key-f6_card_audit div[data-testid="stVerticalBlockBorderWrapper"] {
-    border: none !important;
-    box-shadow: none !important;
-    border-radius: 28px !important;
-    background: transparent !important;
-    overflow: visible !important;
-    box-sizing: border-box !important;
-    padding: 1.1rem 1.2rem 1.1rem 1.2rem !important;
-}
-.st-key-f6_card_secciones [data-testid="stRadio"] label{font-weight:700 !important}
-.f6-divider{display:flex;align-items:center;gap:13px;margin:4px 2px 14px}
-.f6-divider .dx{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;
-  background:linear-gradient(135deg, color-mix(in srgb, var(--dc,#0d9488) 88%, #fff), var(--dc,#0d9488));color:#fff;
-  box-shadow:0 8px 18px color-mix(in srgb, var(--dc,#0d9488) 35%, transparent)}
-.f6-divider b{font-size:15.5px;letter-spacing:-.01em;display:block}
-.f6-divider small{display:block;font-size:10.5px;color:#5a6b85;font-weight:700}
-.f6-divider .dline{flex:1;height:2px;border-radius:2px;
-  background:linear-gradient(90deg, color-mix(in srgb, var(--dc,#0d9488) 45%, #fff), transparent)}
-div[data-testid="stButton"] > button,div[data-testid="stDownloadButton"] > button{border-radius:12px !important;min-height:42px !important;font-weight:800 !important}
 </style>
 """,
     unsafe_allow_html=True,
 )
 render_dropdown_visibility_fix()
+
+# -----------------------------------------------------------------------------
+# Helpers Aurora (mismo idioma que F3) — card-head, KPI, divider, banner
+# -----------------------------------------------------------------------------
+def _render_card_header_native(title: str, icon_name: str, subtitle: str = "") -> None:
+    """Card-head Aurora: squircle tintado (emoji/glifo o SVG) + título + subtítulo."""
+    if icon_name and (not icon_name.isascii() or len(icon_name) <= 2):
+        icon_html = f'<span class="aur-cicon-emoji">{_escape(icon_name)}</span>'
+    else:
+        icon_html = _safe_icon(icon_name, 22, "#0d9488")
+    sub = f"<p>{_escape(subtitle)}</p>" if subtitle else ""
+    st.markdown(
+        f'<div class="aur-card-head"><div class="aur-cicon">{icon_html}</div>'
+        f"<div><h2>{_escape(title)}</h2>{sub}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_kpi_card_native(icon_name: str, label: str, value: str, sub: str = "", kc: str = "#0d9488") -> None:
+    """KPI Aurora: aro tintado (emoji/glifo o SVG) + label + valor + subtítulo."""
+    if icon_name and (not icon_name.isascii() or len(icon_name) <= 2):
+        icon_html = f'<span class="aur-ki-emoji">{_escape(icon_name)}</span>'
+    else:
+        icon_html = _safe_icon(icon_name, 24, kc)
+    sub_html = f"<i>{_escape(sub)}</i>" if sub else ""
+    st.markdown(
+        f'<div class="aur-kpi" style="--kc:{kc}"><div class="aur-ki">{icon_html}</div>'
+        f'<div class="aur-kpi-copy"><small>{_escape(label)}</small><b>{_escape(value)}</b>{sub_html}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_section_divider(icon: str, title: str, subtitle: str = "", color: str = "#0d9488") -> None:
+    """Divider de grupo de sección (icono cuadrado tintado + título + sublínea + línea)."""
+    sub = f"<small>{_escape(subtitle)}</small>" if subtitle else ""
+    st.markdown(
+        f'<div class="f6-divider" style="--dc:{color}">'
+        f'<div class="dx">{_escape(icon)}</div>'
+        f'<div><b>{_escape(title)}</b>{sub}</div>'
+        f'<div class="dline"></div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_banner(text: str, tono: str = "info", icon: str = "ℹ️") -> None:
+    """Banner Aurora con icono + texto, tonos ok/warn/bad/info."""
+    if tono not in {"ok", "warn", "bad", "info"}:
+        tono = "info"
+    st.markdown(
+        f'<div class="f6-banner {tono}"><span class="bx">{_escape(icon)}</span>{_escape(text)}</div>',
+        unsafe_allow_html=True,
+    )
+
 
 # -----------------------------------------------------------------------------
 # Configuración (solo lecturas cacheadas; NINGÚN cómputo a nivel de página)
@@ -260,12 +452,30 @@ config = cargar_config()
 # -----------------------------------------------------------------------------
 # Hero
 # -----------------------------------------------------------------------------
+_F6_SCORE_AUDIT = st.session_state.get("f6_audit_score_pct")
+_score_label = f"{_F6_SCORE_AUDIT:.1f}".replace(".", ",") if isinstance(_F6_SCORE_AUDIT, (int, float)) else "—"
+
 with st.container(border=True, key="f6_card_header"):
     st.markdown(
-        """
-<div class="hero-card">
-    <div class="fase-hero-title">Fase 6 &middot; Estudios avanzados</div>
-    <div class="fase-hero-subtitle">Estudios complementarios del proyecto: idoneidad IEC del sitio, terreno, clima fr&iacute;o, ruido, shadow flicker, avifauna, huella de carbono, validaci&oacute;n SCADA, curtailment, planta h&iacute;brida, optimizaci&oacute;n de layout, fin de vida y pre-auditor&iacute;a. Cada estudio se ejecuta bajo demanda con los datos ya cargados en las fases anteriores.</div>
+        f"""
+<div class="f6-hero">
+  <svg class="f6-wind" viewBox="0 0 600 190" preserveAspectRatio="none">
+    <path d="M0 42 Q150 24 300 44 T600 34"/>
+    <path d="M0 100 Q180 82 340 102 T600 92"/>
+    <path d="M0 156 Q140 142 300 158 T600 150"/>
+  </svg>
+  <div class="f6-hero-row">
+    <div class="f6-hero-icon">🔬</div>
+    <div class="f6-hero-text">
+      <h1>Fase 6 · Estudios avanzados</h1>
+      <p>IEC, terreno, clima frío, ruido, flicker, avifauna, huella CO₂, SCADA, red, híbrido, optimización y pre-auditoría.</p>
+    </div>
+    <div class="f6-hero-pills">
+      <div class="f6-hpill"><b>13</b><span>Estudios</span></div>
+      <div class="f6-hpill"><b>5</b><span>Secciones</span></div>
+      <div class="f6-hpill"><b>{_score_label}</b><span>Score audit</span></div>
+    </div>
+  </div>
 </div>
 """,
         unsafe_allow_html=True,
@@ -300,6 +510,11 @@ except (ValueError, AttributeError):
     _sec_idx = 0
 
 with st.container(border=True, key="f6_card_secciones"):
+    _render_card_header_native(
+        "Secciones de estudio",
+        "🧭",
+        "Cinco grupos · cada estudio corre bajo demanda",
+    )
     seccion = st.radio(
         "Sección de estudios",
         _F6_SECCIONES,
