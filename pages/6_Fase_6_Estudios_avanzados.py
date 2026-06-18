@@ -1048,8 +1048,8 @@ def _render_card_receptores() -> pd.DataFrame:
                 fig.add_scatter(
                     x=df_layout["x_m"], y=df_layout["y_m"], mode="markers+text",
                     text=df_layout["turbina_id"], textposition="top center",
-                    marker={"symbol": "x", "size": 13, "color": _F6_AZUL,
-                            "line": {"width": 1, "color": "#1e3a8a"}},
+                    marker={"symbol": "x", "size": 13, "color": _F6_TEAL,
+                            "line": {"width": 1, "color": _F6_TEAL2}},
                     name="Turbinas",
                 )
             if receptores:
@@ -1518,7 +1518,7 @@ def _render_card_lca() -> None:
                 labels=[_comp_es.get(k, k) for k in res["desglose_componentes"]],
                 values=list(res["desglose_componentes"].values()),
                 hole=0.58, textinfo="label+percent",
-                marker={"colors": ["#1d4ed8", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"]},
+                marker={"colors": ["#0d9488", "#16a34a", "#5eead4", "#86efac", "#99f6e4", "#bbf7d0"]},
             ))
             st.plotly_chart(_f6_fig_layout(fig_d, "Desglose de la huella (gCO₂eq/kWh)", 360),
                             use_container_width=True, key="f6_lca_dona")
@@ -1633,7 +1633,7 @@ def _render_card_scada() -> None:
         with col_s1:
             fig = go.Figure()
             fig.add_scatter(x=muestras["P_modelo_MW"], y=muestras["P_real_MW"], mode="markers",
-                            marker={"size": 5, "opacity": 0.35, "color": _F6_AZUL}, name="Horas")
+                            marker={"size": 5, "opacity": 0.35, "color": _F6_TEAL}, name="Horas")
             fig.add_scatter(x=[0, p_max], y=[0, p_max], mode="lines",
                             line={"dash": "dash", "color": _F6_ROJO}, name="1:1")
             fig.update_layout(xaxis_title="Modelo (MW)", yaxis_title="Real (MW)")
@@ -1641,8 +1641,8 @@ def _render_card_scada() -> None:
                             use_container_width=True, key="f6_scada_scatter")
         with col_s2:
             fig_h = go.Figure(go.Histogram(
-                x=dfc["residual_MW"], nbinsx=40, marker_color="#93c5fd",
-                marker_line={"width": 1, "color": _F6_AZUL},
+                x=dfc["residual_MW"], nbinsx=40, marker_color="#5eead4",
+                marker_line={"width": 1, "color": _F6_TEAL},
             ))
             fig_h.add_vline(x=0, line_color=_F6_GRIS)
             fig_h.add_vline(x=res["bias_MW"], line_dash="dash", line_color=_F6_ROJO,
@@ -1749,7 +1749,7 @@ def _render_card_curtailment() -> None:
                 labels=["Inyectada", "Recorte capacidad", "Recorte económico", "Recorte red"],
                 values=[max(0.0, 100.0 - e_cap - e_eco - e_red), e_cap, e_eco, e_red],
                 hole=0.6, textinfo="label+percent",
-                marker={"colors": [_F6_VERDE, _F6_AZUL, _F6_AMBAR, _F6_ROJO]},
+                marker={"colors": [_F6_VERDE, _F6_TEAL, _F6_AMBAR, _F6_ROJO]},
             ))
             st.plotly_chart(_f6_fig_layout(fig_dona, "Reparto de la energía generable", 380),
                             use_container_width=True, key="f6_curt_dona")
@@ -1849,7 +1849,7 @@ def _render_card_hibrido() -> None:
         sweep = res["sweep_solar"]
         fig = go.Figure()
         fig.add_scatter(x=sweep["capacidad_solar_MW"], y=sweep["energia_inyectada_MWh"] / ny,
-                        mode="lines+markers", name="Inyectada (MWh/año)", line={"color": "#2563eb"})
+                        mode="lines+markers", name="Inyectada (MWh/año)", line={"color": "#0d9488"})
         fig.add_scatter(x=sweep["capacidad_solar_MW"], y=sweep["curtailment_pct"],
                         mode="lines+markers", name="Curtailment (%)", yaxis="y2",
                         line={"color": "#dc2626", "dash": "dot"})
@@ -1983,7 +1983,7 @@ def _render_card_optimizador() -> None:
         with col_a:
             if hist.get("iter"):
                 fig_h = go.Figure(go.Scatter(x=hist["iter"], y=hist["best_aep"],
-                                             mode="lines+markers", line={"color": "#2563eb"}))
+                                             mode="lines+markers", line={"color": "#0d9488"}))
                 fig_h.update_layout(height=360, margin={"l": 10, "r": 10, "t": 30, "b": 10},
                                     title="Convergencia", xaxis_title="Generación",
                                     yaxis_title="Mejor AEP (MWh/año)")
@@ -1995,7 +1995,7 @@ def _render_card_optimizador() -> None:
                               marker={"size": 12, "color": "#94a3b8", "symbol": "circle"}, name="Actual")
             fig_m.add_scatter(x=res["df_opt"]["x_m"], y=res["df_opt"]["y_m"], mode="markers+text",
                               text=res["df_opt"]["turbina_id"], textposition="bottom center",
-                              marker={"size": 12, "color": "#2563eb", "symbol": "x"}, name="Optimizado")
+                              marker={"size": 12, "color": "#0d9488", "symbol": "x"}, name="Optimizado")
             fig_m.update_layout(height=360, margin={"l": 10, "r": 10, "t": 30, "b": 10},
                                 title="Layout antes vs después", yaxis={"scaleanchor": "x"})
             st.plotly_chart(fig_m, use_container_width=True, key="f6_opt_map")
@@ -2132,11 +2132,11 @@ def _render_auditoria() -> None:
                 fig_cat = go.Figure()
                 fig_cat.add_bar(
                     x=[audit.PESO_CATEGORIA.get(c, 0) for c in cats], y=cats, orientation="h",
-                    name="Peso máximo", marker_color="#dbeafe",
+                    name="Peso máximo", marker_color="#cbfbf1",
                 )
                 fig_cat.add_bar(
                     x=[cat_scores[c] for c in cats], y=cats, orientation="h",
-                    name="Obtenido", marker_color=_F6_AZUL,
+                    name="Obtenido", marker_color=_F6_TEAL,
                     text=[f"{cat_scores[c]:.1f}" for c in cats], textposition="outside",
                 )
                 fig_cat.update_layout(barmode="overlay", xaxis_title="Puntos")
