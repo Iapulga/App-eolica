@@ -2456,7 +2456,7 @@ st.markdown(
     .st-key-f3_card_header div[data-testid="stVerticalBlockBorderWrapper"]{border:none !important;background:transparent !important;padding:0 !important;box-shadow:none !important}
     .st-key-f3_card_header::before{display:none !important}
     /* KPIs del sector (4 en card mitad): compactos y sin texto cortado */
-    .st-key-f3_skpi_1 .aur-kpi,.st-key-f3_skpi_2 .aur-kpi,.st-key-f3_skpi_3 .aur-kpi,.st-key-f3_skpi_4 .aur-kpi{padding:9px 9px;gap:8px;min-height:62px}
+    .st-key-f3_skpi_1 .aur-kpi,.st-key-f3_skpi_2 .aur-kpi,.st-key-f3_skpi_3 .aur-kpi,.st-key-f3_skpi_4 .aur-kpi{padding:9px 9px;gap:8px;height:68px !important;min-height:68px !important}
     .st-key-f3_skpi_1 .aur-ki,.st-key-f3_skpi_2 .aur-ki,.st-key-f3_skpi_3 .aur-ki,.st-key-f3_skpi_4 .aur-ki{width:34px;height:34px}
     .st-key-f3_skpi_1 .aur-ki-emoji,.st-key-f3_skpi_2 .aur-ki-emoji,.st-key-f3_skpi_3 .aur-ki-emoji,.st-key-f3_skpi_4 .aur-ki-emoji{font-size:16px}
     .st-key-f3_skpi_1 .aur-kpi-copy small,.st-key-f3_skpi_2 .aur-kpi-copy small,.st-key-f3_skpi_3 .aur-kpi-copy small,.st-key-f3_skpi_4 .aur-kpi-copy small{font-size:8px;letter-spacing:.02em;white-space:nowrap}
@@ -2473,6 +2473,9 @@ st.markdown(
     .st-key-f3_kpi_1 .aur-kpi,.st-key-f3_kpi_2 .aur-kpi,.st-key-f3_kpi_3 .aur-kpi,.st-key-f3_kpi_4 .aur-kpi,.st-key-f3_kpi_5 .aur-kpi{height:78px !important;min-height:78px !important}
     .st-key-f3_kpi_1 .aur-kpi-copy small,.st-key-f3_kpi_2 .aur-kpi-copy small,.st-key-f3_kpi_3 .aur-kpi-copy small,.st-key-f3_kpi_4 .aur-kpi-copy small,.st-key-f3_kpi_5 .aur-kpi-copy small{white-space:nowrap}
     .st-key-f3_kpi_1 .aur-kpi-copy b,.st-key-f3_kpi_2 .aur-kpi-copy b,.st-key-f3_kpi_3 .aur-kpi-copy b,.st-key-f3_kpi_4 .aur-kpi-copy b,.st-key-f3_kpi_5 .aur-kpi-copy b{white-space:nowrap}
+    /* El _phase_card de los KPIs (strip+sector) dibuja su borde gris (8px) en el propio stVerticalBlock -> quitarlo para que se vea SOLO la .aur-kpi blanca redondeada con sombra */
+    .st-key-f3_kpi_1,.st-key-f3_kpi_2,.st-key-f3_kpi_3,.st-key-f3_kpi_4,.st-key-f3_kpi_5,
+    .st-key-f3_skpi_1,.st-key-f3_skpi_2,.st-key-f3_skpi_3,.st-key-f3_skpi_4{background:transparent !important;border:none !important;box-shadow:none !important;padding:0 !important;border-radius:0 !important;overflow:visible !important}
     /* Botones a índigo (acento F3) */
     .st-key-f3_btn_toggle_sector_table [data-testid="stButton"]>button,
     .st-key-f3_use_alpha_calc [data-testid="stButton"]>button{color:#4f46e5 !important;border-color:#c7d2fe !important}
@@ -3047,7 +3050,7 @@ with config_cols[1]:
                     label_visibility="collapsed",
                 )
             with cuts2:
-                st.markdown('<div class="f3-cut-field-label">Velocidad nominal<br>(m/s)</div>', unsafe_allow_html=True)
+                st.markdown('<div class="f3-cut-field-label">Nominal (m/s)</div>', unsafe_allow_html=True)
                 nominal = st.number_input(
                     "Velocidad nominal (m/s)",
                     min_value=0.0,
