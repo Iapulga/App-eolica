@@ -1,5 +1,6 @@
 import html
 import json
+import re
 
 import numpy as np
 import pandas as pd
@@ -26,6 +27,19 @@ render_sidebar_navigation("pages/6_Fase_6_Estudios_avanzados.py")
 # -----------------------------------------------------------------------------
 def _escape(value) -> str:
     return html.escape("" if value is None else str(value))
+
+
+# Localización ES de números: el código produce formato US (','=miles, '.'=decimal);
+# el mockup usa ES (' .'=miles, ','=decimal). Intercambia separadores SOLO en tokens
+# numéricos bien formados (no toca "IEC 61400-1", "ISO 14040", etc.).
+_F6_NUM_RE = re.compile(r"\d[\d.,]*\d")
+_F6_SWAP = str.maketrans({",": ".", ".": ","})
+
+
+def _es_num(text: str) -> str:
+    if not text:
+        return text
+    return _F6_NUM_RE.sub(lambda m: m.group(0).translate(_F6_SWAP), str(text))
 
 
 def _safe_icon(name: str, size: int = 22, color: str = "#2563eb") -> str:
@@ -386,25 +400,6 @@ div[data-testid="stButton"]>button[kind="primary"]{
   background:linear-gradient(120deg,#0d9488,#115e59) !important;border:none !important;color:#fff !important;
   box-shadow:0 10px 20px color-mix(in srgb,#0d9488 35%,transparent), inset 0 1px 0 rgba(255,255,255,.28) !important}
 div[data-testid="stButton"]>button[kind="primary"]:hover{filter:brightness(1.05)}
-
-/* Helpers viejos compatibles (transición — se eliminan al rehacer cada sección) */
-.f6-section-header{display:flex;align-items:center;gap:14px;margin:6px 0 16px}
-.f6-section-title{color:#0a2444;font-size:21px;font-weight:900;letter-spacing:-.02em}
-.f6-section-subtitle{color:#000000;font-size:13px;font-weight:400;margin-top:3px}
-.f6-icon-soft{width:2.7rem;height:2.7rem;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;color:#2563eb;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 8px 18px rgba(37,99,235,.08)}
-.f6-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:10px 0 12px}
-.f6-kpi-card{background:#ffffff;border:1px solid #c8dcfb;border-radius:24px;padding:16px 14px;box-shadow:0 8px 20px rgba(15,45,90,.06);display:flex;align-items:center;gap:14px;text-align:left;min-height:100px;overflow:hidden;transition:box-shadow .18s}
-.f6-kpi-card:hover{box-shadow:0 12px 28px rgba(15,45,90,.10)}
-.f6-kpi-icon{width:56px;height:56px;border-radius:999px;background:#eff6ff;border:1.5px solid #bfdbfe;display:inline-flex;align-items:center;justify-content:center;flex:0 0 56px;color:#2563eb;box-shadow:0 6px 16px rgba(37,99,235,.07)}
-.f6-kpi-label{color:#5b6bb0;font-size:13.5px;font-weight:900;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em}
-.f6-kpi-value{color:#0a2444;font-size:19px;font-weight:900;line-height:1.1;word-break:break-word;margin-bottom:3px}
-.f6-kpi-sub{color:#000000;font-size:10.5px;font-weight:400;margin-top:2px;min-height:14px}
-.f6-badge{display:inline-block;border-radius:999px;padding:5px 14px;font-size:13px;font-weight:800;border:1px solid transparent}
-.f6-badge-ok{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
-.f6-badge-warn{background:#fffbeb;color:#b45309;border-color:#fde68a}
-.f6-badge-bad{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
-@media(max-width:1200px){.f6-kpi-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:700px){.f6-kpi-grid{grid-template-columns:1fr}}
 </style>
 """,
     unsafe_allow_html=True,
@@ -434,10 +429,10 @@ def _render_kpi_card_native(icon_name: str, label: str, value: str, sub: str = "
         icon_html = f'<span class="aur-ki-emoji">{_escape(icon_name)}</span>'
     else:
         icon_html = _safe_icon(icon_name, 24, kc)
-    sub_html = f"<i>{_escape(sub)}</i>" if sub else ""
+    sub_html = f"<i>{_escape(_es_num(sub))}</i>" if sub else ""
     st.markdown(
         f'<div class="aur-kpi" style="--kc:{kc}"><div class="aur-ki">{icon_html}</div>'
-        f'<div class="aur-kpi-copy"><small>{_escape(label)}</small><b>{_escape(value)}</b>{sub_html}</div></div>',
+        f'<div class="aur-kpi-copy"><small>{_escape(label)}</small><b>{_escape(_es_num(value))}</b>{sub_html}</div></div>',
         unsafe_allow_html=True,
     )
 
@@ -592,11 +587,11 @@ def _kpi_html(cards: list[tuple], n: int | None = None) -> str:
             icon_html = f'<span class="aur-ki-emoji">{_escape(emoji)}</span>'
         else:
             icon_html = _safe_icon(icon, 24, kc)
-        sub_html = f"<i>{_escape(sub)}</i>" if sub else ""
+        sub_html = f"<i>{_escape(_es_num(sub))}</i>" if sub else ""
         parts.append(
             f'<div class="aur-kpi" style="--kc:{kc}"><div class="aur-ki">{icon_html}</div>'
             f'<div class="aur-kpi-copy"><small>{_escape(label)}</small>'
-            f'<b>{_escape(value)}</b>{sub_html}</div></div>'
+            f'<b>{_escape(_es_num(value))}</b>{sub_html}</div></div>'
         )
     parts.append("</div>")
     return "".join(parts)
