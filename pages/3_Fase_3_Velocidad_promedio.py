@@ -457,13 +457,34 @@ def _f3_nice_ticks(lo, hi, n=5):
 
 
 def _f3_svg_html(viewbox, inner):
+    """Envuelve el SVG en un iframe con tooltip al pasar el cursor: cualquier
+    elemento con atributo data-tip muestra su texto (conserva la interactividad)."""
+    tip = (
+        '<div id="f3tip" style="position:fixed;display:none;z-index:99;background:#1e293b;color:#fff;'
+        'padding:6px 9px;border-radius:8px;font:600 11px \'Segoe UI\',Arial,sans-serif;white-space:pre;'
+        'pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.28);line-height:1.45"></div>'
+    )
+    script = (
+        "<script>(function(){var t=document.getElementById('f3tip');"
+        "document.addEventListener('mousemove',function(e){"
+        "var el=e.target.closest?e.target.closest('[data-tip]'):null;"
+        "if(el){t.textContent=el.getAttribute('data-tip');t.style.display='block';"
+        "var x=e.clientX+14,y=e.clientY+14;"
+        "if(x+t.offsetWidth>window.innerWidth)x=e.clientX-t.offsetWidth-14;"
+        "if(y+t.offsetHeight>window.innerHeight)y=e.clientY-t.offsetHeight-14;"
+        "t.style.left=x+'px';t.style.top=y+'px';}else{t.style.display='none';}});"
+        "document.addEventListener('mouseleave',function(){t.style.display='none';});})();</script>"
+    )
     return (
         '<html style="margin:0;padding:0;width:100%;height:100%;">'
         '<body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;">'
+        + tip +
         '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">'
         f'<svg viewBox="{viewbox}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;'
         "font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;\">"
-        f"{inner}</svg></div></body></html>"
+        f"{inner}</svg></div>"
+        + script +
+        "</body></html>"
     )
 
 
@@ -473,6 +494,11 @@ def render_rosa_svg(resumen):
     import math
     freqs = pd.to_numeric(resumen["Frecuencia (%)"], errors="coerce").fillna(0.0).to_numpy(dtype=float)
     bearings = pd.to_numeric(resumen["Centro (°)"], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+    sectors = resumen["Sector"].astype(str).tolist()
+    _vm_col = resumen["Velocidad media (m/s)"] if "Velocidad media (m/s)" in resumen else pd.Series([np.nan] * len(resumen))
+    _dt_col = resumen["Datos"] if "Datos" in resumen else pd.Series([0] * len(resumen))
+    vmeds = pd.to_numeric(_vm_col, errors="coerce").fillna(0.0).to_numpy(dtype=float)
+    datos = pd.to_numeric(_dt_col, errors="coerce").fillna(0).to_numpy(dtype=float)
     fmax = float(np.nanmax(freqs)) if len(freqs) else 1.0
     if fmax <= 0:
         fmax = 1.0
@@ -501,15 +527,21 @@ def render_rosa_svg(resumen):
         spokes += f'<text x="{lx:.1f}" y="{ly + 4:.1f}" text-anchor="middle" font-size="13" fill="#5a6b85" font-weight="900">{lbl}</text>'
     wedges = ""
     half = (360.0 / 16.0) / 2.0 * 0.84
-    for freq, bearing in zip(freqs, bearings):
+    for i in range(len(freqs)):
+        freq, bearing = freqs[i], bearings[i]
         if freq <= 0:
             continue
         r = freq / ring_max * RMAX
         x0, y0 = xy(r, bearing - half)
         x1, y1 = xy(r, bearing + half)
+        _fr = f"{freq:.2f}".replace(".", ",")
+        _vm = f"{vmeds[i]:.2f}".replace(".", ",")
+        _dt = f"{int(datos[i]):,}".replace(",", ".")
+        tip = f"Sector: {sectors[i]}&#10;Frecuencia: {_fr} %&#10;Velocidad media: {_vm} m/s&#10;Datos: {_dt}"
         wedges += (
             f'<path d="M{CX},{CY} L{x0:.1f},{y0:.1f} A{r:.1f},{r:.1f} 0 0 1 {x1:.1f},{y1:.1f} Z" '
-            f'fill="url(#f3rosegrad)" stroke="#4338ca" stroke-width="0.6" opacity="0.94"/>'
+            f'fill="url(#f3rosegrad)" stroke="#4338ca" stroke-width="0.6" opacity="0.94" '
+            f'data-tip="{tip}" style="cursor:pointer"/>'
         )
     defs = (
         '<defs><radialGradient id="f3rosegrad" gradientUnits="userSpaceOnUse" cx="260" cy="270" r="198">'
@@ -638,7 +670,11 @@ def render_heatmap_svg(matrix, sector_labels, bins):
         cells += f'<text x="{LEFT - 8}" y="{y + ch / 2 + 3:.1f}" text-anchor="end" font-size="9.5" fill="#5a6b85" font-weight="800">{sector_labels[i]}</text>'
         for j in range(ncol):
             x = LEFT + j * cw
-            cells += f'<rect x="{x:.1f}" y="{y:.1f}" width="{cw - gap:.1f}" height="{ch - gap:.1f}" rx="3" fill="{color(M[i, j])}"/>'
+            _b0 = f"{float(bins[j]):.1f}".replace(".", ",")
+            _b1 = f"{float(bins[j + 1]):.1f}".replace(".", ",")
+            _pb = f"{M[i, j]:.2f}".replace(".", ",")
+            ctip = f"Sector: {sector_labels[i]}&#10;Intervalo: {_b0}-{_b1} m/s&#10;Probabilidad: {_pb} %"
+            cells += f'<rect x="{x:.1f}" y="{y:.1f}" width="{cw - gap:.1f}" height="{ch - gap:.1f}" rx="3" fill="{color(M[i, j])}" data-tip="{ctip}" style="cursor:pointer"/>'
     # ticks de velocidad (cada ~5 m/s) bajo el eje
     xticks = ""
     bn = np.asarray(bins, dtype=float)
