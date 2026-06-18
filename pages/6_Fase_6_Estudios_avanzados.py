@@ -52,19 +52,27 @@ def _cfg_float(config: dict, key: str, default: float) -> float:
         return float(default)
 
 
+# Mapa nombre-de-icono-SVG → emoji del mockup 06_fase6 (card-heads y KPIs).
+_F6_ICON_EMOJI = {
+    "target": "🎯", "waves": "⛰️", "calendar": "🧊", "map-pin": "📍",
+    "activity": "🔊", "clock": "🌒", "wind": "🦅", "globe": "🌱",
+    "database": "📡", "bolt": "🔌", "layout": "🎯", "trending-down": "♻️",
+    "table": "📋", "chart": "📊", "sigma": "σ", "snow": "🧊",
+}
+
+
+def _f6_emoji_for(icon: str) -> str:
+    """Devuelve el emoji del mockup si el nombre está mapeado; si ya es glifo, lo deja."""
+    if not icon:
+        return ""
+    if not icon.isascii():
+        return icon
+    return _F6_ICON_EMOJI.get(icon, icon)
+
+
 def _section_header(title: str, subtitle: str = "", icon: str = "chart") -> None:
-    st.markdown(
-        f"""
-<div class="f6-section-header">
-    <div class="f6-section-icon"><span class="f6-icon-soft">{_safe_icon(icon, 21)}</span></div>
-    <div>
-        <div class="f6-section-title">{_escape(title)}</div>
-        {f'<div class="f6-section-subtitle">{_escape(subtitle)}</div>' if subtitle else ''}
-    </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
+    """Card-head Aurora (idioma F3): squircle teal con emoji + título + subtítulo."""
+    _render_card_header_native(title, _f6_emoji_for(icon), subtitle)
 
 
 def _session_cached_result(state_key: str, signature: tuple, builder):
@@ -226,6 +234,9 @@ st.markdown(
 .aur-kpi-copy small{display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
 .aur-kpi-copy b{font-size:19px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
 .aur-kpi-copy i{font-style:normal;font-size:10px;color:#5a6b85;display:block;margin-top:2.5px;font-weight:600;line-height:1.25}
+.f6-kgrid{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:12px;margin:6px 0 10px}
+@media(max-width:1200px){.f6-kgrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.f6-kgrid{grid-template-columns:1fr}}
 
 /* ════════ Divider de sección (icono tintado + título + línea) ════════ */
 .f6-divider{display:flex;align-items:center;gap:13px;margin:24px 2px 12px}
@@ -272,14 +283,9 @@ st.markdown(
 
 /* ════════ Cards backbone (las 13 cards mantienen su container st-key) ════════ */
 .st-key-f6_card_secciones,
-.st-key-f6_card_iec,
 .st-key-f6_card_flow,
 .st-key-f6_card_cold,
 .st-key-f6_card_receptores,
-.st-key-f6_card_ruido,
-.st-key-f6_card_flicker,
-.st-key-f6_card_aves,
-.st-key-f6_card_lca,
 .st-key-f6_card_scada,
 .st-key-f6_card_curtail,
 .st-key-f6_card_hibrido,
@@ -292,6 +298,20 @@ st.markdown(
     background:linear-gradient(180deg,#fff,#fcfdff) !important;
     box-shadow:var(--f6-shc) !important;
     overflow:hidden !important;
+    box-sizing:border-box !important;
+    margin-bottom:16px !important;
+}
+.st-key-f6_card_iec,
+.st-key-f6_card_ruido,
+.st-key-f6_card_flicker,
+.st-key-f6_card_aves,
+.st-key-f6_card_lca{
+    position:relative !important;
+    border:1px solid #d3e0f0 !important;
+    border-radius:var(--f6-rlg) !important;
+    background:linear-gradient(180deg,#fff,#fcfdff) !important;
+    box-shadow:var(--f6-shc) !important;
+    overflow:visible !important;
     box-sizing:border-box !important;
     margin-bottom:16px !important;
 }
@@ -533,6 +553,12 @@ _F6_ROJO = "#dc2626"
 _F6_GRIS = "#94a3b8"
 
 
+# Acento teal Aurora para las gráficas de esta fase (paridad mockup 06_fase6).
+_F6_TEAL = "#0d9488"
+_F6_TEAL2 = "#115e59"
+_F6_COLORWAY = ["#0d9488", "#16a34a", "#2563eb", "#d97706", "#dc2626", "#7c3aed"]
+
+
 def _f6_fig_layout(fig, titulo: str, altura: int = 380):
     fig.update_layout(
         height=altura,
@@ -540,31 +566,55 @@ def _f6_fig_layout(fig, titulo: str, altura: int = 380):
         title={"text": titulo, "font": {"size": 15, "color": "#0a2444"}},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font={"color": "#0a2444"},
+        font={"color": "#0a2444", "family": "Segoe UI, system-ui, sans-serif"},
+        colorway=_F6_COLORWAY,
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.0, "xanchor": "right", "x": 1.0},
     )
+    fig.update_xaxes(gridcolor="#eef4fb", zerolinecolor="#dce7f5", linecolor="#dce7f5")
+    fig.update_yaxes(gridcolor="#eef4fb", zerolinecolor="#dce7f5", linecolor="#dce7f5")
     return fig
 
 
 # -----------------------------------------------------------------------------
 # Secciones (placeholders — los estudios se cablean por sección)
 # -----------------------------------------------------------------------------
-def _kpi_html(cards: list[tuple]) -> str:
-    """cards: lista de (icono, label, value, sub)."""
-    parts = ['<div class="f6-kpi-grid">']
-    for icon, label, value, sub in cards:
+def _kpi_html(cards: list[tuple], n: int | None = None) -> str:
+    """Grid de KPIs Aurora (aros tintados). Cada card: (icono, label, value, sub)
+    o (icono, label, value, sub, kc) para color de aro propio.
+    """
+    n = n if n else len(cards)
+    parts = [f'<div class="f6-kgrid" style="--n:{n}">']
+    for card in cards:
+        icon, label, value, sub = card[0], card[1], card[2], card[3]
+        kc = card[4] if len(card) > 4 else "#0d9488"
+        emoji = _f6_emoji_for(icon)
+        if emoji and (not emoji.isascii() or len(emoji) <= 2):
+            icon_html = f'<span class="aur-ki-emoji">{_escape(emoji)}</span>'
+        else:
+            icon_html = _safe_icon(icon, 24, kc)
+        sub_html = f"<i>{_escape(sub)}</i>" if sub else ""
         parts.append(
-            f'<div class="f6-kpi-card"><div class="f6-kpi-icon">{_safe_icon(icon, 24)}</div>'
-            f'<div><div class="f6-kpi-label">{_escape(label)}</div>'
-            f'<div class="f6-kpi-value">{_escape(value)}</div>'
-            f'<div class="f6-kpi-sub">{_escape(sub)}</div></div></div>'
+            f'<div class="aur-kpi" style="--kc:{kc}"><div class="aur-ki">{icon_html}</div>'
+            f'<div class="aur-kpi-copy"><small>{_escape(label)}</small>'
+            f'<b>{_escape(value)}</b>{sub_html}</div></div>'
         )
     parts.append("</div>")
     return "".join(parts)
 
 
+# Iconos de banner por tono (paridad mockup .banner .bx)
+_F6_BANNER_ICON = {"ok": "✅", "warn": "⚠️", "bad": "⚠️", "info": "ℹ️"}
+
+
 def _badge_html(texto: str, tono: str = "ok") -> str:
-    return f'<div class="f6-badge f6-badge-{tono}">{_escape(texto)}</div>'
+    """Banner Aurora (icono + texto) — paridad mockup .banner."""
+    if tono not in {"ok", "warn", "bad", "info"}:
+        tono = "ok"
+    icon = _F6_BANNER_ICON.get(tono, "ℹ️")
+    return (
+        f'<div class="f6-banner {tono}"><span class="bx">{icon}</span>'
+        f"<span>{_escape(texto)}</span></div>"
+    )
 
 
 def _render_card_iec() -> None:
@@ -639,14 +689,14 @@ def _render_card_iec() -> None:
         summary = res["summary"]
         st.markdown(
             _kpi_html([
-                ("target", "Clase IEC del sitio", str(summary.get("Clase IEC", "—")),
-                 f"declarada: {res.get('clase_decl', '—')}"),
-                ("sigma", "Subclase TI", str(summary.get("Subclase TI", "—")),
-                 f"TI_eff(15) = {summary.get('TI_eff(15)', float('nan')):.3f}"),
-                ("wind", "V_ave del sitio", f"{summary.get('V_ave (m/s)', float('nan')):.2f} m/s",
-                 f"Weibull k={res.get('k', float('nan')):.2f}, c={res.get('c', float('nan')):.2f}"),
-                ("activity", "V_ref (50 años)", f"{summary.get('V_ref (m/s)', float('nan')):.2f} m/s",
-                 f"V_50 = {summary.get('V_50 (m/s)', float('nan')):.2f} m/s"),
+                ("🏷️", "Clase IEC del sitio", str(summary.get("Clase IEC", "—")),
+                 f"declarada: {res.get('clase_decl', '—')}", "#dc2626"),
+                ("σ", "Subclase TI", str(summary.get("Subclase TI", "—")),
+                 f"TI_eff(15) = {summary.get('TI_eff(15)', float('nan')):.3f}", "#d97706"),
+                ("💨", "V_ave del sitio", f"{summary.get('V_ave (m/s)', float('nan')):.2f} m/s",
+                 f"Weibull k={res.get('k', float('nan')):.2f}, c={res.get('c', float('nan')):.2f}", "#2563eb"),
+                ("🌪️", "V_ref (50 años)", f"{summary.get('V_ref (m/s)', float('nan')):.2f} m/s",
+                 f"V_50 = {summary.get('V_50 (m/s)', float('nan')):.2f} m/s", "#0d9488"),
             ]),
             unsafe_allow_html=True,
         )
@@ -677,11 +727,11 @@ def _render_card_iec() -> None:
             fig_lim = go.Figure()
             fig_lim.add_bar(
                 x=clases, y=[iec.IEC_CLASS_LIMITS[c]["V_ave"] for c in clases],
-                name="Límite V_ave", marker_color="#bfdbfe",
+                name="Límite V_ave", marker_color="#99f6e4",
             )
             fig_lim.add_bar(
                 x=clases, y=[iec.IEC_CLASS_LIMITS[c]["V_ref"] for c in clases],
-                name="Límite V_ref", marker_color="#93c5fd",
+                name="Límite V_ref", marker_color="#5eead4",
             )
             v_ave_sitio = float(summary.get("V_ave (m/s)", float("nan")))
             v_ref_sitio = float(summary.get("V_ref (m/s)", float("nan")))
@@ -702,13 +752,13 @@ def _render_card_iec() -> None:
                 fig_ti = go.Figure()
                 fig_ti.add_trace(go.Barpolar(
                     r=[ti_dict[s] for s in sectores], theta=sectores,
-                    name="TI observada", marker_color="#93c5fd", opacity=0.85,
+                    name="TI observada", marker_color=_F6_TEAL, opacity=0.78,
                 ))
                 fr_vals = [fr_sector.get(s) for s in sectores]
                 if any(v == v for v in fr_vals if v is not None):
                     fig_ti.add_trace(go.Barpolar(
                         r=fr_vals, theta=sectores,
-                        name="TI efectiva (Frandsen)", marker_color=_F6_AZUL, opacity=0.55,
+                        name="TI efectiva (Frandsen)", marker_color=_F6_TEAL2, opacity=0.5,
                     ))
                 fig_ti.update_layout(polar={"radialaxis": {"tickfont": {"size": 9}}})
                 st.plotly_chart(_f6_fig_layout(fig_ti, "Rosa de turbulencia por sector", 380),
@@ -830,11 +880,16 @@ def _render_card_flow() -> None:
 
         field = res["speedup_field"]
         step = max(1, int(max(field.shape) / 400))
-        fig = go.Figure(go.Heatmap(z=field[::step, ::step], colorscale="RdBu_r", zmid=1.0,
-                                   colorbar={"title": "Speedup"}))
+        fig = go.Figure(go.Heatmap(
+            z=field[::step, ::step], zmid=1.0,
+            colorscale=[[0, "#eff6ff"], [0.5, "#5eead4"], [1.0, "#0d9488"]],
+            colorbar={"title": "Speedup"},
+        ))
         fig.update_layout(
             height=420, margin={"l": 10, "r": 10, "t": 30, "b": 10},
-            title="Campo de speedup orográfico", yaxis={"scaleanchor": "x", "autorange": "reversed"},
+            title={"text": "Campo de speedup orográfico", "font": {"size": 15, "color": "#0a2444"}},
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            yaxis={"scaleanchor": "x", "autorange": "reversed"},
         )
         st.plotly_chart(fig, use_container_width=True, key="f6_flow_heatmap")
 
@@ -909,7 +964,7 @@ def _render_card_cold() -> None:
         fig = go.Figure(go.Pie(
             labels=["AEP corregida", "Pérdida por icing"],
             values=[max(0.0, derate.get("aep_corregida_mwh", 0.0)), max(0.0, derate.get("aep_perdida_mwh", 0.0))],
-            hole=0.62, marker={"colors": [_F6_VERDE, "#bae6fd"]},
+            hole=0.62, marker={"colors": [_F6_VERDE, "#fbbf24"]},
             textinfo="label+percent",
         ))
         st.plotly_chart(_f6_fig_layout(fig, "Impacto del icing sobre el AEP neto", 330),
@@ -1604,7 +1659,7 @@ def _render_card_curtailment() -> None:
         _section_header(
             "Curtailment de red",
             "Pérdidas por límite de inyección, recorte económico (precio < costo variable) y disponibilidad de la red.",
-            "bolt",
+            "🔌",
         )
         pot_inst = _cfg_float(config, "f5_potencia_instalada_mw", 0.0)
         c1, c2, c3 = st.columns(3)
@@ -1722,7 +1777,7 @@ def _render_card_hibrido() -> None:
         _section_header(
             "Planta híbrida (viento + solar + BESS)",
             "Barrido de capacidad solar complementaria sobre la misma conexión y dimensionado preliminar de baterías.",
-            "bolt",
+            "🔋",
         )
         if importlib.util.find_spec("pvlib") is None:
             st.caption(
