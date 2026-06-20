@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 from pandas.util import hash_pandas_object
 
 import calculos
@@ -630,6 +631,228 @@ def exportar_excel(
         if comparacion_sector_df is not None:
             comparacion_sector_df.to_excel(writer, index=False, sheet_name="Comparacion_sectorial")
     return output.getvalue()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Aurora F5 — gráficas SVG (paridad mockup 05_fase5). Reemplazan la
+#  visualización plotly en pantalla; el plotly se conserva para reportes.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _f5_es(value, fmt="{:,.1f}") -> str:
+    """Formatea número en estilo ES (1.234,5)."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    if not (v == v):
+        return "—"
+    return fmt.format(v).replace(",", "·").replace(".", ",").replace("·", ".")
+
+
+def _f5_svg_html(viewbox, inner, title=""):
+    """Envuelve un SVG en iframe con tooltip hover (elementos con data-tip).
+    Si `title`, dibuja una caja de figura (borde + título) dentro del iframe."""
+    tip = (
+        '<div id="f5tip" style="position:fixed;display:none;z-index:99;background:#1e293b;color:#fff;'
+        'padding:6px 9px;border-radius:8px;font:600 11px \'Segoe UI\',Arial,sans-serif;white-space:pre;'
+        'pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.28);line-height:1.45"></div>'
+    )
+    script = (
+        "<script>(function(){var t=document.getElementById('f5tip');"
+        "document.addEventListener('mousemove',function(e){"
+        "var el=e.target.closest?e.target.closest('[data-tip]'):null;"
+        "if(el){t.textContent=el.getAttribute('data-tip');t.style.display='block';"
+        "var x=e.clientX+14,y=e.clientY+14;"
+        "if(x+t.offsetWidth>window.innerWidth)x=e.clientX-t.offsetWidth-14;"
+        "if(y+t.offsetHeight>window.innerHeight)y=e.clientY-t.offsetHeight-14;"
+        "t.style.left=x+'px';t.style.top=y+'px';}else{t.style.display='none';}});"
+        "document.addEventListener('mouseleave',function(){t.style.display='none';});})();</script>"
+    )
+    title_html = (
+        f'<div style="font-size:12px;font-weight:900;color:#0b2447;margin:0 2px 6px;'
+        f'letter-spacing:-.01em">{title}</div>' if title else ""
+    )
+    box_open = (
+        '<div style="background:#fff;border:1px solid #d8e5f5;border-radius:18px;'
+        'padding:13px 14px;box-shadow:0 1px 2px rgba(11,36,71,.04),0 6px 16px rgba(11,36,71,.06);'
+        'box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;">'
+    ) if title else '<div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;">'
+    return (
+        '<html style="margin:0;padding:0;width:100%;height:100%;">'
+        '<body style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;">'
+        + tip + box_open + title_html +
+        '<div style="flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;">'
+        f'<svg viewBox="{viewbox}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;'
+        "font-family:'Segoe UI Variable Display','Segoe UI',Arial,sans-serif;\">"
+        f"{inner}</svg></div></div>"
+        + script +
+        "</body></html>"
+    )
+
+
+def render_cascade_svg(stages, title=""):
+    """Cascada bruta→neta. `stages` = lista de dicts con:
+    label, value, color, top (texto arriba: '−3,0%' o el valor final)."""
+    if not stages:
+        return _f5_svg_html("0 0 620 260", "", title)
+    vmax = max((s["value"] for s in stages), default=1.0) or 1.0
+    n = len(stages)
+    bw = 55
+    baseline = 208
+    max_h = 168
+    # posiciones x equiespaciadas
+    left = 77
+    gap = (573 - left) / max(1, n - 1)
+    inner = ""
+    prev_x = None
+    prev_y = None
+    for i, s in enumerate(stages):
+        x = left + i * gap
+        h = max(6.0, s["value"] / vmax * max_h)
+        y = baseline - h
+        tip = (
+            f"{s['label']}&#10;{_f5_es(s['value'], '{:,.1f}')} MWh/año"
+        )
+        inner += (
+            f'<rect x="{x:.0f}" y="{y:.1f}" width="{bw}" height="{h:.1f}" rx="9" '
+            f'fill="{s["color"]}" data-tip="{tip}"/>'
+            f'<rect x="{x:.0f}" y="{y:.1f}" width="{bw}" height="9" rx="4.5" fill="#fff" opacity=".28"/>'
+            f'<text x="{x+bw/2:.0f}" y="226" text-anchor="middle" font-size="10" font-weight="800" fill="#64748b">{s["label"]}</text>'
+        )
+        if s.get("top"):
+            inner += (
+                f'<text x="{x+bw/2:.0f}" y="{y-6:.1f}" text-anchor="middle" font-size="9.5" '
+                f'font-weight="900" fill="{s["color"]}">{s["top"]}</text>'
+            )
+        if prev_x is not None:
+            inner += (
+                f'<line x1="{prev_x+bw:.0f}" y1="{prev_y:.1f}" x2="{x:.0f}" y2="{y:.1f}" '
+                f'stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="4 4"/>'
+            )
+        prev_x, prev_y = x, y
+    inner += '<line x1="54" y1="208" x2="604" y2="208" stroke="#c4d4e8" stroke-width="1.6"/>'
+    inner += ('<text x="310" y="248" text-anchor="middle" font-size="10" font-weight="800" '
+              'fill="#64748b">AEP bruta → pérdidas secuenciales → AEP neta (MWh/año)</text>')
+    return _f5_svg_html("0 0 620 260", inner, title)
+
+
+def render_sector_bars_svg(df_sector, value_col="AEP con estela (MWh/año)", title=""):
+    """16 barras verticales verdes (AEP por sector). viewBox 560×240."""
+    if df_sector is None or len(df_sector) == 0:
+        return _f5_svg_html("0 0 560 240", "", title)
+    sectors = list(df_sector["Sector"])
+    vals = [float(v) for v in df_sector[value_col]]
+    vmax = max(vals) or 1.0
+    n = len(vals)
+    bw = 18
+    baseline = 200
+    max_h = 168
+    left = 56
+    gap = (516 - left) / max(1, n - 1)
+    cardinal = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
+    inner = ""
+    for i, (sec, v) in enumerate(zip(sectors, vals)):
+        x = left + i * gap
+        h = max(3.0, v / vmax * max_h)
+        y = baseline - h
+        cap_h = min(10.0, h)
+        tip = f"Sector {sec}&#10;{_f5_es(v, '{:,.1f}')} MWh/año"
+        inner += (
+            f'<rect x="{x:.0f}" y="{y:.0f}" width="{bw}" height="{h:.0f}" rx="8" '
+            f'fill="#059669" data-tip="{tip}"/>'
+            f'<rect x="{x:.0f}" y="{y:.0f}" width="{bw}" height="{cap_h:.0f}" rx="5" fill="#fff" opacity=".25"/>'
+        )
+        lbl = str(sec) if str(sec) in cardinal else ""
+        inner += (
+            f'<text x="{x+bw/2:.0f}" y="217" text-anchor="middle" font-size="9.5" '
+            f'font-weight="800" fill="#64748b">{lbl}</text>'
+        )
+    inner += '<line x1="44" y1="200" x2="548" y2="200" stroke="#c4d4e8" stroke-width="1.6"/>'
+    return _f5_svg_html("0 0 560 240", inner, title)
+
+
+def render_dona_svg(segments, total_label, total_value, title=""):
+    """Doughnut con anillos (CAPEX/OPEX). `segments` = lista de (valor, color).
+    viewBox 300×252."""
+    cx, cy, r = 150.0, 126.0, 82.0
+    circ = 2 * np.pi * r  # ~515.2
+    total = sum(max(0.0, float(v)) for v, _ in segments) if segments else 0.0
+    inner = f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#eef4fb" stroke-width="30"/>'
+    offset = 0.0
+    if total > 0:
+        for val, color in segments:
+            frac = max(0.0, float(val)) / total
+            seg_len = frac * circ
+            inner += (
+                f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="30" '
+                f'stroke-dasharray="{seg_len:.1f} {circ - seg_len:.1f}" stroke-dashoffset="{-offset:.1f}" '
+                f'transform="rotate(-90 {cx} {cy})" stroke-linecap="round"/>'
+            )
+            offset += seg_len
+    inner += (
+        f'<text x="{cx}" y="123" text-anchor="middle" font-size="24" font-weight="900" fill="#0b2447">{total_value}</text>'
+        f'<text x="{cx}" y="144" text-anchor="middle" font-size="10.5" font-weight="800" fill="#64748b">{total_label}</text>'
+    )
+    return _f5_svg_html("0 0 300 252", inner, title)
+
+
+def render_tornado_svg(rows, title=""):
+    """Tornado horizontal. `rows` = lista de dicts: label, width_pct (0-100),
+    color, value (texto a la derecha). viewBox 560×240."""
+    if not rows:
+        return _f5_svg_html("0 0 560 240", "", title)
+    x0 = 132
+    max_w = 324
+    inner = ""
+    y = 20
+    row_h = 49
+    for r in rows:
+        w = max(8.0, min(1.0, r["width_pct"] / 100.0) * max_w)
+        ylab = y + 18
+        inner += (
+            f'<text x="122" y="{ylab}" text-anchor="end" font-size="10.5" font-weight="800" fill="#475569">{r["label"]}</text>'
+            f'<rect x="{x0}" y="{y}" width="{w:.0f}" height="28" rx="8" fill="{r["color"]}"/>'
+            f'<rect x="{x0}" y="{y}" width="{w:.0f}" height="8" rx="4" fill="#fff" opacity=".25"/>'
+            f'<text x="{x0 + w + 6:.0f}" y="{ylab}" font-size="10" font-weight="900" fill="#0b2447">{r["value"]}</text>'
+        )
+        y += row_h
+    return _f5_svg_html("0 0 560 240", inner, title)
+
+
+def render_heatmap_mes_hora_svg(matrix, title=""):
+    """Heatmap mes×hora. `matrix` = ndarray [12 meses × N horas] de MW medios.
+    viewBox 560×250."""
+    arr = np.asarray(matrix, dtype=float)
+    if arr.ndim != 2 or arr.size == 0:
+        return _f5_svg_html("0 0 560 250", "", title)
+    nrow, ncol = arr.shape
+    vmax = np.nanmax(arr) if np.isfinite(arr).any() else 1.0
+    vmax = vmax if vmax > 0 else 1.0
+    left = 19
+    top = 18
+    cw = (533 - left) / ncol
+    ch = 20.5
+    meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    inner = ""
+    for r in range(nrow):
+        for c in range(ncol):
+            v = arr[r, c]
+            pct = 0 if not np.isfinite(v) else int(round(v / vmax * 95))
+            x = left + c * cw
+            yy = top + r * ch
+            mes = meses[r] if r < len(meses) else str(r)
+            tip = f"{mes} · {c:02d}h&#10;{_f5_es(v, '{:,.2f}')} MW"
+            inner += (
+                f'<rect x="{x:.0f}" y="{yy:.0f}" width="{cw - 3:.0f}" height="{ch - 2.5:.0f}" rx="4" '
+                f'fill="color-mix(in srgb, #059669 {pct}%, #eff6ff)" data-tip="{tip}"/>'
+            )
+    inner += (
+        f'<text x="17" y="125" font-size="10" font-weight="800" fill="#64748b" '
+        f'transform="rotate(-90 17 125)" text-anchor="middle">Hora →</text>'
+        f'<text x="288.5" y="241" text-anchor="middle" font-size="10" font-weight="800" fill="#64748b">Mes →</text>'
+    )
+    return _f5_svg_html("0 0 560 250", inner, title)
+
 
 FASE_5_CSS = """
 <style>
@@ -2047,6 +2270,35 @@ def _render_f5_info(text: str):
     )
 
 
+def _aur_is_svg(s: str) -> bool:
+    """True si el icono es SVG inline (de _f5_icon_svg); False si es emoji/texto badge."""
+    return isinstance(s, str) and s.strip().startswith("<")
+
+
+def _render_f5_card_header_native(title: str, icon: str, subtitle: str = "") -> None:
+    if _aur_is_svg(icon):
+        icon_html = icon  # SVG inline (de _f5_icon_svg)
+    else:
+        icon_html = f'<span class="aur-cicon-emoji">{icon}</span>'
+    sub_html = f'<p>{subtitle}</p>' if subtitle else ""
+    st.markdown(
+        f'<div class="aur-card-head"><div class="aur-cicon">{icon_html}</div>'
+        f'<div><h2>{title}</h2>{sub_html}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_f5_kpi_card_native(icon: str, label: str, value: str, sub: str = "", kc: str = "#059669") -> None:
+    if _aur_is_svg(icon):
+        icon_html = icon
+    else:
+        icon_html = f'<span class="aur-ki-emoji">{icon}</span>'
+    sub_html = f'<i>{sub}</i>' if sub else ""
+    st.markdown(
+        f'<div class="aur-kpi" style="--kc:{kc}"><div class="aur-ki">{icon_html}</div>'
+        f'<div class="aur-kpi-copy"><small>{label}</small><b>{value}</b>{sub_html}</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _build_econ_breakdown_html(breakdown_list, title, col_headers, moneda, potencia_mw=None):
@@ -2106,6 +2358,148 @@ def _econ_mostrado_card(icon_svg, color, label, value):
 
 
 st.markdown(FASE_5_CSS, unsafe_allow_html=True)
+
+# ═══════ Aurora F5 (acento verde · paridad mockup 05_fase5) — hero + card-head + KPI ═══════
+st.markdown(
+    """
+    <style>
+    :root{--f5-ac:#059669;--f5-ac2:#065f46}
+    /* Hero verde Aurora dentro del st-key-f5_card_header */
+    .st-key-f5_card_header div[data-testid="stVerticalBlockBorderWrapper"]{
+      border:none !important;background:transparent !important;padding:0 !important;box-shadow:none !important}
+    .st-key-f5_card_header::before{display:none !important}
+    .f5-hero{position:relative;overflow:hidden;border-radius:26px !important;padding:22px 28px !important;
+      background:linear-gradient(118deg,#059669 0%,#065f46 80%) !important;border:none !important;
+      box-shadow:0 22px 44px rgba(5,150,105,.32), inset 0 1px 0 rgba(255,255,255,.25) !important;margin:0 !important}
+    .f5-hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:
+      radial-gradient(circle at 86% 12%, rgba(255,255,255,.20) 0 54px, transparent 55px),
+      radial-gradient(circle at 95% 70%, rgba(255,255,255,.12) 0 86px, transparent 87px),
+      linear-gradient(180deg, rgba(255,255,255,.08), transparent 40%)}
+    .f5-wind{position:absolute;left:-30px;top:0;bottom:0;width:58%;height:100%;opacity:.45;pointer-events:none;z-index:1}
+    .f5-wind path{stroke:rgba(255,255,255,.55);stroke-width:2;fill:none;stroke-dasharray:16 11;animation:f5windmove 2.6s linear infinite}
+    .f5-wind path:nth-child(2){animation-duration:3.4s;opacity:.7}
+    .f5-wind path:nth-child(3){animation-duration:4.2s;opacity:.5}
+    @keyframes f5windmove{to{stroke-dashoffset:-54}}
+    .f5-hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2}
+    .f5-hero-icon{width:62px;height:62px;border-radius:19px;background:rgba(255,255,255,.17);
+      border:1.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:31px;flex-shrink:0;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 8px 18px rgba(0,0,0,.12)}
+    .f5-hero-text{flex:1;min-width:0}
+    .f5-hero .f5-hero-title{font-size:25px;font-weight:900;color:#fff;letter-spacing:-.025em;
+      text-shadow:0 1px 2px rgba(0,0,0,.12);margin:0;line-height:1.15}
+    .f5-hero .f5-hero-subtitle{font-size:12.5px;color:rgba(255,255,255,.94);font-weight:500;
+      max-width:840px;margin:4px 0 0 0;line-height:1.45}
+    .f5-hero-pills{display:flex;gap:9px;margin-left:auto;flex-shrink:0}
+    .f5-hpill{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:15px;
+      padding:8px 15px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25);color:#fff}
+    .f5-hpill b{display:block;font-size:16.5px;letter-spacing:-.01em}
+    .f5-hpill span{font-size:9px;opacity:.92;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+    /* Card-head Aurora (verde por defecto) */
+    .aur-card-head{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+    .aur-cicon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      background:linear-gradient(135deg, color-mix(in srgb,#059669 16%,#fff), color-mix(in srgb,#059669 7%,#fff));
+      border:1.5px solid color-mix(in srgb,#059669 35%,#fff);box-shadow:0 5px 12px color-mix(in srgb,#059669 16%,transparent)}
+    .aur-cicon svg{width:22px;height:22px}
+    .aur-cicon-emoji{font-size:23px;line-height:1;display:flex;align-items:center;justify-content:center}
+    .aur-card-head h2{margin:0;font-size:16.5px;font-weight:900;color:#0b2447;letter-spacing:-.02em}
+    .aur-card-head p{margin:2px 0 0;font-size:11px;color:#5a6b85;font-weight:600}
+    /* KPI Aurora */
+    .aur-kpi{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:13px 14px;display:flex;gap:12px;align-items:center;
+      box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06);min-height:74px;height:100%}
+    .aur-ki{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      background:linear-gradient(135deg, color-mix(in srgb,var(--kc,#059669) 17%,#fff), color-mix(in srgb,var(--kc,#059669) 6%,#fff));
+      border:1.5px solid color-mix(in srgb,var(--kc,#059669) 38%,#fff);box-shadow:0 5px 12px color-mix(in srgb,var(--kc,#059669) 18%,transparent)}
+    .aur-ki svg{width:24px;height:24px}
+    .aur-ki-emoji{font-size:23px;line-height:1;display:flex;align-items:center;justify-content:center}
+    .aur-kpi-copy{min-width:0}
+    .aur-kpi-copy small{display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
+    .aur-kpi-copy b{font-size:19px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
+    .aur-kpi-copy i{font-style:normal;font-size:10px;color:#5a6b85;display:block;margin-top:2.5px;font-weight:600;line-height:1.25}
+    .aur-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-weight:800;color:#5a6b85;margin:12px 0 2px;justify-content:center}
+    .aur-legend i{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+    .aur-legend i::before{content:"";width:12px;height:12px;border-radius:4px;background:var(--lc);box-shadow:0 2px 5px color-mix(in srgb,var(--lc) 40%,transparent)}
+    /* Card Aurora (común a todos los st-key-f5_card_*) */
+    .st-key-f5_card_config,
+    .st-key-f5_card_ti_iec,
+    .st-key-f5_card_results,
+    .st-key-f5_card_breakdown,
+    .st-key-f5_card_sector,
+    .st-key-f5_card_econ_master,
+    .st-key-f5_card_sens_tornado,
+    .st-key-f5_card_montecarlo,
+    .st-key-f5_card_aep_serie,
+    .st-key-f5_card_export{
+      position:relative !important;background:linear-gradient(180deg,#fff,#fcfdff) !important;
+      border:1px solid #d3e0f0 !important;border-radius:26px !important;
+      box-shadow:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08) !important;
+      overflow:hidden !important;margin-bottom:16px !important}
+    .st-key-f5_card_losses{
+      position:relative !important;background:linear-gradient(180deg,#fff,#fcfdff) !important;
+      border:1px solid #d3e0f0 !important;border-radius:26px !important;
+      box-shadow:0 1px 2px rgba(11,36,71,.05), 0 10px 28px rgba(11,36,71,.08) !important;
+      overflow:visible !important;margin-bottom:16px !important}
+    .st-key-f5_card_config::before,
+    .st-key-f5_card_losses::before,
+    .st-key-f5_card_ti_iec::before,
+    .st-key-f5_card_results::before,
+    .st-key-f5_card_breakdown::before,
+    .st-key-f5_card_sector::before,
+    .st-key-f5_card_econ_master::before,
+    .st-key-f5_card_sens_tornado::before,
+    .st-key-f5_card_montecarlo::before,
+    .st-key-f5_card_aep_serie::before,
+    .st-key-f5_card_export::before{
+      content:"" !important;position:absolute !important;left:0;right:0;top:0;height:4px !important;
+      background:linear-gradient(90deg,#059669, color-mix(in srgb,#059669 25%,#fff) 70%, transparent) !important;
+      z-index:3 !important;display:block !important}
+    .st-key-f5_card_config div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_losses div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_ti_iec div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_results div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_breakdown div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_sector div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_econ_master div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_sens_tornado div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_montecarlo div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_aep_serie div[data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-f5_card_export div[data-testid="stVerticalBlockBorderWrapper"]{
+      border:none !important;background:transparent !important;box-shadow:none !important;
+      padding:20px 22px 18px !important}
+    /* Botón primary verde Aurora */
+    .st-key-f5_card_config div[data-testid="stFormSubmitButton"]>button,
+    .st-key-f5_card_losses div[data-testid="stFormSubmitButton"]>button{
+      background:linear-gradient(120deg,#059669,#065f46) !important;color:#fff !important;
+      border:1.5px solid transparent !important;font-weight:800 !important;
+      box-shadow:0 10px 20px color-mix(in srgb,#059669 35%,transparent), inset 0 1px 0 rgba(255,255,255,.28) !important}
+    .st-key-f5_card_config div[data-testid="stFormSubmitButton"]>button p,
+    .st-key-f5_card_losses div[data-testid="stFormSubmitButton"]>button p{color:#fff !important}
+    /* Chips Aurora (pérdidas avanzadas como chip) */
+    .aur-chip{display:inline-flex;gap:7px;align-items:center;padding:9px 15px;border-radius:999px;border:1.5px solid #cfe0f5;background:#fff;font-size:12px;font-weight:800;color:#5a6b85;box-shadow:0 2px 6px rgba(11,36,71,.04);margin:6px 0}
+    /* Figura Aurora (caja con título + iframe SVG) */
+    .aur-gtitle{font-size:12px;font-weight:900;color:#0b2447;margin:6px 2px 4px;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
+    .aur-fig-wrap{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:13px 14px 6px;
+      box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06);margin:6px 0 2px}
+    .aur-fig-wrap [data-testid="stIFrame"]{border-radius:12px;overflow:hidden}
+    /* Expander Aurora (ver tabla) */
+    .st-key-f5_card_sector [data-testid="stExpander"] summary{font-weight:800 !important;color:#0b2447 !important}
+    /* Badges de texto P50/P75/... en KPIs Monte Carlo */
+    .st-key-f5_card_montecarlo .aur-ki-emoji{font-size:13px !important;font-weight:900 !important;color:#0b2447;letter-spacing:-.02em}
+    /* Botones primary verdes (MC / serie) */
+    .st-key-f5_btn_run_mc button,
+    .st-key-f5_btn_run_serie button{
+      background:linear-gradient(120deg,#059669,#065f46) !important;color:#fff !important;border:1.5px solid transparent !important;
+      box-shadow:0 10px 20px color-mix(in srgb,#059669 35%,transparent), inset 0 1px 0 rgba(255,255,255,.28) !important}
+    .st-key-f5_btn_run_mc button p,
+    .st-key-f5_btn_run_serie button p{color:#fff !important}
+    /* Banner Aurora (info verde) */
+    .aur-banner{display:flex;align-items:center;gap:12px;border-radius:15px;padding:12px 16px;font-weight:800;font-size:12.5px;margin:14px 0 10px}
+    .aur-banner .bx{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(255,255,255,.7);flex-shrink:0}
+    .aur-banner.info{background:linear-gradient(120deg, color-mix(in srgb,#059669 8%,#fff), #fff);
+      border:1.5px solid color-mix(in srgb,#059669 30%,#fff);color:#065f46}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Bloque CSS final forzado: aplicar patrón visual de Fase 1 a cards grandes de Fase 5
 st.markdown(
@@ -2287,17 +2681,64 @@ ct_default = float(config.get("f4_ct", 0.80))
 kw_default = float(config.get("f4_kw", 0.05))
 
 
+def _f5_fmt_es_num(value, fmt: str = "{:,.1f}") -> str:
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    if not (v == v):  # NaN
+        return "—"
+    return fmt.format(v).replace(",", "·").replace(".", ",").replace("·", ".")
+
+
+_f5_aep_neta_cached = config.get("f5_aep_neta_total_mwh") or 0.0
+_f5_lcoe_cached = config.get("f5_lcoe_mwh") or 0.0
+_f5_p90_cached = config.get("f5_aep_p90") or 0.0
+try:
+    _f5_aep_gwh = float(_f5_aep_neta_cached) / 1000.0
+    _f5_aep_hero = _f5_fmt_es_num(_f5_aep_gwh, "{:,.1f}") + " GWh" if _f5_aep_gwh > 0 else "—"
+except (TypeError, ValueError):
+    _f5_aep_hero = "—"
+try:
+    _f5_lcoe_hero = _f5_fmt_es_num(float(_f5_lcoe_cached), "{:,.1f}") + " $/MWh" if float(_f5_lcoe_cached) > 0 else "—"
+except (TypeError, ValueError):
+    _f5_lcoe_hero = "—"
+try:
+    _f5_p90_gwh = float(_f5_p90_cached) / 1000.0
+    _f5_p90_hero = _f5_fmt_es_num(_f5_p90_gwh, "{:,.1f}") + " GWh" if _f5_p90_gwh > 0 else "—"
+except (TypeError, ValueError):
+    _f5_p90_hero = "—"
+
 with st.container(border=True, key="f5_card_header"):
     st.markdown(
-        """
-        <div class="hero-card">
-            <div class="fase-hero-title">Fase 5 &middot; AEP bruta y neta</div>
-            <div class="fase-hero-subtitle">C&aacute;lculo de AEP bruta y neta, p&eacute;rdidas, an&aacute;lisis por sector y evaluaci&oacute;n econ&oacute;mica (CAPEX, OPEX y LCOE).</div>
+        f"""
+        <div class="f5-hero">
+            <svg class="f5-wind" viewBox="0 0 600 190" preserveAspectRatio="none">
+                <path d="M0 42 Q150 24 300 44 T600 34"/>
+                <path d="M0 100 Q180 82 340 102 T600 92"/>
+                <path d="M0 156 Q140 142 300 158 T600 150"/>
+            </svg>
+            <div class="f5-hero-row">
+                <div class="f5-hero-icon">⚡</div>
+                <div class="f5-hero-text">
+                    <div class="f5-hero-title">Fase 5 · AEP bruta y neta + economía</div>
+                    <div class="f5-hero-subtitle">Cálculo del AEP con pérdidas, validación IEC, incertidumbre Monte Carlo, serie horaria y evaluación económica.</div>
+                </div>
+                <div class="f5-hero-pills">
+                    <div class="f5-hpill"><b>{_f5_aep_hero}</b><span>AEP neta</span></div>
+                    <div class="f5-hpill"><b>{_f5_lcoe_hero}</b><span>LCOE</span></div>
+                    <div class="f5-hpill"><b>{_f5_p90_hero}</b><span>P90</span></div>
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-_render_f5_info("En esta fase se calcula la producción bruta del parque y la producción neta considerando todas las pérdidas definidas.")
+
+st.markdown(
+    '<div class="aur-banner info"><span class="bx">ℹ️</span>Aquí se calcula la producción bruta del parque y la neta tras todas las pérdidas definidas.</div>',
+    unsafe_allow_html=True,
+)
 
 # Initialize widget state before creating widgets
 _init_widget_state("f5_base_viento", base_viento_default)
@@ -2316,7 +2757,7 @@ top_config_col, top_losses_col = st.columns([1, 1], gap="large")
 
 with top_config_col:
     with st.container(border=True, key="f5_card_config"):
-        _render_f5_section_header(_f5_icon_svg("settings"), "Configuración del cálculo")
+        _render_f5_card_header_native("Configuración del cálculo", "⚙️", "Base de velocidad y parámetros del modelo")
         with st.form("f5_config_form", clear_on_submit=False):
             c1, c2 = st.columns(2)
             with c1:
@@ -2478,7 +2919,7 @@ _init_widget_state("f5_loss_curtailment_pct", loss_curtailment_default)
 
 with top_losses_col:
     with st.container(border=True, key="f5_card_losses"):
-        _render_f5_section_header(_f5_icon_svg("loss"), "Pérdidas")
+        _render_f5_card_header_native("Pérdidas", "📉", "Estela + disponibilidad + eléctricas + avanzadas")
         with st.form("f5_losses_form", clear_on_submit=False):
             p1, p2 = st.columns(2)
             with p1:
@@ -2711,9 +3152,9 @@ try:
     _serie_hub = df_analisis["WS_ANALISIS"] if df_analisis is not None and "WS_ANALISIS" in df_analisis.columns else None
     if _serie_hub is not None and len(_serie_hub) >= 30:
         with st.container(border=True, key="f5_card_ti_iec"):
-            _render_f5_section_header(_f5_icon_svg("settings"), "Validación IEC 61400-1 + Turbulencia")
+            _render_f5_card_header_native("Validación IEC 61400-1 + Turbulencia", "🛡️", "Clase declarada vs sitio")
 
-            ic1, ic2, ic3, ic4 = st.columns([1, 1, 1.4, 1.4])
+            ic1, ic2 = st.columns(2)
             with ic1:
                 _init_widget_state("f5_iec_clase_declarada", iec_clase_default)
                 iec_clase_ui = st.selectbox(
@@ -2736,43 +3177,42 @@ try:
             _v_mean = _ti_res.get("v_mean", float("nan"))
             _iec_res = clasificar_iec_61400_1(_v_mean, _ti_15, iec_clase_ui, iec_turb_ui)
 
-            with ic3:
-                _ti_str = f"{_ti_15:.3f}" if _ti_15 == _ti_15 and _ti_15 is not None else "N/D"
-                _v_str = f"{_v_mean:.2f} m/s" if _v_mean == _v_mean else "N/D"
-                st.markdown(
-                    f'<div class="f5-mini-note">'
-                    f'TI(15 m/s) calc.: <b>{_ti_str}</b><br>'
-                    f'v media sitio: <b>{_v_str}</b><br>'
-                    f'TI límite clase {iec_turb_ui}: <b>{_iec_res["ti_clase"]:.2f}</b><br>'
-                    f'v_avg límite clase {iec_clase_ui}: <b>{_iec_res["v_avg_clase"]}</b> m/s'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-            with ic4:
-                _cumple = _iec_res.get("cumple")
-                if _cumple is True:
-                    _badge_color = "#16a34a"
-                    _badge_txt = "Sitio CUMPLE con la clase declarada"
-                elif _cumple is False:
-                    _badge_color = "#dc2626"
-                    _badge_txt = "Sitio EXCEDE clase declarada — revisar turbina"
-                else:
-                    _badge_color = "#6b7280"
-                    _badge_txt = "Datos insuficientes para validación completa"
-                st.markdown(
-                    f'<div style="padding:0.7rem; border-radius:8px; background:{_badge_color}1a; '
-                    f'border:1px solid {_badge_color}; color:{_badge_color}; font-weight:600;">'
-                    f'{_badge_txt}</div>',
-                    unsafe_allow_html=True,
-                )
+            _ti_str = _f5_fmt_es_num(_ti_15, "{:,.3f}") if _ti_15 == _ti_15 and _ti_15 is not None else "—"
+            _v_str = (_f5_fmt_es_num(_v_mean, "{:,.2f}") + " m/s") if _v_mean == _v_mean else "—"
+            _cumple = _iec_res.get("cumple")
+            if _cumple is True:
+                _verd_txt = "CUMPLE"
+                _verd_sub = "sitio dentro de clase"
+                _verd_kc = "#16a34a"
+                _verd_icon = "✅"
+            elif _cumple is False:
+                _verd_txt = "EXCEDE"
+                _verd_sub = "revisar turbina"
+                _verd_kc = "#dc2626"
+                _verd_icon = "⚠️"
+            else:
+                _verd_txt = "N/D"
+                _verd_sub = "datos insuficientes"
+                _verd_kc = "#6b7280"
+                _verd_icon = "❓"
 
-            st.markdown(
-                '<div class="f5-mini-note" style="margin-top:-0.3rem;margin-bottom:0.7rem;font-size:0.78rem;color:#000000;font-weight:400;">'
-                'Nota: TI se calcula desde la serie WS_ANALISIS (proxy a altura hub). '
-                'Método conservador, no reemplaza medición in-situ con torre meteorológica.'
-                '</div>',
-                unsafe_allow_html=True,
-            )
+            ick1, ick2, ick3 = st.columns(3, gap="medium")
+            with ick1:
+                _render_f5_kpi_card_native(
+                    "σ", "TI(15 m/s) calc.", _ti_str,
+                    f"límite clase {iec_turb_ui}: {_f5_fmt_es_num(_iec_res['ti_clase'], '{:,.2f}')}",
+                    kc="#2563eb",
+                )
+            with ick2:
+                _render_f5_kpi_card_native(
+                    "💨", "v media sitio", _v_str,
+                    f"límite clase {iec_clase_ui}: {_iec_res['v_avg_clase']} m/s",
+                    kc="#16a34a",
+                )
+            with ick3:
+                _render_f5_kpi_card_native(
+                    _verd_icon, "Veredicto", _verd_txt, _verd_sub, kc=_verd_kc,
+                )
 
             guardar_config_values({
                 "f5_iec_clase_declarada": iec_clase_ui,
@@ -2793,97 +3233,46 @@ guardar_config_values({
 })
 
 with st.container(border=True, key="f5_card_results"):
-    st.markdown(
-        (
-            '<div class="f5-main-results-card">'
-            '<div class="f5-main-results-header">'
-            f'<span class="f5-main-results-icon">{_f5_icon_svg("chart", "#2563eb", 18)}</span>'
-            '<span class="f5-main-results-title">Resultados principales</span>'
-            '</div>'
-            '<div class="f5-main-results-spacer"></div>'
-            '<div class="f5-main-results-grid">'
-        ),
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="f5-main-results-first-row">', unsafe_allow_html=True)
-    r1, r2, r3, r4 = st.columns(4, gap="large")
-    with r1:
-        _render_f5_main_result_card(
-            _f5_icon_svg("energy", "#2563eb", 35),
-            "blue",
-            "AEP bruta parque",
-            f"({metodo_detalle})",
-            f"{res['aep_bruta_total']:.1f}",
-            "MWh/año",
-        )
-    with r2:
-        _render_f5_main_result_card(
-            _f5_icon_svg("energy", "#16a34a", 35),
-            "green",
-            "AEP neta parque",
-            f"({metodo_detalle})",
-            f"{res['aep_neta_total']:.1f}",
-            "MWh/año",
-        )
-    with r3:
-        _render_f5_main_result_card(
-            _f5_icon_svg("gauge", "#7e22ce", 35),
-            "purple",
-            "Factor de planta bruto",
-            f"({metodo_detalle})",
-            f"{res['factor_planta_bruto']:.2f}",
-            "%",
-        )
-    with r4:
-        _render_f5_main_result_card(
-            _f5_icon_svg("gauge", "#16a34a", 35),
-            "green",
-            "Factor de planta neto",
-            f"({metodo_detalle})",
-            f"{res['factor_planta_neto']:.2f}",
-            "%",
-        )
-    st.markdown('</div>', unsafe_allow_html=True)
+    _render_f5_card_header_native("Resultados principales", "🏁", "Producción del parque y por turbina")
 
-    st.markdown('<div class="f5-main-results-row-gap"></div>', unsafe_allow_html=True)
-    r5, r6, r7, r8 = st.columns(4, gap="large")
+    r1, r2, r3, r4 = st.columns(4, gap="medium")
+    with r1:
+        _render_f5_kpi_card_native("⚡", "AEP bruta parque", f"{_f5_es(res['aep_bruta_total'], '{:,.0f}')} MWh", "antes de pérdidas", kc="#2563eb")
+    with r2:
+        _render_f5_kpi_card_native("🔋", "AEP neta parque", f"{_f5_es(res['aep_neta_total'], '{:,.0f}')} MWh", "todas las pérdidas", kc="#16a34a")
+    with r3:
+        _render_f5_kpi_card_native("📊", "Factor de planta bruto", f"{_f5_es(res['factor_planta_bruto'], '{:,.1f}')} %", "", kc="#2563eb")
+    with r4:
+        _render_f5_kpi_card_native("📈", "Factor de planta neto", f"{_f5_es(res['factor_planta_neto'], '{:,.1f}')} %", "", kc="#16a34a")
+
+    r5, r6, r7, r8 = st.columns(4, gap="medium")
     with r5:
-        _render_f5_main_result_card(
-            _f5_icon_svg("turbine", "#1d4ed8", 35),
-            "blue",
-            "AEP bruta por turbina",
-            f"({metodo_detalle})",
-            f"{res['aep_bruta_turbina']:.1f}",
-            "MWh/año",
-        )
+        _render_f5_kpi_card_native("🌀", "AEP bruta por turbina", f"{_f5_es(res['aep_bruta_turbina'], '{:,.0f}')} MWh", "", kc="#7c3aed")
     with r6:
-        _render_f5_main_result_card(
-            _f5_icon_svg("turbine", "#16a34a", 35),
-            "green",
-            "AEP neta por turbina",
-            f"({metodo_detalle})",
-            f"{res['aep_neta_turbina']:.1f}",
-            "MWh/año",
-        )
+        _render_f5_kpi_card_native("🌱", "AEP neta por turbina", f"{_f5_es(res['aep_neta_turbina'], '{:,.0f}')} MWh", "", kc="#0d9488")
     with r7:
-        _render_f5_main_result_card(
-            _f5_icon_svg("power-module", "#d97706", 35),
-            "amber",
-            "Potencia nominal por turbina",
-            "",
-            f"{res['potencia_nominal_turbina_w']/1000:.0f}",
-            "kW",
-        )
+        _render_f5_kpi_card_native("🏭", "Potencia nominal turbina", f"{_f5_es(res['potencia_nominal_turbina_w']/1e6, '{:,.2f}')} MW", "", kc="#d97706")
     with r8:
-        _render_f5_main_result_card(
-            _f5_icon_svg("group", "#2563eb", 35),
-            "blue",
-            "Número de turbinas",
-            "",
-            f"{n_turbinas}",
-            "unidades",
-        )
-    st.markdown("</div></div>", unsafe_allow_html=True)
+        _render_f5_kpi_card_native("#️⃣", "Número de turbinas", f"{n_turbinas}", "", kc="#94a3b8")
+
+    # Cascada bruta → neta (SVG paridad mockup)
+    _casc_con_estela = float(res["base_sens"])
+    _casc_post_disp = _casc_con_estela - float(res["perdida_disp_mwh"])
+    _casc_post_elec = _casc_post_disp - float(res["perdida_elec_mwh"])
+    _casc_bruta = float(res["aep_bruta_total"])
+    _casc_estela_pct = (float(res["perdida_estela_mwh"]) / _casc_bruta * 100.0) if _casc_bruta > 0 else 0.0
+    _cascade_stages = [
+        {"label": "Bruta", "value": _casc_bruta, "color": "#2563eb", "top": ""},
+        {"label": "Estela", "value": _casc_con_estela, "color": "#7c3aed", "top": f"−{_f5_es(_casc_estela_pct, '{:,.1f}')}%"},
+        {"label": "Disp.", "value": _casc_post_disp, "color": "#f59e0b", "top": f"−{_f5_es(disp_pct, '{:,.1f}')}%"},
+        {"label": "Eléctr.", "value": _casc_post_elec, "color": "#f97316", "top": f"−{_f5_es(elec_pct, '{:,.1f}')}%"},
+        {"label": "Otras", "value": float(res["aep_neta_total"]) + 0.0, "color": "#fb7185", "top": f"−{_f5_es(otras_pct, '{:,.1f}')}%"},
+        {"label": "Neta", "value": float(res["aep_neta_total"]), "color": "#16a34a", "top": _f5_es(res["aep_neta_total"], "{:,.0f}")},
+    ]
+    components.html(
+        render_cascade_svg(_cascade_stages, title="Desglose de pérdidas — de bruta a neta"),
+        height=300, scrolling=False,
+    )
 
 if modo_estadistico == "Comparar Weibull y Rayleigh":
     with st.container(border=True, key="f5_card_compare"):
@@ -2975,16 +3364,10 @@ def _build_loss_table_html(tp_df):
         '</div>'
     )
 
-with st.container(border=True, key="f5_card_breakdown"):
-    _render_f5_section_header_card(_f5_icon_svg("pie-chart-detached", "#2563eb", 20), "Desglose de pérdidas")
-    loss_table_col, loss_waterfall_col, loss_donut_col = st.columns([0.95, 1.75, 1.25], gap="medium")
-    with loss_table_col:
-        st.markdown(_build_loss_table_html(tabla_perdidas), unsafe_allow_html=True)
-    with loss_waterfall_col:
-        st.plotly_chart(fig_resumen, use_container_width=True, key="f5_loss_waterfall_chart", config=PLOTLY_PERF_CONFIG)
-    with loss_donut_col:
-        st.plotly_chart(fig_dona, use_container_width=True, key="f5_loss_donut_chart", config=PLOTLY_PERF_CONFIG)
-
+# El desglose de pérdidas se muestra como cascada SVG dentro de "Resultados
+# principales" (paridad mockup). fig_resumen/fig_dona se conservan arriba para
+# los reportes (RUNTIME_CONTEXT_STATE_KEY); _build_loss_table_html sigue
+# disponible por compatibilidad.
 
 container_height = int(min(740, max(660, len(df_aep_sector) * 32 + 130)))
 fig_sectorial = crear_figura_sectorial(df_aep_sector, titulo=f"AEP por sector ({metodo_detalle})")
@@ -3095,94 +3478,18 @@ def _build_sector_table_html(df_sector):
     )
 
 with st.container(border=True, key="f5_card_sector"):
-    _render_f5_section_header_card(_f5_icon_svg("sector", "#2563eb", 20), "Resultados por sector")
-    st.markdown(
-        f"""
-        <style>
-            .f5-sector-table-ref {{ white-space: normal !important; }}
-            .st-key-f5_card_sector > div[data-testid="stVerticalBlockBorderWrapper"] {{
-                padding-bottom: 2.2rem !important;
-            }}
-            .st-key-f5_card_sector [data-testid="stHorizontalBlock"] {{
-                align-items: stretch !important;
-                margin-top: -8px !important;
-            }}
-            /* Outer card parity: both table and chart real containers */
-            .st-key-f5_sector_table_card,
-            .st-key-f5_sector_chart_card {{
-                border-radius: 26px !important;
-                background: #ffffff !important;
-                border: 1px solid #bcd7ff !important;
-                box-shadow: 0 10px 28px rgba(15, 60, 120, 0.06) !important;
-                padding: 0.4rem !important;
-                height: {container_height}px !important;
-                min-height: {container_height}px !important;
-                max-height: {container_height}px !important;
-                overflow: hidden !important;
-                box-sizing: border-box !important;
-            }}
-            .st-key-f5_sector_table_card > div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f5_sector_chart_card > div[data-testid="stVerticalBlockBorderWrapper"] {{
-                padding: 0 !important;
-                height: 100% !important;
-            }}
-
-            /* Inner table wrapper: keep scroll inside, do not clip the outer border */
-            .f5-sector-table-inner {{
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-            }}
-            .f5-sector-table-inner .f5-sector-table-wrap {{
-                flex: 1 1 auto;
-                min-height: 0;
-                overflow: auto;
-                border-radius: 20px;
-                border: 1px solid #d9e8fb !important;
-                margin: 0 !important;
-                background: #ffffff;
-            }}
-            .f5-sector-table-inner .f5-sector-table-wrap table {{ width:100%; border-collapse:collapse; }}
-
-            /* Make the visible blue bottom line part of the outer card so it's never clipped */
-            .st-key-f5_sector_table_card {{
-                /* Removed blue line */
-            }}
-            .st-key-f5_sector_chart_card {{
-                /* Removed blue line */
-            }}
-
-            /* Chart: force full-height canvas inside the card */
-            .st-key-f5_sector_chart_card [data-testid="stPlotlyChart"] {{
-                height: 100% !important;
-                width: 100% !important;
-                border-radius: 22px !important;
-                border: none !important;
-                padding: 0 !important;
-                background: transparent !important;
-            }}
-            .st-key-f5_sector_chart_card > div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stPlotlyChart"] > div {{
-                height: 100% !important;
-            }}
-        </style>
-        """,
-        unsafe_allow_html=True,
+    _render_f5_card_header_native("Resultados por sector", "🥧", "Aporte de energía de cada dirección al AEP")
+    components.html(
+        render_sector_bars_svg(df_aep_sector, title="AEP con estela por sector (MWh/año)"),
+        height=280, scrolling=False,
     )
-    sector_table_col, sector_chart_col = st.columns([1.0, 1.0], gap="small")
 
-    with sector_table_col:
+    with st.expander("Ver tabla sectorial completa"):
         table_html = _build_sector_table_html(df_aep_sector)
-        with st.container(border=True, key="f5_sector_table_card"):
-            st.markdown(
-                f'<div class="f5-sector-table-inner">{table_html}</div>',
-                unsafe_allow_html=True,
-            )
-
-    with sector_chart_col:
-        with st.container(border=True, key="f5_sector_chart_card"):
-            st.plotly_chart(fig_sectorial, use_container_width=True, key="f5_sector_chart_col", config=PLOTLY_PERF_CONFIG)
-
-    st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="f5-sector-table-inner f5-sector-table-ref-wrap">{table_html}</div>',
+            unsafe_allow_html=True,
+        )
 
 fig_wind_rose_export = None
 if len(resumen_rosa) > 0:
@@ -3529,7 +3836,7 @@ with st.container(border=True, key="f5_card_econ_master"):
 
     # B1 - Monte Carlo P50/P75/P90/P99
     with st.container(border=True, key="f5_card_montecarlo"):
-        _render_f5_section_header(_f5_icon_svg("chart"), "Monte Carlo · P50 / P75 / P90 / P99 (banca)")
+        _render_f5_card_header_native("Monte Carlo · P50/P75/P90/P99", "🎲", "Incertidumbre para banca (bajo demanda)")
         st.markdown(
             '<div class="f5-mini-note"><span class="f5-info-dot" style="width:1.2rem;height:1.2rem;font-size:0.72rem;">i</span>'
             'Muestreo Monte Carlo de incertidumbres (Weibull, curva, pérdidas, wake) → bandas de confianza AEP. '
@@ -3587,16 +3894,15 @@ with st.container(border=True, key="f5_card_econ_master"):
                         seed=int(mc_seed),
                     )
 
-                    kpis_html = (
-                        '<div class="f5-econ-lcoe-pair">'
-                        + _econ_lcoe_kpi(_f5_icon_svg("chart","#16a34a",14), "green", "P50 (MWh/año)", f"{mc_res['p50']:,.0f}")
-                        + _econ_lcoe_kpi(_f5_icon_svg("chart","#2563eb",14), "blue", "P75 (MWh/año)", f"{mc_res['p75']:,.0f}")
-                        + '</div><div class="f5-econ-lcoe-pair">'
-                        + _econ_lcoe_kpi(_f5_icon_svg("chart","#ea580c",14), "purple", "P90 (banca)", f"{mc_res['p90']:,.0f}")
-                        + _econ_lcoe_kpi(_f5_icon_svg("chart","#dc2626",14), "purple", "P99 (stress)", f"{mc_res['p99']:,.0f}")
-                        + '</div>'
-                    )
-                    st.markdown(kpis_html, unsafe_allow_html=True)
+                    _mcp1, _mcp2, _mcp3, _mcp4 = st.columns(4, gap="small")
+                    with _mcp1:
+                        _render_f5_kpi_card_native("P50", "P50", f"{_f5_es(mc_res['p50']/1000.0, '{:,.1f}')} GWh", "", kc="#16a34a")
+                    with _mcp2:
+                        _render_f5_kpi_card_native("P75", "P75", f"{_f5_es(mc_res['p75']/1000.0, '{:,.1f}')} GWh", "", kc="#2563eb")
+                    with _mcp3:
+                        _render_f5_kpi_card_native("P90", "P90", f"{_f5_es(mc_res['p90']/1000.0, '{:,.1f}')} GWh", "banca", kc="#d97706")
+                    with _mcp4:
+                        _render_f5_kpi_card_native("P99", "P99", f"{_f5_es(mc_res['p99']/1000.0, '{:,.1f}')} GWh", "stress", kc="#dc2626")
 
                     rel_p90 = mc_res["p90"] / mc_res["p50"] if mc_res["p50"] > 0 else 0.0
                     rel_p99 = mc_res["p99"] / mc_res["p50"] if mc_res["p50"] > 0 else 0.0
@@ -3640,7 +3946,7 @@ with st.container(border=True, key="f5_card_econ_master"):
 
     # B4 - AEP serie temporal horaria
     with st.container(border=True, key="f5_card_aep_serie"):
-        _render_f5_section_header(_f5_icon_svg("energy"), "AEP por serie temporal horaria")
+        _render_f5_card_header_native("AEP por serie horaria", "⏱️", "8.760+ horas reales (bajo demanda)")
         st.markdown(
             '<div class="f5-mini-note"><span class="f5-info-dot" style="width:1.2rem;height:1.2rem;font-size:0.72rem;">i</span>'
             'Calcula AEP hora-a-hora con la serie NASA POWER (no Weibull agregado). Habilita análisis de patrones estacionales, '
@@ -3648,7 +3954,7 @@ with st.container(border=True, key="f5_card_econ_master"):
             '</div>',
             unsafe_allow_html=True,
         )
-        if st.button("Calcular AEP serie horaria", key="f5_btn_run_serie", use_container_width=True):
+        if st.button("Calcular AEP serie horaria", key="f5_btn_run_serie", use_container_width=True, type="primary"):
             st.session_state["f5_serie_run_flag"] = True
 
         if st.session_state.get("f5_serie_run_flag"):
@@ -3679,41 +3985,20 @@ with st.container(border=True, key="f5_card_econ_master"):
                     aep_weibull = float(res["aep_neta_total"])
                     diff_pct = (aep_total_serie - aep_weibull) / aep_weibull * 100.0 if aep_weibull > 0 else 0.0
 
-                    kpis_serie = (
-                        '<div class="f5-econ-lcoe-pair">'
-                        + _econ_lcoe_kpi(_f5_icon_svg("energy","#16a34a",14), "green", "AEP serie horaria", f"{aep_total_serie:,.0f} MWh")
-                        + _econ_lcoe_kpi(_f5_icon_svg("energy","#2563eb",14), "blue", "AEP Weibull (ref)", f"{aep_weibull:,.0f} MWh")
-                        + '</div>'
-                    )
-                    st.markdown(kpis_serie, unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div class="f5-mini-note">'
-                        f'Diferencia serie vs Weibull: <b>{diff_pct:+.2f}%</b> · '
-                        f'Factor planta serie: <b>{res_serie["factor_planta_pct"]:.1f}%</b>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-
-                    # Heatmap mes x hora
+                    # Heatmap mes x hora (SVG paridad mockup)
                     heatmap = res_serie["heatmap_mes_hora"]
                     if len(heatmap) > 0:
-                        import plotly.graph_objects as _go_hm
-                        fig_hm = _go_hm.Figure(data=_go_hm.Heatmap(
-                            z=heatmap.values / 1e6,  # MW
-                            x=[f"{h:02d}h" for h in heatmap.columns],
-                            y=[["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1] for m in heatmap.index],
-                            colorscale="YlOrRd",
-                            colorbar=dict(title="MW medio"),
-                        ))
-                        fig_hm.update_layout(
-                            template="plotly_white",
-                            height=420,
-                            margin=dict(l=14, r=14, t=42, b=16),
-                            title="Producción media (MW) por mes y hora",
-                            xaxis_title="Hora del día",
-                            yaxis_title="Mes",
+                        _hm_matrix = heatmap.values / 1e6  # MW
+                        components.html(
+                            render_heatmap_mes_hora_svg(_hm_matrix, title="Heatmap mes × hora (MWh)"),
+                            height=280, scrolling=False,
                         )
-                        st.plotly_chart(fig_hm, use_container_width=True, config=PLOTLY_PERF_CONFIG)
+
+                    _shp1, _shp2 = st.columns(2, gap="small")
+                    with _shp1:
+                        _render_f5_kpi_card_native("⚡", "AEP serie", f"{_f5_es(aep_total_serie, '{:,.0f}')} MWh", f"{diff_pct:+.1f} % vs Weibull".replace(".", ","), kc="#16a34a")
+                    with _shp2:
+                        _render_f5_kpi_card_native("📈", "FP serie", f"{_f5_es(res_serie['factor_planta_pct'], '{:,.1f}')} %", "", kc="#2563eb")
 
                     # AEP por mes
                     aep_por_mes = res_serie["aep_por_mes"]
