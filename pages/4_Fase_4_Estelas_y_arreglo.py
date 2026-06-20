@@ -1,4 +1,5 @@
 import base64
+import html as _html_module
 import textwrap
 import unicodedata
 
@@ -67,6 +68,9 @@ ROUGHNESS_OPTIONS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Utility helpers (preserved exactly)
+# ---------------------------------------------------------------------------
 def _normalize_col_name(name: str) -> str:
     text = str(name)
     text = unicodedata.normalize("NFKD", text)
@@ -129,1540 +133,52 @@ def _get_direction_center_value(row: pd.Series) -> float:
     raise KeyError("Dirección centro (°)")
 
 
-def _render_phase4_css():
-    st.markdown(
-        """
-        <style>
-        [data-testid="stAppViewContainer"] {
-            background: linear-gradient(180deg, #f5f9ff 0%, #eef5ff 100%) !important;
-        }
-
-                                                                                                                                                                .sidebar-project-card,
-        .sidebar-user-card {
-            margin: 0.85rem 0.5rem 0 0.5rem;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px solid rgba(203, 213, 225, 0.9);
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-        }
-
-        .sidebar-project-card {
-            padding: 0.95rem 0.9rem;
-        }
-
-        .sidebar-project-card__row {
-            display: flex;
-            gap: 0.8rem;
-            align-items: flex-start;
-        }
-
-        .sidebar-project-card__icon {
-            width: 38px;
-            height: 38px;
-            border-radius: 12px;
-            background: #eff6ff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .sidebar-project-card__eyebrow {
-            color: #000000;
-            font-size: 0.78rem;
-            font-weight: 500;
-            margin-bottom: 0.15rem;
-        }
-
-        .sidebar-project-card__title {
-            color: #10224f;
-            font-size: 1rem;
-            font-weight: 800;
-            line-height: 1.2;
-            margin-bottom: 0.25rem;
-        }
-
-        .sidebar-project-card__meta {
-            color: #000000;
-            font-size: 0.77rem;
-            line-height: 1.35;
-        }
-
-        .sidebar-project-card__config {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-top: 0.9rem;
-            padding-top: 0.75rem;
-            border-top: 1px solid rgba(203, 213, 225, 0.55);
-            color: #000000;
-            font-size: 0.88rem;
-            font-weight: 400;
-        }
-
-        .sidebar-user-card {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.85rem 0.9rem;
-        }
-
-        .sidebar-user-card__avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 999px;
-            background: #1e40af;
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.86rem;
-            font-weight: 800;
-            flex-shrink: 0;
-        }
-
-        .sidebar-user-card__name {
-            color: #0f172a;
-            font-size: 0.9rem;
-            font-weight: 800;
-        }
-
-        .sidebar-user-card__mail {
-            color: #000000;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-
-        .hero-card {
-            position: relative !important;
-            overflow: hidden !important;
-            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 20px !important;
-            padding: 1.45rem 1.55rem 1.35rem 1.55rem !important;
-            margin-bottom: 1rem !important;
-            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045) !important;
-            min-height: unset !important;
-            height: auto !important;
-        }
-        .hero-card::after {
-            content: "" !important;
-            position: absolute !important;
-            right: -10px !important;
-            top: -8px !important;
-            width: 260px !important;
-            height: 140px !important;
-            background:
-              radial-gradient(circle at 78% 25%, rgba(147, 197, 253, 0.28) 0 18px, transparent 19px),
-              radial-gradient(circle at 56% 18%, rgba(191, 219, 254, 0.30) 0 26px, transparent 27px) !important;
-            opacity: 0.9 !important;
-            pointer-events: none !important;
-        }
-        .fase-hero-title {
-            font-size: 2.1rem !important;
-            line-height: 1.05 !important;
-            font-weight: 800 !important;
-            color: #1e3a8a !important;
-            margin: 0 0 0.28rem 0 !important;
-            position: relative !important;
-            z-index: 2 !important;
-        }
-        .fase-hero-subtitle {
-            margin: 0 !important;
-            color: #000000 !important;
-            font-size: 0.94rem !important;
-            font-weight: 400 !important;
-            line-height: 1.42 !important;
-            max-width: 74rem !important;
-            position: relative !important;
-            z-index: 2 !important;
-        }
-        .sma-phase-title-shell {
-            width: 100% !important;
-            box-sizing: border-box !important;
-            background: #ffffff !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 30px !important;
-            padding: 0.45rem 0.72rem 0.72rem 0.72rem !important;
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-            margin: -1.45rem 0 1rem 0 !important;
-            overflow: hidden !important;
-        }
-        .sma-phase-title-inner {
-            position: relative !important;
-            overflow: hidden !important;
-            box-sizing: border-box !important;
-            min-height: unset !important;
-            background: transparent !important;
-            border: none !important;
-            border-radius: 20px !important;
-            padding: 1.45rem 1.55rem 1.35rem 1.55rem !important;
-            display: flex !important;
-            align-items: center !important;
-            box-shadow: none !important;
-        }
-        .sma-phase-title-inner::after {
-            content: "";
-            position: absolute;
-            right: -10px;
-            top: -8px;
-            width: 260px;
-            height: 140px;
-            background:
-                radial-gradient(circle at 78% 25%, rgba(147, 197, 253, 0.28) 0 18px, transparent 19px),
-                radial-gradient(circle at 56% 18%, rgba(191, 219, 254, 0.30) 0 26px, transparent 27px);
-            opacity: 0.9;
-            pointer-events: none;
-        }
-        .sma-phase-title-content {
-            position: relative !important;
-            z-index: 2 !important;
-        }
-        .sma-phase-title-content h1 {
-            margin: 0 0 0.28rem 0 !important;
-            color: #1e3a8a !important;
-            font-size: 2.1rem !important;
-            line-height: 1.05 !important;
-            font-weight: 800 !important;
-            letter-spacing: 0 !important;
-        }
-        .sma-phase-title-content p {
-            margin: 0 !important;
-            max-width: 74rem !important;
-            color: #000000 !important;
-            font-size: 0.94rem !important;
-            line-height: 1.42 !important;
-            font-weight: 400 !important;
-        }
-
-        .f4-info-banner {
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.75rem !important;
-            padding: 0.58rem 0.78rem !important;
-            border: 1px solid #c8dcfb !important;
-            border-radius: 12px !important;
-            background: #ecf4ff !important;
-            color: #1f4ea8 !important;
-            font-weight: 500 !important;
-            margin-bottom: 0.85rem !important;
-        }
-
-        .f4-info-banner__icon {
-            width: 1.35rem !important;
-            height: 1.35rem !important;
-            border-radius: 999px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            background: #2563eb !important;
-            color: #ffffff !important;
-            font-weight: 900 !important;
-            font-size: 0.72rem !important;
-        }
-
-        .f4-section-title {
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.75rem !important;
-            margin-bottom: 0.95rem !important;
-        }
-
-        .f4-section-title__icon {
-            width: 2rem !important;
-            height: 2rem !important;
-            border-radius: 999px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            background: rgba(37, 99, 235, 0.12) !important;
-            color: #2563eb !important;
-            font-size: 1rem !important;
-            font-weight: 800 !important;
-        }
-
-        .f4-section-title__text {
-            color: #17326b !important;
-            font-size: 1.12rem !important;
-            font-weight: 820 !important;
-        }
-
-        .f4-card-top-actions {
-            margin-top: 0.9rem !important;
-        }
-
-        .f4-card-top-actions .stButton > button {
-            min-height: 3rem !important;
-        }
-
-        .st-key-f4_card_move_layout label,
-        .st-key-f4_card_wind_base label {
-            color: #000000 !important;
-            font-weight: 400 !important;
-        }
-
-        .st-key-f4_card_move_layout [data-testid="stNumberInput"] input,
-        .st-key-f4_card_move_layout [data-testid="stSelectbox"] div[data-baseweb="select"],
-        .st-key-f4_card_wind_base [data-testid="stNumberInput"] input,
-        .st-key-f4_card_wind_base [data-testid="stSelectbox"] div[data-baseweb="select"] {
-            background: #ffffff !important;
-            border-color: #d8e3f0 !important;
-            border-radius: 14px !important;
-        }
-
-        .st-key-f4_card_config {
-            background: #ffffff !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 20px !important;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.035) !important;
-        }
-
-        .st-key-f4_card_config div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 1.12rem 1.35rem 1.35rem 1.35rem !important;
-        }
-
-        .st-key-f4_card_config .f4-section-title {
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.75rem !important;
-            margin-bottom: 1.15rem !important;
-        }
-
-        .st-key-f4_card_config .f4-section-title__icon {
-            width: 2.75rem !important;
-            height: 2.75rem !important;
-            min-width: 2.75rem !important;
-            border-radius: 999px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%) !important;
-            color: #0369a1 !important;
-            font-size: 1.35rem !important;
-            font-weight: 800 !important;
-            border: 1px solid #bae6fd !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.95) !important;
-        }
-
-        .st-key-f4_card_config .f4-section-title__icon svg {
-            width: 1.45rem !important;
-            height: 1.45rem !important;
-            display: block !important;
-        }
-
-        .st-key-f4_card_config .f4-section-title__text {
-            color: #0f172a !important;
-            font-size: 1.28rem !important;
-            font-weight: 800 !important;
-        }
-
-        /* ── Negrilla global en todo el bloque ── */
-        .st-key-f4_card_config label,
-        .st-key-f4_card_config [data-testid="stWidgetLabel"],
-        .st-key-f4_card_config [data-testid="stWidgetLabel"] p,
-        .st-key-f4_card_config [data-testid="stWidgetLabel"] span {
-            color: #1e293b !important;
-            font-weight: 800 !important;
-            font-size: 0.92rem !important;
-        }
-
-        /* ── Inputs y selects: contenedor baseweb real ── */
-        .st-key-f4_card_config [data-baseweb="input"],
-        .st-key-f4_card_config [data-testid="stNumberInput"] [data-baseweb="input"],
-        .st-key-f4_card_wind_base [data-baseweb="input"],
-        .st-key-f4_card_detail_direction [data-baseweb="input"],
-        .st-key-f4_card_wind_base [data-testid="stNumberInput"] [data-baseweb="input"],
-        .st-key-f4_card_detail_direction [data-testid="stNumberInput"] [data-baseweb="input"] {
-            background: #ffffff !important;
-            border: 1px solid #bfdbfe !important;
-            border-radius: 14px !important;
-            min-height: 46px !important;
-            display: flex !important;
-            align-items: center !important;
-            overflow: hidden !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.98), 0 1px 2px rgba(15, 23, 42, 0.02) !important;
-        }
-
-        .st-key-f4_card_config [data-baseweb="input"] > div,
-        .st-key-f4_card_config [data-baseweb="input"] input,
-        .st-key-f4_card_wind_base [data-baseweb="input"],
-        .st-key-f4_card_detail_direction [data-baseweb="input"] > div,
-        .st-key-f4_card_wind_base [data-baseweb="input"],
-        .st-key-f4_card_detail_direction [data-baseweb="input"] input {
-            background: #ffffff !important;
-            color: #0f172a !important;
-        }
-
-        /* ── Divisor y contenedor de stepper para todo Fase 4 ── */
-        [data-testid="stNumberInput"] [data-baseweb="input"] > div:last-child {
-            background: #ffffff !important;
-            border-left: 1px solid #dbeafe !important;
-        }
-
-        /* ── Valor numérico en negrilla para todo Fase 4 ── */
-        [data-testid="stNumberInput"] input {
-            background: #ffffff !important;
-            padding-left: 1rem !important;
-            font-weight: 800 !important;
-            color: #0f172a !important;
-        }
-
-        /* ── Botones + y - sobre fondo blanco ── */
-        [data-testid="stNumberInput"] button,
-        [data-testid="stNumberInput"] [data-baseweb="input"] button {
-            background: #ffffff !important;
-            color: #0f172a !important;
-            border-radius: 10px !important;
-            border: 1px solid #eef2f7 !important;
-            min-width: 2.35rem !important;
-            font-weight: 800 !important;
-            font-size: 1.05rem !important;
-        }
-
-        /* ── Hover real de los botones + y - ── */
-        [data-testid="stNumberInput"] button:hover,
-        [data-testid="stNumberInput"] [data-baseweb="input"] button:hover {
-            background: #eff6ff !important;
-            color: #1d4ed8 !important;
-        }
-
-        /* ── Selectbox: contenedor y valor seleccionado ── */
-        .st-key-f4_card_config [data-testid="stSelectbox"] [data-baseweb="select"] > div,
-        .st-key-f4_card_wind_base [data-testid="stSelectbox"] [data-baseweb="select"] > div,
-        .st-key-f4_card_detail_direction [data-testid="stSelectbox"] [data-baseweb="select"] > div {
-            min-height: 46px !important;
-            background: #ffffff !important;
-            border: 1px solid #bfdbfe !important;
-            border-radius: 14px !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.98), 0 1px 2px rgba(15, 23, 42, 0.02) !important;
-            align-items: center !important;
-        }
-        .st-key-f4_card_config [data-testid="stSelectbox"] [data-baseweb="select"] span,
-        .st-key-f4_card_config [data-testid="stSelectbox"] [data-baseweb="select"] div,
-        .st-key-f4_card_wind_base [data-testid="stSelectbox"] [data-baseweb="select"] span,
-        .st-key-f4_card_detail_direction [data-testid="stSelectbox"] [data-baseweb="select"] span,
-        .st-key-f4_card_wind_base [data-testid="stSelectbox"] [data-baseweb="select"] div,
-        .st-key-f4_card_detail_direction [data-testid="stSelectbox"] [data-baseweb="select"] div {
-            font-weight: 600 !important;
-            color: #0f172a !important;
-            background: #ffffff !important;
-        }
-
-        /* ── Botones de acción inferiores ── */
-        .st-key-f4_card_config .stButton > button {
-            background: #ffffff !important;
-            border: 1px solid #bfdbfe !important;
-            border-radius: 14px !important;
-            color: #1d4ed8 !important;
-            font-weight: 800 !important;
-            font-size: 1rem !important;
-            min-height: 3.1rem !important;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.045) !important;
-            transition: all 0.2s ease !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 0.55rem !important;
-        }
-        .st-key-f4_card_config .stButton > button:hover {
-            background: #eff6ff !important;
-            border-color: #3b82f6 !important;
-            color: #1d4ed8 !important;
-        }
-
-        /* ── Iconos nativos Streamlit en botones Generar / Recargar ── */
-        /* Streamlit renderiza icon=":material/...:" como .material-symbols-rounded */
-        /* Selector sin > porque hay un div.stButton intermedio */
-        .st-key-f4_btn_generar button,
-        .st-key-f4_btn_recargar button {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 10px !important;
-            font-weight: 800 !important;
-        }
-        .st-key-f4_btn_generar button .material-symbols-rounded,
-        .st-key-f4_btn_recargar button .material-symbols-rounded {
-            font-size: 34px !important;
-            line-height: 1 !important;
-            width: 34px !important;
-            height: 34px !important;
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 34 !important;
-            flex-shrink: 0 !important;
-            color: #0B63F6 !important;
-        }
-        .st-key-f4_btn_generar button span:not(.material-symbols-rounded),
-        .st-key-f4_btn_recargar button span:not(.material-symbols-rounded) {
-            font-weight: 800 !important;
-        }
-
-        .f4-top-kpi-card {
-            display: flex !important;
-            gap: 0.85rem !important;
-            align-items: center !important;
-            min-height: 75px !important;
-            margin-top: -4px !important;
-        }
-
-        .f4-top-kpi-card__icon {
-            width: 3rem !important;
-            height: 3rem !important;
-            border-radius: 999px !important;
-            background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%) !important;
-            border: 1px solid #bfdbfe !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            flex-shrink: 0 !important;
-            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.10) !important;
-        }
-
-        .f4-top-kpi-card__body {
-            display: flex !important;
-            flex-direction: column !important;
-            gap: 0.18rem !important;
-            min-width: 0 !important;
-        }
-
-        .f4-top-kpi-card__label {
-            color: #000000 !important;
-            font-size: 0.86rem !important;
-            font-weight: 400 !important;
-        }
-
-        .f4-top-kpi-card__value {
-            color: #10224f !important;
-            font-size: 1.5rem !important;
-            line-height: 1.02 !important;
-            font-weight: 800 !important;
-        }
-
-        .f4-top-kpi-card__caption {
-            color: #000000 !important;
-            font-size: 0.75rem !important;
-            font-weight: 400 !important;
-            line-height: 1.25 !important;
-        }
-
-        .st-key-f4_top_kpi_1,
-        .st-key-f4_top_kpi_2,
-        .st-key-f4_top_kpi_3,
-        .st-key-f4_top_kpi_4,
-        .st-key-f4_top_kpi_5 {
-            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 22px !important;
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04) !important;
-            overflow: hidden !important;
-        }
-
-        .st-key-f4_top_kpi_1 div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_top_kpi_2 div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_top_kpi_3 div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_top_kpi_4 div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_top_kpi_5 div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 0.65rem 1rem 0.65rem 1rem !important;
-            min-height: 80px !important;
-            border: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-        }
-
-        .f4-kpi-html {
-            display: flex !important;
-            flex-direction: column !important;
-            gap: 0.2rem !important;
-            min-height: 84px !important;
-            margin-top: -4px !important;
-        }
-
-        .f4-kpi-html__label {
-            color: #000000 !important;
-            font-size: 0.88rem !important;
-            font-weight: 400 !important;
-        }
-
-        .f4-kpi-html__value {
-            color: #10224f !important;
-            font-size: 1.45rem !important;
-            line-height: 1.1 !important;
-            font-weight: 800 !important;
-        }
-
-        .f4-kpi-html__caption {
-            color: #000000 !important;
-            font-size: 0.76rem !important;
-            font-weight: 500 !important;
-        }
-
-        .f4-note {
-            margin-top: 0.7rem !important;
-            padding: 0.75rem 0.95rem !important;
-            border-radius: 14px !important;
-            background: #eff6ff !important;
-            color: #2563eb !important;
-            font-size: 0.88rem !important;
-            font-weight: 400 !important;
-            border: 1px solid #cbd5e1 !important;
-        }
-
-        .f4-panel-hero__top {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            gap: 0.8rem !important;
-            margin-bottom: 0.55rem !important;
-        }
-
-        .f4-panel-hero__subtitle {
-            color: #000000 !important;
-            font-size: 0.8rem !important;
-            font-weight: 400 !important;
-            margin-top: -0.2rem !important;
-            margin-bottom: 0.5rem !important;
-        }
-
-        .f4-panel-toolbar {
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 0.45rem !important;
-        }
-
-        .f4-panel-toolbar__btn {
-            width: 2rem !important;
-            height: 2rem !important;
-            border-radius: 999px !important;
-            border: 1px solid #cbd5e1 !important;
-            background: #ffffff !important;
-            color: #1d4ed8 !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 0.92rem !important;
-            font-weight: 800 !important;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
-        }
-
-        .f4-summary-grid {
-            display: flex !important;
-            flex-direction: column !important;
-            gap: 0.7rem !important;
-        }
-
-        .f4-summary-item {
-            display: flex !important;
-            align-items: baseline !important;
-            justify-content: space-between !important;
-            gap: 0.8rem !important;
-            padding-bottom: 0.28rem !important;
-            border-bottom: 1px solid rgba(219, 231, 243, 0.72) !important;
-        }
-
-        .f4-summary-item:last-child {
-            border-bottom: none !important;
-        }
-
-        .f4-summary-item__label {
-            color: #000000 !important;
-            font-size: 0.9rem !important;
-            font-weight: 400 !important;
-        }
-
-        .f4-summary-item__value {
-            color: #0f172a !important;
-            font-size: 1rem !important;
-            font-weight: 800 !important;
-            text-align: right !important;
-        }
-
-
-
-        .f4-inline-caption {
-            color: #000000 !important;
-            font-size: 0.8rem !important;
-            font-weight: 400 !important;
-            line-height: 1.35 !important;
-            padding-top: 0.3rem !important;
-        }
-
-        .f4-wind-metrics-row {
-            margin-top: 0.3rem !important;
-        }
-
-        .st-key-f4_wind_metric_1,
-        .st-key-f4_wind_metric_2,
-        .st-key-f4_wind_metric_3 {
-            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 20px !important;
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.035) !important;
-            overflow: hidden !important;
-        }
-
-        .st-key-f4_wind_metric_1 div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_wind_metric_2 div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_wind_metric_3 div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 0.9rem 1rem !important;
-            min-height: 88px !important;
-            border: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-        }
-
-        .stButton > button,
-        [data-testid="stBaseButton-secondary"] {
-            border-radius: 14px !important;
-            border: 1px solid #c9dcff !important;
-            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
-            color: #1d4ed8 !important;
-            font-weight: 600 !important;
-            min-height: 2.9rem !important;
-            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.045) !important;
-        }
-
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 0.3rem !important;
-        }
-
-        .stTabs [data-baseweb="tab"] {
-            border-radius: 999px !important;
-            padding: 0.45rem 0.95rem !important;
-            color: #000000 !important;
-            background: #f6f9ff !important;
-        }
-
-        .stTabs [aria-selected="true"] {
-            background: #e8f0ff !important;
-            color: #1d4ed8 !important;
-            font-weight: 650 !important;
-        }
-
-        div[data-testid="stMetric"] {
-            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-            border: 1px solid #dde8f5 !important;
-            border-radius: 19px !important;
-            padding: 0.92rem 1rem !important;
-            box-shadow: 0 7px 18px rgba(15, 23, 42, 0.032) !important;
-        }
-
-        div[data-testid="stMetricLabel"] {
-            color: #000000 !important;
-            font-weight: 400 !important;
-        }
-
-        div[data-testid="stMetricValue"] {
-            color: #0f172a !important;
-            font-weight: 800 !important;
-        }
-
-        .stDataFrame, .stDataEditor {
-            border-radius: 18px !important;
-            overflow: hidden !important;
-            border: 1px solid #dde8f5 !important;
-        }
-
-        .st-key-f4_card_config,
-        .st-key-f4_card_edit_table,
-        .st-key-f4_card_move_layout,
-        .st-key-f4_card_geom_summary,
-        .st-key-f4_card_wind_base,
-        .st-key-f4_card_geom_analysis,
-        .st-key-f4_card_annual_analysis,
-        .st-key-f4_card_detail_direction,
-        .st-key-f4_card_scenarios {
-            background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 28px !important;
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-            overflow: visible !important;
-        }
-
-        .st-key-f4_card_view_layout {
-            background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 28px !important;
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-            overflow: hidden !important;
-        }
-
-        .st-key-f4_card_config div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_edit_table div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_move_layout div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_view_layout div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_geom_summary div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_wind_base div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_geom_analysis div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_annual_analysis div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_detail_direction div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_scenarios div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 1.02rem 1.08rem 1.08rem 1.08rem !important;
-            border: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-        }
-
-        .st-key-f4_card_geom_summary .stButton > button,
-        .st-key-f4_card_view_layout .stButton > button {
-            margin-top: 0.5rem !important;
-        }
-
-        .st-key-f4_card_edit_table,
-        .st-key-f4_card_move_layout {
-            min-height: 435px !important;
-        }
-
-        .st-key-f4_card_edit_table div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_move_layout div[data-testid="stVerticalBlockBorderWrapper"] {
-            min-height: 435px !important;
-        }
-
-        .st-key-f4_card_edit_table [data-testid="stDataFrame"],
-        .st-key-f4_card_edit_table [data-testid="stDataEditor"] {
-            min-height: 304px !important;
-        }
-
-        .f4-move-subcard-title {
-            color: #1d4ed8 !important;
-            font-size: 0.92rem !important;
-            font-weight: 800 !important;
-            text-align: center !important;
-            margin: 0 0 0.7rem 0 !important;
-        }
-
-        .f4-arrow-grid {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr 1fr !important;
-            grid-template-rows: auto auto auto !important;
-            gap: 0.45rem !important;
-            align-items: center !important;
-            justify-items: center !important;
-        }
-
-        .f4-arrow-grid .stButton {
-            width: 100% !important;
-        }
-
-        .f4-arrow-grid .stButton > button {
-            min-height: 2.65rem !important;
-        }
-
-        .st-key-f4_move_turbine_card,
-        .st-key-f4_move_park_card,
-        .st-key-f4_rotate_park_card {
-            background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%) !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 18px !important;
-            min-height: 188px !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
-        }
-
-        .st-key-f4_move_turbine_card div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_move_park_card div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_rotate_park_card div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 0.9rem 0.8rem !important;
-            min-height: 188px !important;
-            border: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-        }
-
-        .st-key-f4_move_layout_note {
-            margin-top: 0.8rem !important;
-        }
-
-        .st-key-f4_card_geom_analysis,
-        .st-key-f4_card_annual_analysis,
-        .st-key-f4_card_detail_direction,
-        .st-key-f4_card_scenarios,
-        .st-key-f4_card_scenario_save,
-        .st-key-f4_card_scenario_list,
-        .st-key-f4_card_scenario_compare,
-        .st-key-f4_card_gis_map {
-            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 28px !important;
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-            overflow: visible !important;
-        }
-
-        .st-key-f4_card_compare_bars,
-        .st-key-f4_card_energy_bars {
-            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 28px !important;
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-            overflow: hidden !important;
-        }
-
-        .st-key-f4_card_geom_analysis div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_annual_analysis div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_detail_direction div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_scenarios div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_compare_bars div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_energy_bars div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_scenario_save div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_scenario_list div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_scenario_compare div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 1.02rem 1.08rem 1.08rem 1.08rem !important;
-            border: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-        }
-
-        .f4-mini-kpis {
-            margin-bottom: 0.85rem !important;
-        }
-
-        
-
-        .f4-detail-toolbar {
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.55rem !important;
-            flex-wrap: wrap !important;
-            margin-top: 0.75rem !important;
-        }
-
-        .f4-detail-toolbar .stButton {
-            min-width: 106px !important;
-        }
-
-        .f4-detail-toolbar [data-testid="stNumberInput"],
-        .f4-detail-toolbar [data-testid="stSelectbox"] {
-            min-width: 0 !important;
-        }
-
-        .f4-plot-caption {
-            color: #000000 !important;
-            font-size: 0.8rem !important;
-            font-weight: 400 !important;
-            margin-top: -0.35rem !important;
-            margin-bottom: 0.55rem !important;
-        }
-
-        .st-key-f4_card_view_layout [data-testid="stPlotlyChart"],
-        .st-key-f4_card_detail_direction [data-testid="stPlotlyChart"] {
-            border-radius: 18px !important;
-            overflow: visible !important;
-        }
-
-        .st-key-f4_card_view_layout .js-plotly-plot .gtitle,
-        .st-key-f4_card_geom_analysis .js-plotly-plot .gtitle,
-        .st-key-f4_card_annual_analysis .js-plotly-plot .gtitle,
-        .st-key-f4_card_compare_bars .js-plotly-plot .gtitle,
-        .st-key-f4_card_energy_bars .js-plotly-plot .gtitle,
-        .st-key-f4_card_detail_direction .js-plotly-plot .gtitle {
-            display: none !important;
-        }
-
-        .st-key-f4_card_view_layout .modebar,
-        .st-key-f4_card_detail_direction .modebar {
-            background: rgba(255,255,255,0.82) !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 14px !important;
-            padding: 2px 4px !important;
-        }
-
-        .st-key-f4_move_turbine_card .stButton > button,
-        .st-key-f4_move_park_card .stButton > button,
-        .st-key-f4_rotate_park_card .stButton > button {
-            min-height: 2.5rem !important;
-            padding: 0.2rem 0.35rem !important;
-            font-size: 1.15rem !important;
-            font-weight: 800 !important;
-            line-height: 1 !important;
-        }
-
-        .st-key-f4_rotate_park_card .stButton > button {
-            font-size: 1.05rem !important;
-        }
-
-        .st-key-f4_card_geom_summary .f4-summary-grid,
-        .st-key-f4_card_scenario_compare,
-        .st-key-f4_card_scenario_list {
-            min-height: 100% !important;
-        }
-
-        .st-key-f4_card_geom_summary {
-            min-height: 560px !important;
-        }
-
-        .st-key-f4_card_geom_summary div[data-testid="stVerticalBlockBorderWrapper"] {
-            min-height: 560px !important;
-            padding: 1.35rem 1.15rem 1.35rem 1.15rem !important;
-        }
-
-        .st-key-f4_card_geom_summary .f4-summary-grid {
-            gap: 0.95rem !important;
-        }
-
-        .st-key-f4_card_geom_summary .f4-summary-item {
-            gap: 1rem !important;
-            padding-bottom: 0.46rem !important;
-            margin-bottom: 0.12rem !important;
-        }
-
-        .st-key-f4_card_geom_summary .f4-summary-item__label,
-        .st-key-f4_card_geom_summary .f4-summary-item__value {
-            line-height: 1.32 !important;
-        }
-
-        .st-key-f4_card_geom_summary .stButton > button {
-            margin-top: 1rem !important;
-            min-height: 3rem !important;
-        }
-
-        .st-key-f4_card_geom_analysis .f4-section-title__icon {
-            width: 2.85rem !important;
-            height: 2.85rem !important;
-            min-width: 2.85rem !important;
-            background: linear-gradient(180deg, #eef6ff 0%, #ffffff 100%) !important;
-            border: 1px solid #bfdbfe !important;
-            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.9), 0 8px 18px rgba(37, 99, 235, 0.12) !important;
-        }
-
-        .st-key-f4_card_geom_analysis .f4-section-title__icon svg {
-            width: 1.65rem !important;
-            height: 1.65rem !important;
-        }
-
-        .st-key-f4_card_geom_analysis .f4-section-title__text {
-            font-size: 1.22rem !important;
-            color: #10224f !important;
-            font-weight: 850 !important;
-        }
-
-        .f4-geom-kpi-card {
-            min-height: 104px !important;
-            display: flex !important;
-            flex-direction: row-reverse !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            gap: 0.95rem !important;
-            padding: 1rem 1.05rem !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 18px !important;
-            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-        }
-
-        .f4-geom-kpi-card .f4-top-kpi-card__icon {
-            width: 3rem !important;
-            height: 3rem !important;
-            min-width: 3rem !important;
-            border-radius: 999px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            background: #eef6ff !important;
-            border: 1px solid #bfdbfe !important;
-            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.9) !important;
-        }
-
-        .f4-geom-kpi-card .f4-top-kpi-card__icon svg {
-            width: 1.75rem !important;
-            height: 1.75rem !important;
-        }
-
-        .f4-geom-kpi-card .f4-top-kpi-card__body {
-            min-width: 0 !important;
-        }
-
-        .f4-geom-kpi-card .f4-top-kpi-card__label {
-            color: #000000 !important;
-            font-size: 0.78rem !important;
-            font-weight: 400 !important;
-            margin-bottom: 0.25rem !important;
-        }
-
-        .f4-geom-kpi-card .f4-top-kpi-card__value {
-            color: #0f172a !important;
-            font-size: 1.28rem !important;
-            line-height: 1.12 !important;
-            font-weight: 850 !important;
-            overflow-wrap: anywhere !important;
-        }
-
-        .f4-geom-kpi-card .f4-top-kpi-card__caption {
-            margin-top: 0.32rem !important;
-            color: #000000 !important;
-            font-size: 0.72rem !important;
-            font-weight: 400 !important;
-        }
-
-        .st-key-f4_geom_rose_subcard {
-            margin-top: 1rem !important;
-            background: #ffffff !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 18px !important;
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.035) !important;
-        }
-
-        .st-key-f4_geom_rose_subcard div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 0.9rem 1rem 0.7rem 1rem !important;
-        }
-
-        .f4-geom-rose-title {
-            color: #10224f !important;
-            font-size: 0.95rem !important;
-            font-weight: 850 !important;
-            margin: 0 0 0.35rem 0 !important;
-        }
-
-        .st-key-f4_card_scenario_save .stButton > button,
-        .st-key-f4_card_scenario_compare .stButton > button {
-            min-height: 2.95rem !important;
-        }
-
-        .st-key-f4_btn_exportar_vista_layout button,
-        .st-key-f4_compare_scenarios_btn button,
-        .st-key-f4_card_scenario_save .stButton > button:first-of-type {
-            background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%) !important;
-            color: #ffffff !important;
-            border-color: #2563eb !important;
-            box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18) !important;
-        }
-
-        .st-key-f4_btn_exportar_vista_layout button:hover,
-        .st-key-f4_compare_scenarios_btn button:hover {
-            filter: brightness(1.02) !important;
-        }
-        
-        /* Container and Spacing Refinements */
-        .st-key-f4_card_detail_direction {
-            padding: 1.5rem !important;
-            border-radius: 16px !important;
-            box-shadow: 0 4px 14px rgba(15,23,42,0.03) !important;
-            margin-bottom: 2rem !important;
-        }
-        .f4-detail-controls {
-            margin-top: 0.5rem !important;
-            padding-top: 1rem !important;
-            border-top: 1px solid #e2e8f0 !important;
-        }
-        /* Detail section tabs */
-        .st-key-f4_card_detail_direction [data-baseweb="tab"] {
-            padding: 0.7rem 1.5rem !important;
-            border-radius: 12px 12px 0 0 !important;
-            background: #f8fafc !important;
-            color: #000000 !important;
-            font-weight: 400 !important;
-            font-size: 1.05rem !important;
-            border: 1px solid transparent !important;
-            border-bottom: none !important;
-            transition: all 0.2s ease !important;
-            margin-right: 0.5rem !important;
-        }
-        .st-key-f4_card_detail_direction [data-baseweb="tab"][aria-selected="true"] {
-            background: #ffffff !important;
-            color: #0369a1 !important;
-            border: 1px solid #bfdbfe !important;
-            border-bottom: 2px solid #2563eb !important;
-            box-shadow: 0 -4px 10px rgba(15,23,42,0.02) !important;
-        }
-        .st-key-f4_card_detail_direction [data-baseweb="tab-list"] {
-            gap: 0 !important;
-            border-bottom: 1px solid #e2e8f0 !important;
-            padding-bottom: 0 !important;
-            margin-bottom: 1.2rem !important;
-        }
-        
-        /* KPI Cards in Detail Section */
-        .f4-detail-kpi {
-            background: #ffffff !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 16px !important;
-            padding: 0.9rem !important;
-            box-shadow: 0 4px 12px rgba(15,23,42,0.035) !important;
-            display: flex !important;
-            flex-direction: row-reverse !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            margin-bottom: 0.8rem !important;
-        }
-        .f4-detail-kpi .f4-top-kpi-card__icon {
-            width: 2.8rem !important;
-            height: 2.8rem !important;
-            border-radius: 50% !important;
-            background: #f0f9ff !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            border: 1px solid #bae6fd !important;
-        }
-        .f4-detail-kpi .f4-top-kpi-card__icon svg {
-            width: 1.6rem !important;
-            height: 1.6rem !important;
-        }
-        .f4-detail-kpi .f4-top-kpi-card__title {
-            font-size: 0.8rem !important;
-            color: #000000 !important;
-            font-weight: 400 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.5px !important;
-            margin-bottom: 0.2rem !important;
-        }
-        .f4-detail-kpi .f4-top-kpi-card__value {
-            font-size: 1.3rem !important;
-            color: #0f172a !important;
-            font-weight: 800 !important;
-        }
-
-        /* Detail Chart styling tweaks */
-        .st-key-f4_card_detail_direction .js-plotly-plot .plotly .colorbar {
-            font-family: inherit !important;
-            transform: translateX(-15px) !important;
-        }
-        
-        /* Control buttons at bottom */
-        .st-key-f4_card_detail_direction .stButton > button {
-            background: #ffffff !important;
-            border: 1px solid #bfdbfe !important;
-            border-radius: 14px !important;
-            color: #1d4ed8 !important;
-            font-weight: 800 !important;
-            min-height: 46px !important;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.045) !important;
-            width: 100% !important;
-            transition: all 0.2s ease !important;
-        }
-        .st-key-f4_card_detail_direction .stButton > button:hover {
-            background: #eff6ff !important;
-            border-color: #3b82f6 !important;
-        }
-
-        .f4-wake-legend-card {
-            margin: 0.45rem 0 1rem;
-            padding: 1rem 1.15rem;
-            border: 1px solid #bfdbfe;
-            border-radius: 18px;
-            background: #ffffff;
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
-        }
-
-        .f4-wake-legend-title {
-            color: #10224f;
-            font-size: 1.02rem;
-            font-weight: 900;
-            letter-spacing: -0.01em;
-            margin-bottom: 0.75rem;
-        }
-
-        .f4-wake-legend-content {
-            display: grid;
-            grid-template-columns: minmax(220px, 0.95fr) 1px minmax(300px, 1.45fr);
-            gap: 1.1rem;
-            align-items: center;
-        }
-
-        .f4-wake-legend-subtitle {
-            color: #000000;
-            font-size: 0.88rem;
-            font-weight: 800;
-            margin-bottom: 0.55rem;
-        }
-
-        .f4-wake-gradient {
-            width: min(320px, 100%);
-            height: 18px;
-            border-radius: 999px;
-            background: linear-gradient(90deg, rgba(219,234,254,0.55) 0%, rgba(96,165,250,0.68) 45%, rgba(37,99,235,0.92) 100%);
-            border: 1px solid #bfdbfe;
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55);
-        }
-
-        .f4-wake-legend-divider {
-            width: 1px;
-            height: 54px;
-            background: #dbeafe;
-        }
-
-        .f4-wake-status-row {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            flex-wrap: wrap;
-        }
-
-        .f4-wake-status-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            color: #000000;
-            font-size: 0.86rem;
-            font-weight: 800;
-        }
-
-        .f4-wake-ring {
-            width: 22px;
-            height: 22px;
-            border-radius: 999px;
-            background: #ffffff;
-            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
-        }
-
-        .f4-wake-ring-low { border: 4px solid #10B981; }
-        .f4-wake-ring-mid { border: 4px solid #F59E0B; }
-        .f4-wake-ring-high { border: 4px solid #EF4444; }
-
-        .f4-wake-status-separator {
-            width: 1px;
-            height: 24px;
-            background: #e2e8f0;
-        }
-
-        @media (max-width: 900px) {
-            .f4-wake-legend-content {
-                grid-template-columns: 1fr;
-            }
-            .f4-wake-legend-divider {
-                width: 100%;
-                height: 1px;
-            }
-        }
-
-        .f4-scenario-hero {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            padding: 0.35rem 0.15rem 0.1rem;
-        }
-
-        .f4-scenario-hero__icon {
-            width: 58px;
-            height: 58px;
-            border-radius: 18px;
-            background: linear-gradient(135deg, #0B63F6 0%, #60a5fa 100%);
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 14px 28px rgba(11, 99, 246, 0.22);
-        }
-
-        .f4-scenario-hero__title {
-            color: #10224f;
-            font-size: 1.35rem;
-            font-weight: 900;
-            letter-spacing: -0.02em;
-            line-height: 1.12;
-        }
-
-        .f4-scenario-hero__subtitle {
-            margin-top: 0.22rem;
-            color: #000000;
-            font-size: 0.9rem;
-            font-weight: 400;
-        }
-
-        .f4-scenario-card-title {
-            display: flex;
-            align-items: center;
-            gap: 0.65rem;
-            margin-bottom: 0.85rem;
-            color: #10224f;
-            font-size: 1rem;
-            font-weight: 900;
-        }
-
-        .f4-scenario-card-title__icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 12px;
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-            color: #2563eb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .f4-scenario-helper {
-            display: flex;
-            align-items: center;
-            gap: 0.42rem;
-            margin-top: 0.72rem;
-            color: #000000;
-            font-size: 0.82rem;
-            font-weight: 400;
-        }
-
-        .f4-scenario-table-wrap {
-            border: 1px solid #cbd5e1;
-            border-radius: 14px;
-            overflow: hidden;
-            background: #ffffff;
-            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.035);
-        }
-
-        .st-key-f4_card_scenario_save div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_scenario_list div[data-testid="stVerticalBlockBorderWrapper"],
-        .st-key-f4_card_scenario_compare div[data-testid="stVerticalBlockBorderWrapper"] {
-            min-height: 320px;
-        }
-
-        /* ── Ensure outer stVerticalBlockBorderWrapper has rounded blue border ──
-           Handles both HTML structures Streamlit may use for keyed containers */
-        /* ── Ensure outer stVerticalBlockBorderWrapper has rounded blue border ──
-           Handles both HTML structures Streamlit may use for keyed containers */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_config),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_edit_table),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_move_layout),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_geom_summary),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_wind_base),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_geom_analysis),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_annual_analysis),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_detail_direction),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenarios),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_save),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_list),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_compare),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_gis_map) {
-            border: 1.4px solid #cbd5e1 !important;
-            border-radius: 28px !important;
-            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-            overflow: visible !important;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_view_layout),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_compare_bars),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_energy_bars) {
-            border: 1.4px solid #cbd5e1 !important;
-            border-radius: 28px !important;
-            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-            overflow: hidden !important;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_geom_rose_subcard),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_move_turbine_card),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_move_park_card),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_rotate_park_card) {
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 22px !important;
-            background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05) !important;
-            overflow: hidden !important;
-        }
-
-        /* Reset inner div conflicting styles (when key class is inside the wrapper) */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_config) > .st-key-f4_card_config,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_edit_table) > .st-key-f4_card_edit_table,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_move_layout) > .st-key-f4_card_move_layout,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_view_layout) > .st-key-f4_card_view_layout,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_geom_summary) > .st-key-f4_card_geom_summary,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_wind_base) > .st-key-f4_card_wind_base,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_geom_analysis) > .st-key-f4_card_geom_analysis,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_annual_analysis) > .st-key-f4_card_annual_analysis,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_detail_direction) > .st-key-f4_card_detail_direction,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenarios) > .st-key-f4_card_scenarios,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_compare_bars) > .st-key-f4_card_compare_bars,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_energy_bars) > .st-key-f4_card_energy_bars,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_save) > .st-key-f4_card_scenario_save,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_list) > .st-key-f4_card_scenario_list,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_scenario_compare) > .st-key-f4_card_scenario_compare,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_gis_map) > .st-key-f4_card_gis_map {
-            border: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-        }
-
-</style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def _render_page_hero():
-    st.markdown(
-        """
-        <style>
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(> .st-key-f4_card_header) {
-            border: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-        }
-        .st-key-f4_card_header {
-            border: 1.35px solid #cbd5e1 !important;
-            border-radius: 28px !important;
-            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-            overflow: visible !important;
-            padding: 1.05rem 1.05rem .95rem 1.05rem !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    with st.container(border=True, key="f4_card_header"):
-        st.markdown(
-            """
-            <div class="hero-card">
-                <div class="fase-hero-title">Fase 4 &middot; Estelas y arreglo del parque</div>
-                <div class="fase-hero-subtitle">Configure el arreglo de aerogeneradores y analice el efecto de estela.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+# ---------------------------------------------------------------------------
+# Aurora SMA 2.0 visual helpers
+# ---------------------------------------------------------------------------
+def _escape(value) -> str:
+    return _html_module.escape("" if value is None else str(value))
+
+
+def _safe_icon(name: str, size: int = 22, color: str = "#7c3aed") -> str:
+    try:
+        return _icon_svg(name, size, color)
+    except Exception:
+        stroke = 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"'
+        return (
+            f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" '
+            f'style="color:{color};display:block" xmlns="http://www.w3.org/2000/svg">'
+            f'<circle cx="12" cy="12" r="8" {stroke}/></svg>'
         )
 
 
-def _render_section_header(title, icon):
+def _section_header(title: str, subtitle: str = "", icon: str = "chart", color: str = "#7c3aed") -> None:
     st.markdown(
         f"""
-        <div class="f4-section-title">
-            <span class="f4-section-title__icon">{icon}</span>
-            <span class="f4-section-title__text">{title}</span>
-        </div>
-        """,
+<div class="f4-section-header">
+    <div class="f4-icon-soft" style="background:linear-gradient(135deg,color-mix(in srgb,{color} 16%,#fff),color-mix(in srgb,{color} 7%,#fff));border:1.5px solid color-mix(in srgb,{color} 35%,#fff);box-shadow:0 5px 12px color-mix(in srgb,{color} 16%,transparent)">
+        {_safe_icon(icon, 21, color)}
+    </div>
+    <div>
+        <div class="f4-section-title">{_escape(title)}</div>
+        {f'<div class="f4-section-subtitle">{_escape(subtitle)}</div>' if subtitle else ''}
+    </div>
+</div>""",
         unsafe_allow_html=True,
     )
 
 
-def _render_kpi_card(label, value, caption="", icon=None, class_name="f4-kpi-html"):
-    icon_html = ""
-    body_class = ""
-    label_class = "f4-kpi-html__label"
-    value_class = "f4-kpi-html__value"
-    caption_class = "f4-kpi-html__caption"
-    if icon:
-        icon_html = f'<div class="f4-top-kpi-card__icon">{icon}</div>'
-        body_class = ' class="f4-top-kpi-card__body"'
-        label_class = "f4-top-kpi-card__label"
-        value_class = "f4-top-kpi-card__value"
-        caption_class = "f4-top-kpi-card__caption"
-    st.markdown(
-        textwrap.dedent(
-            f"""
-            <div class="{class_name}">
-                {icon_html}
-                <div{body_class}>
-                    <div class="{label_class}">{label}</div>
-                    <div class="{value_class}">{value}</div>
-                    <div class="{caption_class}">{caption}</div>
-                </div>
-            </div>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
-    )
+def _kpi_tile(emoji: str, label: str, value, sub: str = "", color: str = "#7c3aed") -> str:
+    return f"""<div class="f4-kpi-card" style="--kc:{color}">
+<div class="f4-kpi-icon">{emoji}</div>
+<div><small class="f4-kpi-label">{_escape(str(label))}</small>
+<b class="f4-kpi-value">{_escape(str(value))}</b>
+<i class="f4-kpi-sub">{_escape(str(sub))}</i></div></div>"""
 
 
-def _render_summary_item(label, value):
-    st.markdown(
-        f"""
-        <div class="f4-summary-item">
-            <div class="f4-summary-item__label">{label}</div>
-            <div class="f4-summary-item__value">{value}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
+# ---------------------------------------------------------------------------
+# Preserved visual/calculation helpers (lines 1666–3033 of original)
+# ---------------------------------------------------------------------------
 def _clean_plotly_labels(fig: go.Figure) -> go.Figure:
     fig.update_layout(title=None, title_text="")
     annotations = list(fig.layout.annotations) if fig.layout.annotations else []
@@ -1777,7 +293,6 @@ def _add_wake_visual_layers(fig: go.Figure, df_points: pd.DataFrame, direction_d
     wake_extent_y = df_plot[y_col].astype(float).tolist()
 
     # Layered wake: (fraction_of_length, near_w_scale, far_w_scale, opacity)
-    # Each layer represents a progressively expanding, fading zone
     wake_layers = [
         (0.34, 0.42, 0.68, 0.26),
         (0.58, 0.56, 1.00, 0.18),
@@ -1826,7 +341,7 @@ def _add_wake_visual_layers(fig: go.Figure, df_points: pd.DataFrame, direction_d
             prev_len = next_len
             prev_w = w1
 
-    # Enhanced Turbine visuals (SVG animations and hover layers)
+    # Enhanced Turbine visuals
     labels = df_plot[id_col].astype(str).tolist() if id_col else [f"T{i+1}" for i in range(n)]
     rotor_r_m = max(150.0, max(x_span, y_span) * 0.045)
 
@@ -1977,7 +492,6 @@ def _enhance_main_park_figure(
         )
     )
 
-    # opacity, end-length factor, start width, end width
     wake_specs = [
         (0.20, 0.70, 0.13, 0.62),
         (0.17, 0.78, 0.145, 0.76),
@@ -2458,11 +972,7 @@ def _render_main_park_animated_html(
 
 
 def _cached_park_html(fig, df_layout, wind_speed, curva_df, plot_config, direction_deg=0.0):
-    """Wrapper que cachea el HTML generado por _render_main_park_animated_html.
-
-    El bundle plotly.js (~3.5 MB) se serializa una vez por configuración única
-    de layout + viento + curva. Reruns con la misma config son cache hit.
-    """
+    """Wrapper que cachea el HTML generado por _render_main_park_animated_html."""
     try:
         df_l = df_layout[["turbina_id", "x_m", "y_m"]].copy()
         df_l["x_m"] = pd.to_numeric(df_l["x_m"], errors="coerce").round(2)
@@ -2505,7 +1015,7 @@ def _style_main_park_figure(fig: go.Figure) -> go.Figure:
     bar_x1 = 0.67
     bar_y0 = -0.215
     bar_y1 = -0.198
-    num_segments = 60  # 60 segmentos sin bordes visibles para un gradiente suave
+    num_segments = 60
 
     def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
         hex_color = hex_color.lstrip("#")
@@ -2751,7 +1261,6 @@ def crear_barras_geom_vs_anual(df_geom, df_anual):
         on="Sector",
         how="left"
     )
-
     fig = go.Figure()
     fig.add_trace(go.Bar(x=df_plot["Sector"], y=df_plot["Pérdida geométrica (%)"], name="Geométrica (%)", marker_color="#2563EB"))
     fig.add_trace(go.Bar(x=df_plot["Sector"], y=df_plot["Pérdida ponderada (%)"], name="Anual ponderada (%)", marker_color="#FF5A36"))
@@ -2770,31 +1279,22 @@ def crear_barras_geom_vs_anual(df_geom, df_anual):
 @st.cache_data(show_spinner=False)
 def crear_figura_comparacion_layouts(df_a, df_b, name_a, name_b):
     fig = go.Figure()
-
     fig.add_trace(
         go.Scatter(
-            x=df_a["x_m"],
-            y=df_a["y_m"],
-            mode="markers+text",
-            text=df_a["turbina_id"],
-            textposition="top center",
-            name=name_a,
+            x=df_a["x_m"], y=df_a["y_m"],
+            mode="markers+text", text=df_a["turbina_id"],
+            textposition="top center", name=name_a,
             marker=dict(size=12),
         )
     )
-
     fig.add_trace(
         go.Scatter(
-            x=df_b["x_m"],
-            y=df_b["y_m"],
-            mode="markers+text",
-            text=df_b["turbina_id"],
-            textposition="bottom center",
-            name=name_b,
+            x=df_b["x_m"], y=df_b["y_m"],
+            mode="markers+text", text=df_b["turbina_id"],
+            textposition="bottom center", name=name_b,
             marker=dict(size=12, symbol="diamond"),
         )
     )
-
     fig.update_layout(
         title="Comparación de configuraciones en planta",
         template="plotly_white",
@@ -2825,17 +1325,13 @@ def rotar_parque(df_layout, angle_deg):
     df = df_layout.copy()
     x = pd.to_numeric(df["x_m"], errors="coerce").to_numpy(dtype=float)
     y = pd.to_numeric(df["y_m"], errors="coerce").to_numpy(dtype=float)
-
     cx = np.mean(x)
     cy = np.mean(y)
-
     xr = x - cx
     yr = y - cy
-
     ang = np.deg2rad(float(angle_deg))
     x_rot = xr * np.cos(ang) - yr * np.sin(ang)
     y_rot = xr * np.sin(ang) + yr * np.cos(ang)
-
     df["x_m"] = x_rot + cx
     df["y_m"] = y_rot + cy
     return df
@@ -3032,86 +1528,154 @@ def analizar_geometria_16(df_layout, curva_df, diametro, ct, kw, velocidad_ref):
     return pd.DataFrame(filas), detalles
 
 
-_render_phase4_css()
-# FORZADO FINAL: aplicar acabado SMA 2.0 a los contenedores grandes y KPI de Fase 4
-st.markdown(
-    """
-    <style>
-    /* FORZADO FINAL: estilo SMA 2.0 para cards grandes y KPI en Fase 4 */
-    .st-key-f4_card_config,
-    .st-key-f4_card_edit_table,
-    .st-key-f4_card_move_layout,
-    .st-key-f4_card_view_layout,
-    .st-key-f4_card_geom_summary,
-    .st-key-f4_card_wind_base,
-    .st-key-f4_card_geom_analysis,
-    .st-key-f4_card_annual_analysis,
-    .st-key-f4_card_detail_direction,
-    .st-key-f4_card_scenarios,
-    .st-key-f4_card_compare_bars,
-    .st-key-f4_card_energy_bars,
-    .st-key-f4_move_turbine_card,
-    .st-key-f4_move_park_card,
-    .st-key-f4_rotate_park_card,
-    .st-key-f4_card_move_layout,
-    .st-key-f4_top_kpi_1,
-    .st-key-f4_top_kpi_2,
-    .st-key-f4_top_kpi_3,
-    .st-key-f4_top_kpi_4,
-    .st-key-f4_top_kpi_5 {
-        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-        border: 1.4px solid #cbd5e1 !important;
-        border-radius: 28px !important;
-        box-shadow:
-            0 1px 4px rgba(15, 23, 42, 0.045),
-            0 8px 22px rgba(15, 23, 42, 0.040) !important;
-        overflow: visible !important;
-        box-sizing: border-box !important;
-    }
+# ═══════════════════════════════════════════════════════════════════════════════
+# Aurora SMA 2.0 CSS — Compact (~300 lines)
+# ═══════════════════════════════════════════════════════════════════════════════
+st.markdown("""
+<style>
+:root{--ac:#7c3aed;--ac2:#5b21b6}
+[data-testid="stAppViewContainer"]{background:linear-gradient(180deg,#f5f3ff 0%,#ede9fe 100%) !important}
 
-    .st-key-f4_card_config div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_edit_table div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_move_layout div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_view_layout div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_geom_summary div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_wind_base div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_geom_analysis div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_annual_analysis div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_detail_direction div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_scenarios div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_compare_bars div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_energy_bars div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_move_turbine_card div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_move_park_card div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_rotate_park_card div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_card_move_layout div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_top_kpi_1 div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_top_kpi_2 div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_top_kpi_3 div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_top_kpi_4 div[data-testid="stVerticalBlockBorderWrapper"],
-    .st-key-f4_top_kpi_5 div[data-testid="stVerticalBlockBorderWrapper"] {
-        border: none !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        border-radius: 28px !important;
-        padding: 1.02rem 1.08rem 1.08rem 1.08rem !important;
-    }
+/* ════ Hero ════ */
+.hero-card{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--ac),var(--ac2));border:none;border-radius:22px;padding:22px 28px;margin-bottom:1rem;box-shadow:0 8px 28px rgba(124,58,237,.22);min-height:unset !important;height:auto !important}
+.hero-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 86% 12%,rgba(255,255,255,.15) 0 54px,transparent 55px),radial-gradient(circle at 95% 70%,rgba(255,255,255,.08) 0 86px,transparent 87px)}
+.hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2}
+.hero-icon{width:62px;height:62px;border-radius:19px;background:rgba(255,255,255,.17);border:1.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:31px;flex-shrink:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 8px 18px rgba(0,0,0,.12)}
+.fase-hero-title{font-size:25px;line-height:1.08;font-weight:800;letter-spacing:-.025em;color:#fff;margin:0 0 4px 0;text-shadow:0 1px 2px rgba(0,0,0,.12)}
+.fase-hero-subtitle{color:rgba(255,255,255,.94);font-size:12.5px;line-height:1.45;font-weight:400;max-width:840px;margin:0}
+.hero-pills{display:flex;gap:9px;margin-left:auto;position:relative;z-index:2}
+.hpill{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:15px;padding:8px 15px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.hpill b{display:block;font-size:16.5px;letter-spacing:-.01em;color:#fff}
+.hpill span{font-size:9px;opacity:.92;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:rgba(255,255,255,.9)}
 
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-_render_page_hero()
-st.markdown(
-    """
-    <div class="f4-info-banner">
-        <span class="f4-info-banner__icon">i</span>
-        <span>Esta fase ya guarda sus cambios. Ahora puede editar manualmente, mover turbinas, mover todo el parque, rotarlo, guardar escenarios y compararlos.</span>
+/* ════ Section headers ════ */
+.f4-section-header{display:flex;align-items:center;gap:13px;margin:6px 0 14px}
+.f4-section-title{color:#0a2444;font-size:16.5px;font-weight:900;letter-spacing:-.02em}
+.f4-section-subtitle{color:#5a6b85;font-size:11px;font-weight:600;margin-top:2px}
+.f4-icon-soft{width:46px;height:46px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ════ KPI grid ════ */
+.f4-kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:4px 0 16px}
+.f4-kpi-card{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:13px 14px;display:flex;gap:12px;align-items:center;box-shadow:0 1px 2px rgba(11,36,71,.04),0 6px 16px rgba(11,36,71,.06);transition:box-shadow .18s}
+.f4-kpi-card:hover{box-shadow:0 12px 26px rgba(15,45,90,.10)}
+.f4-kpi-icon{width:50px !important;height:50px !important;border-radius:50% !important;display:flex !important;align-items:center !important;justify-content:center !important;font-size:22px !important;flex-shrink:0 !important;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--kc,var(--ac)) 17%,#fff),color-mix(in srgb,var(--kc,var(--ac)) 6%,#fff)) !important;
+  border:1.5px solid color-mix(in srgb,var(--kc,var(--ac)) 38%,#fff) !important;
+  box-shadow:0 5px 12px color-mix(in srgb,var(--kc,var(--ac)) 18%,transparent) !important}
+.f4-kpi-label{font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em;display:block}
+.f4-kpi-value{font-size:20px;font-weight:900;letter-spacing:-.025em;line-height:1.08;margin-top:3px;font-variant-numeric:tabular-nums;color:#0a2444;display:block}
+.f4-kpi-sub{font-style:normal;font-size:10px;color:#5a6b85;margin-top:2.5px;font-weight:600;display:block}
+
+/* ════ Banner ════ */
+.f4-banner{display:flex;align-items:center;gap:12px;border-radius:15px;padding:12px 16px;font-weight:800;font-size:12.5px;margin:0 0 16px}
+.f4-banner .bx{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(255,255,255,.7);flex-shrink:0}
+.f4-banner.info{background:linear-gradient(120deg,color-mix(in srgb,var(--ac) 8%,#fff),#fff);border:1.5px solid color-mix(in srgb,var(--ac) 30%,#fff);color:var(--ac)}
+
+/* ════ Cards — all f4_ containers ════ */
+.st-key-f4_card_header,
+.st-key-f4_card_config,.st-key-f4_card_edit_table,.st-key-f4_card_move_layout,
+.st-key-f4_card_view_layout,.st-key-f4_card_geom_summary,.st-key-f4_card_wind_base,
+.st-key-f4_card_geom_analysis,.st-key-f4_card_annual_analysis,
+.st-key-f4_card_detail_direction,.st-key-f4_card_scenarios,
+.st-key-f4_card_scenario_save,.st-key-f4_card_scenario_list,.st-key-f4_card_scenario_compare,
+.st-key-f4_card_compare_bars,.st-key-f4_card_energy_bars,.st-key-f4_card_gis_map{
+  border:1px solid #cbd5e1 !important;border-radius:28px !important;
+  background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%) !important;
+  box-shadow:0 0 0 1px rgba(148,163,184,.15),0 6px 14px rgba(15,23,42,.08),0 2px 6px rgba(124,58,237,.06) !important;
+  overflow:visible !important;box-sizing:border-box !important;margin-bottom:14px !important}
+.st-key-f4_card_view_layout,.st-key-f4_card_compare_bars,.st-key-f4_card_energy_bars{overflow:hidden !important}
+
+/* Inner wrapper reset */
+.st-key-f4_card_header div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_config div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_edit_table div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_move_layout div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_view_layout div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_geom_summary div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_wind_base div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_geom_analysis div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_annual_analysis div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_detail_direction div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_scenarios div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_scenario_save div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_scenario_list div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_scenario_compare div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_compare_bars div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_energy_bars div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_card_gis_map div[data-testid="stVerticalBlockBorderWrapper"]{
+  border:none !important;box-shadow:none !important;border-radius:28px !important;
+  background:transparent !important;overflow:visible !important;padding:1.1rem 1.2rem !important}
+
+/* ════ Move subcards ════ */
+.st-key-f4_move_turbine_card,.st-key-f4_move_park_card{background:#fff !important;border:1px solid #cbd5e1 !important;border-radius:18px !important;box-shadow:0 2px 8px rgba(124,58,237,.04) !important;overflow:visible !important}
+.st-key-f4_rotate_park_card{background:#f0fdf4 !important;border:1px solid #bbf7d0 !important;border-radius:18px !important;box-shadow:0 2px 8px rgba(34,197,94,.04) !important;overflow:visible !important}
+.st-key-f4_move_turbine_card div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_move_park_card div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-f4_rotate_park_card div[data-testid="stVerticalBlockBorderWrapper"]{padding:.9rem .8rem !important;border:none !important;background:transparent !important;box-shadow:none !important}
+.f4-move-subcard-title{font-weight:800 !important;font-size:.95rem !important;text-align:center !important;margin:0 0 .4rem 0 !important}
+
+/* ════ Inputs ════ */
+[data-baseweb="input"]{overflow:hidden !important}
+div[data-testid="stMetric"]{background:#fff !important;border:1px solid #dde8f5 !important;border-radius:19px !important;padding:.92rem 1rem !important;box-shadow:0 4px 12px rgba(15,23,42,.03) !important}
+div[data-testid="stMetricLabel"]{color:#5a6b85 !important;font-weight:600 !important}
+div[data-testid="stMetricValue"]{color:#0a2444 !important;font-weight:800 !important}
+.stDataFrame,.stDataEditor{border-radius:18px !important;overflow:hidden !important;border:1px solid #dde8f5 !important}
+
+/* ════ Buttons ════ */
+.stButton>button,[data-testid="stBaseButton-secondary"]{border-radius:14px !important;border:1.5px solid color-mix(in srgb,var(--ac) 38%,#fff) !important;background:#fff !important;color:var(--ac) !important;font-weight:800 !important;min-height:2.9rem !important;box-shadow:0 4px 12px rgba(124,58,237,.06) !important}
+.stButton>button:hover{background:color-mix(in srgb,var(--ac) 6%,#fff) !important;border-color:var(--ac) !important}
+
+/* ════ Tabs ════ */
+.stTabs [data-baseweb="tab-list"]{gap:.3rem !important}
+.stTabs [data-baseweb="tab"]{border-radius:999px !important;padding:.45rem .95rem !important;background:#f5f3ff !important;color:#5a6b85 !important}
+.stTabs [aria-selected="true"]{background:color-mix(in srgb,var(--ac) 12%,#fff) !important;color:var(--ac) !important;font-weight:700 !important}
+
+/* ════ Wake legend ════ */
+.f4-wake-legend-card{margin:.45rem 0 1rem;padding:1rem 1.15rem;border:1px solid color-mix(in srgb,var(--ac) 30%,#fff);border-radius:18px;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.04)}
+.f4-wake-legend-title{color:#0a2444;font-size:1.02rem;font-weight:900;margin-bottom:.75rem}
+.f4-wake-legend-content{display:grid;grid-template-columns:minmax(220px,.95fr) 1px minmax(300px,1.45fr);gap:1.1rem;align-items:center}
+.f4-wake-legend-subtitle{color:#5a6b85;font-size:.88rem;font-weight:800;margin-bottom:.55rem}
+.f4-wake-gradient{width:min(320px,100%);height:18px;border-radius:999px;background:linear-gradient(90deg,rgba(219,234,254,.55) 0%,rgba(96,165,250,.68) 45%,rgba(37,99,235,.92) 100%);border:1px solid #bfdbfe}
+.f4-wake-legend-divider{width:1px;height:54px;background:#dbeafe}
+.f4-wake-status-row{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.f4-wake-status-item{display:inline-flex;align-items:center;gap:.45rem;color:#5a6b85;font-size:.86rem;font-weight:800}
+.f4-wake-ring{width:22px;height:22px;border-radius:999px;background:#fff;box-shadow:0 4px 10px rgba(15,23,42,.08)}
+.f4-wake-ring-low{border:4px solid #10B981}.f4-wake-ring-mid{border:4px solid #F59E0B}.f4-wake-ring-high{border:4px solid #EF4444}
+.f4-wake-status-separator{width:1px;height:24px;background:#e2e8f0}
+
+/* ════ Responsive ════ */
+@media(max-width:1100px){.f4-kpi-grid{grid-template-columns:repeat(3,1fr)}.f4-wake-legend-content{grid-template-columns:1fr}.f4-wake-legend-divider{width:100%;height:1px}}
+@media(max-width:700px){.f4-kpi-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HERO
+# ═══════════════════════════════════════════════════════════════════════════════
+with st.container(border=True, key="f4_card_header"):
+    st.markdown("""
+<div class="hero-card">
+<div class="hero-row">
+    <div class="hero-icon">🌪️</div>
+    <div>
+        <div class="fase-hero-title">Fase 4 · Estelas y arreglo</div>
+        <div class="fase-hero-subtitle">Configure el arreglo de aerogeneradores, analice el efecto de estela por sector y optimice el layout del parque.</div>
     </div>
-    """,
-    unsafe_allow_html=True,
-)
+    <div class="hero-pills" id="f4_hero_pills"></div>
+</div>
+</div>""", unsafe_allow_html=True)
 
+st.markdown("""
+<div class="f4-banner info">
+    <div class="bx">💾</div>
+    <span>Esta fase guarda automáticamente. Edite, mueva turbinas, rote el parque, guarde escenarios y compare alternativas.</span>
+</div>""", unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Data loading + defaults (preserved exactly)
+# ═══════════════════════════════════════════════════════════════════════════════
 df_nasa = cargar_nasa_hourly()
 df_curva = cargar_tabla_curva()
 diametro = float(config.get("diametro") or 100.0)
@@ -3122,9 +1686,6 @@ if len(df_nasa) == 0:
     st.stop()
 
 layout_type_default = config.get("f4_layout_type", "En línea")
-# Sembrar el número de aerogeneradores desde el layout real cuando exista,
-# para que el input nunca quede desincronizado de la tabla T1..Tn editable.
-# Fix: ver QA del 2026-05-26 (input mostraba 4 con tabla de 5 turbinas).
 _layout_actual_para_count = cargar_layout_parque()
 _layout_size_actual = int(len(_layout_actual_para_count)) if _layout_actual_para_count is not None else 0
 _config_num_turbinas = int(float(config.get("f4_num_turbinas", "4")))
@@ -3155,30 +1716,21 @@ selected_turbine_default = config.get("f4_selected_turbine", "")
 velocidad_geom_state = float(st.session_state.get("f4_geom_speed", geom_speed_default))
 
 TIPOS_ARREGLO = [
-    "En línea",
-    "En cruz",
-    "Matriz rectangular",
-    "Doble fila",
-    "Tresbolillo",
-    "Matriz triangular",
-    "Diagonal",
-    "Circular",
-    "Arco",
-    "Aleatorio controlado",
+    "En línea", "En cruz", "Matriz rectangular", "Doble fila",
+    "Tresbolillo", "Matriz triangular", "Diagonal", "Circular",
+    "Arco", "Aleatorio controlado",
 ]
 
-with st.container(border=True, key="f4_card_config"):
-    _render_section_header("Configuración del arreglo", _icon_svg("controls", 22, "#0369a1"))
-    with st.form("f4_layout_config_form", clear_on_submit=False):
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 1. Config card (🧩)
+# ═══════════════════════════════════════════════════════════════════════════════
+with st.container(border=True, key="f4_card_config"):
+    _section_header("Configuración del arreglo", "Tipo, separación, coeficientes y modelo de estela", "controls", "#7c3aed")
+    with st.form("f4_layout_config_form", clear_on_submit=False):
         c1, c2, c3, c4 = st.columns(4, gap="medium")
         with c1:
-            layout_type = st.selectbox(
-                "Tipo de arreglo",
-                TIPOS_ARREGLO,
-                index=TIPOS_ARREGLO.index(layout_type_default)
-                if layout_type_default in TIPOS_ARREGLO else 0,
-            )
+            layout_type = st.selectbox("Tipo de arreglo", TIPOS_ARREGLO, index=TIPOS_ARREGLO.index(layout_type_default) if layout_type_default in TIPOS_ARREGLO else 0)
         with c2:
             num_turbinas = st.number_input("Número de aerogeneradores", min_value=1, value=num_turbinas_default, step=1)
         with c3:
@@ -3198,13 +1750,7 @@ with st.container(border=True, key="f4_card_config"):
 
         c9, c10 = st.columns([1, 3], gap="medium")
         with c9:
-            wake_model_f4 = st.selectbox(
-                "Modelo de estela",
-                wake_model_options_f4,
-                index=wake_model_options_f4.index(wake_model_default_f4),
-                key="f4_wake_model",
-                help="Jensen (clásico) · Larsen (perfil 3/2, TI ambiente) · Frandsen (parques grandes) · Gaussian (Bastankhah-PA 2014, estándar moderno) · TurbOPark (Orsted 2020, industria 2024)",
-            )
+            wake_model_f4 = st.selectbox("Modelo de estela", wake_model_options_f4, index=wake_model_options_f4.index(wake_model_default_f4), key="f4_wake_model", help="Jensen (clásico) · Larsen (perfil 3/2, TI ambiente) · Frandsen (parques grandes) · Gaussian (Bastankhah-PA 2014, estándar moderno) · TurbOPark (Orsted 2020, industria 2024)")
         with c10:
             guardar_config_values({"f4_wake_model": wake_model_f4, "f5_wake_model": wake_model_f4})
 
@@ -3221,8 +1767,6 @@ with st.container(border=True, key="f4_card_config"):
             if st.form_submit_button("Recargar layout guardado", icon=":material/restore:", use_container_width=True, key="f4_btn_recargar"):
                 st.rerun()
 
-# Widget values persisted in session_state. Config saves removed.
-
 dx_m = dx_D * diametro
 dy_m = dy_D * diametro
 
@@ -3235,26 +1779,17 @@ df_layout = cargar_layout_parque()
 if len(df_layout) == 0:
     df_layout = df_layout_db.copy()
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Geometry calculation (preserved)
+# ═══════════════════════════════════════════════════════════════════════════════
 try:
     f4_geom_signature = (
-        _df_signature(df_layout),
-        _df_signature(df_curva),
-        float(diametro),
-        float(ct),
-        float(kw),
-        float(velocidad_geom_state),
+        _df_signature(df_layout), _df_signature(df_curva),
+        float(diametro), float(ct), float(kw), float(velocidad_geom_state),
     )
     resumen_geom, detalles_geom = _session_cached_result(
-        "f4_geometria_16",
-        f4_geom_signature,
-        lambda: analizar_geometria_16(
-            df_layout=df_layout,
-            curva_df=df_curva,
-            diametro=diametro,
-            ct=ct,
-            kw=kw,
-            velocidad_ref=velocidad_geom_state,
-        ),
+        "f4_geometria_16", f4_geom_signature,
+        lambda: analizar_geometria_16(df_layout=df_layout, curva_df=df_curva, diametro=diametro, ct=ct, kw=kw, velocidad_ref=velocidad_geom_state),
     )
 except Exception as e:
     st.error(f"No pude calcular la criticidad geométrica: {e}")
@@ -3262,158 +1797,47 @@ except Exception as e:
 
 geom_loss_col = _find_geom_loss_column(resumen_geom)
 if geom_loss_col is None:
-    st.error("No pude localizar la columna de p?rdida geom?trica en el resumen del arreglo.")
+    st.error("No pude localizar la columna de pérdida geométrica en el resumen del arreglo.")
     st.stop()
 geom_loss_series = pd.to_numeric(resumen_geom[geom_loss_col], errors="coerce").fillna(0.0)
 max_geom = float(geom_loss_series.max())
-sectores_geom_criticos = resumen_geom.loc[
-    np.abs(geom_loss_series - max_geom) <= 1e-4,
-    "Sector"
-].tolist()
+sectores_geom_criticos = resumen_geom.loc[np.abs(geom_loss_series - max_geom) <= 1e-4, "Sector"].tolist()
 eficiencia_geom = max(0.0, 100.0 - max_geom)
 main_base_viento = st.session_state.get("f4_base_viento", base_viento_default)
 main_dir_altura = st.session_state.get("f4_dir_altura", dir_altura_default)
 main_sector_visual_df, main_sector_visual_meta = _build_main_park_sector_visual_data(
-    df_nasa=df_nasa,
-    base_viento=main_base_viento,
-    altura_deseada=altura_deseada,
-    roughness_label=roughness_default,
-    direccion_altura=main_dir_altura,
-    curva_df=df_curva,
-    fallback_speed=velocidad_geom_state,
+    df_nasa=df_nasa, base_viento=main_base_viento, altura_deseada=altura_deseada,
+    roughness_label=roughness_default, direccion_altura=main_dir_altura,
+    curva_df=df_curva, fallback_speed=velocidad_geom_state,
 )
 
-kpi_top = st.columns(5, gap="small")
-with kpi_top[0]:
-    with st.container(border=True, key="f4_top_kpi_1"):
-        icon_aero = "<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='none' stroke='#0B63F6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 12v10'/><path d='M12 12Q10.5 8 12 3Q13.5 8 12 12'/><path d='M12 12Q16.2 12.7 19.8 16.5Q14.7 15.3 12 12'/><path d='M12 12Q9.3 15.3 4.2 16.5Q7.8 12.7 12 12'/><circle cx='12' cy='12' r='1.5' fill='#0B63F6'/></svg>"
-        _render_kpi_card("Aerogeneradores", f"{len(df_layout)}", "Total en el parque", icon=icon_aero, class_name="f4-top-kpi-card")
-with kpi_top[1]:
-    with st.container(border=True, key="f4_top_kpi_2"):
-        icon_diam = "<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='none' stroke='#0B63F6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><path d='M12 5.5v0 M12 18.5v0 M5.5 12h0 M18.5 12h0'/><circle cx='12' cy='12' r='1.5' fill='#0B63F6'/><path d='M12 12V7.5'/></svg>"
-        _render_kpi_card("Diámetro rotor (m)", f"{diametro:.1f}", "Referencia del modelo", icon=icon_diam, class_name="f4-top-kpi-card")
-with kpi_top[2]:
-    with st.container(border=True, key="f4_top_kpi_3"):
-        icon_vel = "<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='none' stroke='#0B63F6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12.8 19.6A2 2 0 1 0 14 16H2'/><path d='M17.5 8a2.5 2.5 0 1 1 2 4H2'/><path d='M9.8 4.4A2 2 0 1 1 11 8H2'/></svg>"
-        _render_kpi_card("Velocidad geométrica", f"{velocidad_geom_state:.2f} m/s", "Para el análisis geométrico", icon=icon_vel, class_name="f4-top-kpi-card")
-with kpi_top[3]:
-    with st.container(border=True, key="f4_top_kpi_4"):
-        icon_sector = "<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='none' stroke='#0B63F6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10' opacity='0.2'/><path d='M12 3v18M3 12h18'/></svg>"
-        _render_kpi_card("Sector crítico", ", ".join(sectores_geom_criticos), "Sectores geométricamente críticos", icon=icon_sector, class_name="f4-top-kpi-card")
-with kpi_top[4]:
-    with st.container(border=True, key="f4_top_kpi_5"):
-        icon_efic = "<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='none' stroke='#0B63F6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><path d='M8 12l3 3 5-6'/></svg>"
-        _render_kpi_card("Eficiencia geométrica", f"{eficiencia_geom:.2f}%", "Eficiencia del arreglo", icon=icon_efic, class_name="f4-top-kpi-card")
+# Hero pills (dynamic, injected after data is ready)
+st.markdown(f"""<script>
+var hp=document.getElementById('f4_hero_pills');
+if(hp)hp.innerHTML='<div class="hpill"><b>{len(df_layout)}</b><span>Turbinas</span></div><div class="hpill"><b>{max_geom:.1f}%</b><span>Estela máx</span></div><div class="hpill"><b>{eficiencia_geom:.1f}%</b><span>Eficiencia</span></div>';
+</script>""", unsafe_allow_html=True)
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# KPI row (Aurora tiles)
+# ═══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="f4-kpi-grid">' +
+    _kpi_tile("🌬️", "Aerogeneradores", f"{len(df_layout)}", "Total en el parque", "#2563eb") +
+    _kpi_tile("⊘", "Diámetro rotor", f"{diametro:.1f} m", "Referencia del modelo", "#0ea5e9") +
+    _kpi_tile("💨", "Vel. geométrica", f"{velocidad_geom_state:.2f} m/s", "Para análisis geométrico", "#8b5cf6") +
+    _kpi_tile("◎", "Sector crítico", ", ".join(sectores_geom_criticos), "Geométricamente críticos", "#f59e0b") +
+    _kpi_tile("✓", "Eficiencia geom.", f"{eficiencia_geom:.2f}%", "Eficiencia del arreglo", "#10b981") +
+'</div>', unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 2. Table + Move (2-col)
+# ═══════════════════════════════════════════════════════════════════════════════
 layout_edit_cols = st.columns([1.05, 1.15], gap="small")
 with layout_edit_cols[0]:
     with st.container(border=True, key="f4_card_edit_table", height=435):
-        st.markdown(
-            """
-            <style>
-            /* ── Twin-card symmetry (Structural height applied via python) ── */
-            .st-key-f4_card_edit_table > div[data-testid="stVerticalBlock"],
-            .st-key-f4_card_move_layout > div[data-testid="stVerticalBlock"],
-            div.st-key-f4_card_edit_table[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"],
-            div.st-key-f4_card_move_layout[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: space-between !important;
-            }
-            /* ────────────────────────────────────────────────────────────── */
-            .st-key-f4_card_edit_table {
-                background: #ffffff !important;
-                border: 1px solid #c9dcff !important;
-                border-radius: 20px !important;
-                box-shadow: 0 4px 14px rgba(37, 99, 235, 0.05) !important;
-            }
-            .st-key-f4_card_edit_table div[data-testid="stVerticalBlockBorderWrapper"] {
-                padding: 1.2rem 1.4rem !important;
-            }
-            .st-key-f4_card_edit_table .f4-section-title {
-                margin-bottom: 1rem !important;
-            }
-            .st-key-f4_card_edit_table .f4-section-title__icon {
-                width: 2.8rem !important;
-                height: 2.8rem !important;
-                border-radius: 999px !important;
-                background: #eef5ff !important;
-                border: 1px solid #cbd5e1 !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                box-shadow: inset 0 2px 4px rgba(255,255,255,0.8) !important;
-            }
-            .st-key-f4_card_edit_table .f4-section-title__icon svg {
-                width: 1.5rem !important;
-                height: 1.5rem !important;
-                stroke: #1d4ed8 !important;
-            }
-            .st-key-f4_card_edit_table .f4-section-title__text {
-                color: #10224f !important;
-                font-size: 1.25rem !important;
-                font-weight: 800 !important;
-            }
-            .st-key-f4_card_edit_table [data-testid="stDataFrame"],
-            .st-key-f4_card_edit_table [data-testid="stDataEditor"] {
-                min-height: auto !important;
-                border: 1px solid #cbd5e1 !important;
-                border-radius: 16px !important;
-                overflow: hidden !important;
-            }
-            .st-key-f4_card_edit_table th {
-                background: #f4f8fc !important;
-                color: #1e3a8a !important;
-                font-weight: 800 !important;
-                font-size: 0.9rem !important;
-                border-bottom: 1px solid #dbeafe !important;
-            }
-            .st-key-f4_card_edit_table td {
-                color: #0f172a !important;
-                font-weight: 700 !important;
-                font-size: 0.95rem !important;
-                border-bottom: 1px solid #eff6ff !important;
-            }
-            .st-key-f4_card_edit_table .stButton > button {
-                background: #ffffff !important;
-                border: 1px solid #bfdbfe !important;
-                border-radius: 14px !important;
-                color: #1d4ed8 !important;
-                font-weight: 800 !important;
-                font-size: 1.05rem !important;
-                min-height: 3.2rem !important;
-                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
-                transition: all 0.2s ease !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                gap: 0.6rem !important;
-                margin-top: 0.8rem !important;
-            }
-            .st-key-f4_card_edit_table .stButton > button:hover {
-                background: #eff6ff !important;
-                border-color: #3b82f6 !important;
-            }
-            .st-key-f4_card_edit_table .stButton > button .material-symbols-rounded {
-                font-size: 1.5rem !important;
-                color: #2563eb !important;
-                font-weight: 600 !important;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        icon_table = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><line x1='3' y1='9' x2='21' y2='9'/><line x1='9' y1='9' x2='9' y2='21'/><line x1='15' y1='9' x2='15' y2='21'/></svg>"
-        _render_section_header("Tabla editable del parque", icon_table)
-        edited_layout = st.data_editor(
-            df_layout.copy(),
-            num_rows="dynamic",
-            use_container_width=True,
-            key="f4_layout_editor_v4",
-            height=240,
-        )
-
+        _section_header("Tabla editable del parque", "Coordenadas x/y en metros", "table", "#7c3aed")
+        edited_layout = st.data_editor(df_layout.copy(), num_rows="dynamic", use_container_width=True, key="f4_layout_editor_v4", height=240)
         if st.button("Guardar tabla del parque", icon=":material/save:", use_container_width=True):
             try:
                 df_save = edited_layout.copy()
@@ -3421,10 +1845,8 @@ with layout_edit_cols[0]:
                 df_save["x_m"] = pd.to_numeric(df_save["x_m"], errors="coerce")
                 df_save["y_m"] = pd.to_numeric(df_save["y_m"], errors="coerce")
                 df_save = df_save.dropna(subset=["turbina_id", "x_m", "y_m"]).copy()
-
                 if len(df_save) == 0:
                     raise ValueError("La tabla quedó vacía.")
-
                 guardar_layout_parque(df_save[["turbina_id", "x_m", "y_m"]])
                 guardar_config_values({"f4_num_turbinas": len(df_save)})
                 st.success("Tabla guardada.")
@@ -3436,261 +1858,21 @@ df_layout = cargar_layout_parque()
 
 with layout_edit_cols[1]:
     with st.container(border=True, key="f4_card_move_layout", height=435):
-        st.markdown(
-            """
-            <style>
-            .st-key-f4_card_move_layout {
-                background: #ffffff !important;
-                border: 1px solid #c9dcff !important;
-                border-radius: 20px !important;
-                box-shadow: 0 4px 14px rgba(37, 99, 235, 0.05) !important;
-            }
-            .st-key-f4_card_move_layout div[data-testid="stVerticalBlockBorderWrapper"] {
-                padding: 1.2rem 1.4rem !important;
-            }
-            .st-key-f4_card_move_layout .f4-section-title {
-                margin-bottom: 1.2rem !important;
-                display: flex !important;
-                align-items: center !important;
-                gap: 0.8rem !important;
-            }
-            .st-key-f4_card_move_layout .f4-section-title__icon {
-                width: 2.8rem !important;
-                height: 2.8rem !important;
-                border-radius: 999px !important;
-                background: #eef5ff !important;
-                border: 1px solid #cbd5e1 !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                box-shadow: inset 0 2px 4px rgba(255,255,255,0.8) !important;
-            }
-            .st-key-f4_card_move_layout .f4-section-title__icon svg {
-                width: 1.5rem !important;
-                height: 1.5rem !important;
-                stroke: #1d4ed8 !important;
-            }
-            .st-key-f4_card_move_layout .f4-section-title__text {
-                color: #10224f !important;
-                font-size: 1.25rem !important;
-                font-weight: 800 !important;
-            }
-            .st-key-f4_card_move_layout label,
-            .st-key-f4_card_move_layout [data-testid="stWidgetLabel"],
-            .st-key-f4_card_move_layout [data-testid="stWidgetLabel"] p,
-            .st-key-f4_card_move_layout [data-testid="stWidgetLabel"] span {
-                font-weight: 800 !important;
-                color: #1e293b !important;
-                font-size: 0.88rem !important;
-            }
-            /* ── Selectbox ── */
-            .st-key-f4_card_move_layout [data-baseweb="select"] > div {
-                background: #ffffff !important;
-                border: 1px solid #bfdbfe !important;
-                border-radius: 14px !important;
-                min-height: 46px !important;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.98), 0 1px 2px rgba(15,23,42,0.02) !important;
-                align-items: center !important;
-            }
-            .st-key-f4_card_move_layout [data-baseweb="select"] span {
-                font-weight: 800 !important;
-                color: #0f172a !important;
-            }
-            /* ── Number inputs — mismo patrón que f4_card_config ── */
-            .st-key-f4_card_move_layout [data-baseweb="input"],
-            .st-key-f4_card_move_layout [data-testid="stNumberInput"] [data-baseweb="input"] {
-                background: #ffffff !important;
-                border: 1px solid #bfdbfe !important;
-                border-radius: 14px !important;
-                min-height: 46px !important;
-                display: flex !important;
-                align-items: center !important;
-                overflow: hidden !important;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.98), 0 1px 2px rgba(15,23,42,0.02) !important;
-            }
-            .st-key-f4_card_move_layout [data-baseweb="input"] > div,
-            .st-key-f4_card_move_layout [data-baseweb="input"] input {
-                background: #ffffff !important;
-                color: #0f172a !important;
-            }
-            /* divisor input/stepper */
-            .st-key-f4_card_move_layout [data-testid="stNumberInput"] [data-baseweb="input"] > div:last-child {
-                background: #ffffff !important;
-                border-left: 1px solid #dbeafe !important;
-            }
-            /* valor en negrilla */
-            .st-key-f4_card_move_layout [data-testid="stNumberInput"] input {
-                background: #ffffff !important;
-                padding-left: 0.8rem !important;
-                font-weight: 800 !important;
-                color: #0f172a !important;
-            }
-            /* botones + y - — idénticos a f4_card_config */
-            .st-key-f4_card_move_layout [data-baseweb="input"] button {
-                color: #0f172a !important;
-                background: #ffffff !important;
-                border-radius: 10px !important;
-                border: 1px solid #eef2f7 !important;
-                min-width: 2.35rem !important;
-                font-weight: 800 !important;
-                font-size: 1.05rem !important;
-            }
-            .st-key-f4_card_move_layout [data-testid="stNumberInput"] button {
-                background: #ffffff !important;
-                border-left: 1px solid #dbeafe !important;
-                color: #0f172a !important;
-                min-width: 2.35rem !important;
-                font-weight: 800 !important;
-                font-size: 1.05rem !important;
-            }
-            .st-key-f4_card_move_layout [data-testid="stNumberInput"] button:hover,
-            .st-key-f4_card_move_layout [data-baseweb="input"] button:hover {
-                background: #eff6ff !important;
-                color: #1d4ed8 !important;
-            }
-            .st-key-f4_move_turbine_card,
-            .st-key-f4_move_park_card,
-            .st-key-f4_rotate_park_card {
-                border-radius: 16px !important;
-            }
-            .st-key-f4_move_turbine_card,
-            .st-key-f4_move_park_card {
-                background: #ffffff !important;
-                border: 1px solid #cbd5e1 !important;
-                box-shadow: 0 2px 8px rgba(37, 99, 235, 0.04) !important;
-            }
-            .st-key-f4_rotate_park_card {
-                background: #f0fdf4 !important;
-                border: 1px solid #bbf7d0 !important;
-                box-shadow: 0 2px 8px rgba(34, 197, 94, 0.04) !important;
-            }
-            /* ── Subcards (Structural height applied via python) ── */
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(> div.st-key-f4_move_turbine_card),
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(> div.st-key-f4_move_park_card),
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(> div.st-key-f4_rotate_park_card),
-            div.st-key-f4_move_turbine_card[data-testid="stVerticalBlockBorderWrapper"],
-            div.st-key-f4_move_park_card[data-testid="stVerticalBlockBorderWrapper"],
-            div.st-key-f4_rotate_park_card[data-testid="stVerticalBlockBorderWrapper"] {
-                padding: 1rem 0.8rem !important;
-                box-sizing: border-box !important;
-            }
-            .st-key-f4_rotate_park_card > div[data-testid="stVerticalBlock"],
-            div.st-key-f4_rotate_park_card[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                justify-content: center !important;
-                height: 100% !important;
-                gap: 0.5rem !important;
-            }
-            /* ── Desplazamiento y compresión vertical interna para los 3 subcards ── */
-            .st-key-f4_move_turbine_card > div[data-testid="stVerticalBlock"],
-            .st-key-f4_move_park_card > div[data-testid="stVerticalBlock"],
-            .st-key-f4_rotate_park_card > div[data-testid="stVerticalBlock"],
-            div.st-key-f4_move_turbine_card[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"],
-            div.st-key-f4_move_park_card[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"],
-            div.st-key-f4_rotate_park_card[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
-                transform: translateY(-12px) !important;
-            }
-            .st-key-f4_move_turbine_card > div[data-testid="stVerticalBlock"],
-            .st-key-f4_move_park_card > div[data-testid="stVerticalBlock"],
-            div.st-key-f4_move_turbine_card[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"],
-            div.st-key-f4_move_park_card[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
-                gap: 0.15rem !important;
-            }
-            .st-key-f4_move_turbine_card .f4-move-subcard-title,
-            .st-key-f4_move_park_card .f4-move-subcard-title {
-                color: #1d4ed8 !important;
-                font-weight: 800 !important;
-                font-size: 0.95rem !important;
-                text-align: center !important;
-                margin-bottom: 0.1rem !important;
-            }
-            .st-key-f4_rotate_park_card .f4-move-subcard-title {
-                color: #16a34a !important;
-                font-weight: 800 !important;
-                font-size: 0.95rem !important;
-                text-align: center !important;
-                margin-bottom: 0.1rem !important;
-            }
-            .st-key-f4_rotate_park_card [data-testid="stHorizontalBlock"] {
-                transform: translateY(55px) !important;
-            }
-            .st-key-f4_move_turbine_card .stButton > button,
-            .st-key-f4_move_park_card .stButton > button {
-                background: #ffffff !important;
-                border: 1px solid #c9dcff !important;
-                border-radius: 12px !important;
-                color: #2563eb !important;
-                font-weight: 800 !important;
-                font-size: 26px !important;
-                height: 48px !important;
-                min-height: 48px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                box-shadow: 0 2px 6px rgba(37,99,235,0.06) !important;
-                padding: 0 !important;
-                line-height: 1 !important;
-                max-width: 76px !important;
-                margin: 0 auto !important;
-            }
-            .st-key-f4_move_turbine_card .stButton > button:hover,
-            .st-key-f4_move_park_card .stButton > button:hover {
-                background: #eff6ff !important;
-                border-color: #93c5fd !important;
-            }
-            .st-key-f4_rotate_park_card .stButton > button {
-                background: #ffffff !important;
-                border: 1px solid #86efac !important;
-                border-radius: 12px !important;
-                color: #16a34a !important;
-                font-weight: 800 !important;
-                font-size: 24px !important;
-                height: 54px !important;
-                min-height: 54px !important;
-                width: 100% !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                box-shadow: 0 2px 6px rgba(34,197,94,0.06) !important;
-                padding: 0 0.6rem !important;
-                line-height: 1 !important;
-                margin: 0 !important;
-                gap: 0.4rem !important;
-            }
-            .st-key-f4_rotate_park_card .stButton > button:hover {
-                background: #f0fdf4 !important;
-                border-color: #4ade80 !important;
-            }
-
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        icon_move = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 9l-3 3 3 3M9 5l3-3 3 3M19 9l3 3-3 3M9 19l3 3 3-3M2 12h20M12 2v20'/></svg>"
-        _render_section_header("Mover turbinas y parque", icon_move)
+        _section_header("Mover turbinas y parque", "Desplazar individualmente o todo el arreglo", "move", "#7c3aed")
 
         if len(df_layout) > 0:
             turbine_options = df_layout["turbina_id"].astype(str).tolist()
             if selected_turbine_default not in turbine_options:
                 selected_turbine_default = turbine_options[0]
-
             _init_widget_state("f4_selected_turbine", selected_turbine_default)
 
             m1, m2, m3, m4 = st.columns(4, gap="small")
             with m1:
-                turbina_sel = st.selectbox(
-                    "Turbina seleccionada",
-                    turbine_options,
-                    index=turbine_options.index(selected_turbine_default),
-                    key="f4_selected_turbine",
-                )
+                turbina_sel = st.selectbox("Turbina seleccionada", turbine_options, index=turbine_options.index(selected_turbine_default), key="f4_selected_turbine")
             with m2:
-                move_step_turb = st.number_input("Paso mover turbina (m)", min_value=1.0, value=50.0, step=10.0, format="%.2f")
+                move_step_turb = st.number_input("Paso turbina (m)", min_value=1.0, value=50.0, step=10.0, format="%.2f")
             with m3:
-                move_step_park = st.number_input("Paso mover parque (m)", min_value=1.0, value=100.0, step=10.0, format="%.2f")
+                move_step_park = st.number_input("Paso parque (m)", min_value=1.0, value=100.0, step=10.0, format="%.2f")
             with m4:
                 rotate_step = st.number_input("Paso rotación (°)", value=5.0, step=1.0, format="%.2f")
 
@@ -3702,240 +1884,115 @@ with layout_edit_cols[1]:
             move_cards = st.columns(3, gap="small")
             with move_cards[0]:
                 with st.container(border=True, key="f4_move_turbine_card", height=235):
-                    st.markdown('<div class="f4-move-subcard-title">Mover turbina</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f4-move-subcard-title" style="color:#7c3aed">Mover turbina</div>', unsafe_allow_html=True)
                     top_l, top_c, top_r = st.columns(3, gap="small")
                     with top_c:
                         if st.button("↑", use_container_width=True, key="f4_move_turbine_up"):
-                            guardar_layout_parque(mover_turbina(df_layout, turbina_sel, 0, move_step_turb))
-                            st.rerun()
+                            guardar_layout_parque(mover_turbina(df_layout, turbina_sel, 0, move_step_turb)); st.rerun()
                     mid_l, mid_c, mid_r = st.columns(3, gap="small")
                     with mid_l:
                         if st.button("←", use_container_width=True, key="f4_move_turbine_left"):
-                            guardar_layout_parque(mover_turbina(df_layout, turbina_sel, -move_step_turb, 0))
-                            st.rerun()
+                            guardar_layout_parque(mover_turbina(df_layout, turbina_sel, -move_step_turb, 0)); st.rerun()
                     with mid_r:
                         if st.button("→", use_container_width=True, key="f4_move_turbine_right"):
-                            guardar_layout_parque(mover_turbina(df_layout, turbina_sel, move_step_turb, 0))
-                            st.rerun()
+                            guardar_layout_parque(mover_turbina(df_layout, turbina_sel, move_step_turb, 0)); st.rerun()
                     bot_l, bot_c, bot_r = st.columns(3, gap="small")
                     with bot_c:
                         if st.button("↓", use_container_width=True, key="f4_move_turbine_down"):
-                            guardar_layout_parque(mover_turbina(df_layout, turbina_sel, 0, -move_step_turb))
-                            st.rerun()
+                            guardar_layout_parque(mover_turbina(df_layout, turbina_sel, 0, -move_step_turb)); st.rerun()
             with move_cards[1]:
                 with st.container(border=True, key="f4_move_park_card", height=235):
-                    st.markdown('<div class="f4-move-subcard-title">Mover parque</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f4-move-subcard-title" style="color:#7c3aed">Mover parque</div>', unsafe_allow_html=True)
                     top_l, top_c, top_r = st.columns(3, gap="small")
                     with top_c:
                         if st.button("↑", use_container_width=True, key="f4_move_park_up"):
-                            guardar_layout_parque(mover_parque(df_layout, 0, move_step_park))
-                            st.rerun()
+                            guardar_layout_parque(mover_parque(df_layout, 0, move_step_park)); st.rerun()
                     mid_l, mid_c, mid_r = st.columns(3, gap="small")
                     with mid_l:
                         if st.button("←", use_container_width=True, key="f4_move_park_left"):
-                            guardar_layout_parque(mover_parque(df_layout, -move_step_park, 0))
-                            st.rerun()
+                            guardar_layout_parque(mover_parque(df_layout, -move_step_park, 0)); st.rerun()
                     with mid_r:
                         if st.button("→", use_container_width=True, key="f4_move_park_right"):
-                            guardar_layout_parque(mover_parque(df_layout, move_step_park, 0))
-                            st.rerun()
+                            guardar_layout_parque(mover_parque(df_layout, move_step_park, 0)); st.rerun()
                     bot_l, bot_c, bot_r = st.columns(3, gap="small")
                     with bot_c:
                         if st.button("↓", use_container_width=True, key="f4_move_park_down"):
-                            guardar_layout_parque(mover_parque(df_layout, 0, -move_step_park))
-                            st.rerun()
+                            guardar_layout_parque(mover_parque(df_layout, 0, -move_step_park)); st.rerun()
             with move_cards[2]:
                 with st.container(border=True, key="f4_rotate_park_card", height=235):
-                    st.markdown('<div class="f4-move-subcard-title">Rotar parque</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f4-move-subcard-title" style="color:#16a34a">Rotar parque</div>', unsafe_allow_html=True)
                     rot_l, rot_r = st.columns(2, gap="small")
                     with rot_l:
                         if st.button("↺ -", use_container_width=True, key="f4_rotate_park_minus"):
-                            guardar_layout_parque(rotar_parque(df_layout, -rotate_step))
-                            st.rerun()
+                            guardar_layout_parque(rotar_parque(df_layout, -rotate_step)); st.rerun()
                     with rot_r:
                         if st.button("↻ +", use_container_width=True, key="f4_rotate_park_plus"):
-                            guardar_layout_parque(rotar_parque(df_layout, rotate_step))
-                            st.rerun()
-
-
+                            guardar_layout_parque(rotar_parque(df_layout, rotate_step)); st.rerun()
 
 df_layout = cargar_layout_parque()
 
-st.markdown("""
-<style>
-.f4-after-top-row-spacer {
-    height: 6px !important;
-    min-height: 6px !important;
-    width: 100%;
-    display: block;
-}
-</style>
-<div class="f4-after-top-row-spacer"></div>
-""", unsafe_allow_html=True)
-
+# ═══════════════════════════════════════════════════════════════════════════════
+# 3. Park view + Geom summary
+# ═══════════════════════════════════════════════════════════════════════════════
 view_cols = st.columns([2.7, 0.9], gap="medium")
 with view_cols[0]:
     with st.container(border=True, key="f4_card_view_layout"):
-        st.markdown(
-            f"""
-            <div class="f4-panel-hero__top">
-                <div>
-                    <div class="f4-section-title" style="margin-bottom:0.2rem;">
-                        <span class="f4-section-title__icon">{_icon_svg("waves", 22, "#0B63F6")}</span>
-                        <span class="f4-section-title__text">Vista del parque y efecto de estela</span>
-                    </div>
-                    <div class="f4-panel-hero__subtitle">(vista en planta)</div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        _section_header("Vista del parque y efecto de estela", "Vista en planta con estelas multi-sector", "waves", "#2563eb")
         geom_sector_df_for_park = resumen_geom[["Sector", geom_loss_col]].copy()
         fig_layout = crear_figura_layout_parque(df_layout=df_layout, diametro=diametro, titulo="")
-        fig_layout = _enhance_main_park_figure(
-            fig_layout,
-            df_layout,
-            direction_deg=float(main_sector_visual_meta["dominant_deg"]),
-            direction_label=str(main_sector_visual_meta["dominant_label"]),
-            sector_visual_df=main_sector_visual_df,
-            geom_sector_df=geom_sector_df_for_park,
-        )
-        fig_layout.update_layout(
-            title=None,
-            height=610,
-            margin=dict(l=44, r=28, t=20, b=90),
-            paper_bgcolor="#ffffff",
-            plot_bgcolor="#f8fbff",
-            showlegend=False,
-            xaxis=dict(
-                title=dict(text="X (m)", font=dict(size=13, color="#475569")),
-                showgrid=True,
-                gridcolor="rgba(148,163,184,0.20)",
-                gridwidth=1,
-                zeroline=True,
-                zerolinecolor="rgba(148,163,184,0.35)",
-                zerolinewidth=1,
-                tickfont=dict(size=11, color="#64748b"),
-            ),
-            yaxis=dict(
-                title=dict(text="Y (m)", font=dict(size=13, color="#475569")),
-                showgrid=True,
-                gridcolor="rgba(148,163,184,0.20)",
-                gridwidth=1,
-                zeroline=True,
-                zerolinecolor="rgba(148,163,184,0.35)",
-                zerolinewidth=1,
-                tickfont=dict(size=11, color="#64748b"),
-                scaleanchor="x",
-                scaleratio=1,
-            ),
-            annotations=[
-                # Wind-direction compass badge (top-left, inside plot area)
-                dict(
-                    xref="paper", yref="paper",
-                    x=0.01, y=0.99,
-                    xanchor="left", yanchor="top",
-                    text=(
-                        "<b style='font-size:13px;color:#1e3a8a;'>↗ Viento N (0°)</b>"
-                    ),
-                    showarrow=False,
-                    align="left",
-                    bgcolor="rgba(239,246,255,0.88)",
-                    bordercolor="#bfdbfe",
-                    borderwidth=1,
-                    borderpad=5,
-                    font=dict(size=12, color="#1d4ed8"),
-                ),
-            ],
+        fig_layout = _enhance_main_park_figure(fig_layout, df_layout, direction_deg=float(main_sector_visual_meta["dominant_deg"]), direction_label=str(main_sector_visual_meta["dominant_label"]), sector_visual_df=main_sector_visual_df, geom_sector_df=geom_sector_df_for_park)
+        fig_layout.update_layout(title=None, height=610, margin=dict(l=44, r=28, t=20, b=90), paper_bgcolor="#ffffff", plot_bgcolor="#f8fbff", showlegend=False,
+            xaxis=dict(title=dict(text="X (m)", font=dict(size=13, color="#475569")), showgrid=True, gridcolor="rgba(148,163,184,0.20)", zeroline=True, zerolinecolor="rgba(148,163,184,0.35)", tickfont=dict(size=11, color="#64748b")),
+            yaxis=dict(title=dict(text="Y (m)", font=dict(size=13, color="#475569")), showgrid=True, gridcolor="rgba(148,163,184,0.20)", zeroline=True, zerolinecolor="rgba(148,163,184,0.35)", tickfont=dict(size=11, color="#64748b"), scaleanchor="x", scaleratio=1),
+            annotations=[dict(xref="paper", yref="paper", x=0.01, y=0.99, xanchor="left", yanchor="top", text="<b style='font-size:13px;color:#1e3a8a;'>↗ Viento N (0°)</b>", showarrow=False, bgcolor="rgba(239,246,255,0.88)", bordercolor="#bfdbfe", borderwidth=1, borderpad=5, font=dict(size=12, color="#1d4ed8"))],
         )
         fig_layout = _style_main_park_figure(fig_layout)
-        plot_config = {
-            "displayModeBar": True,
-            "displaylogo": False,
-            "responsive": True,
-            "modeBarButtonsToRemove": [
-                "lasso2d", "select2d",
-            ],
-        }
-        components.html(
-            _cached_park_html(
-                fig=fig_layout,
-                df_layout=df_layout,
-                wind_speed=float(main_sector_visual_meta["representative_speed"]),
-                curva_df=df_curva,
-                plot_config=plot_config,
-                direction_deg=float(main_sector_visual_meta["dominant_deg"]),
-            ),
-            height=int(fig_layout.layout.height or 610) + 6,
-            scrolling=False,
-        )
-        st.markdown(
-            """
-            <div style="display:flex;align-items:center;gap:0.9rem;margin:0.35rem 0 0.1rem 0;padding:0.48rem 0.7rem;border: 1px solid #cbd5e1;border-radius:12px;background:#fbfdff;color:#000000;font-size:0.82rem;font-weight:400;">
-                <span style="color:#0f172a;font-weight:800;">Afectación local por estela</span>
-                <span style="display:inline-flex;align-items:center;gap:0.32rem;"><i style="width:10px;height:10px;border-radius:999px;background:#10B981;display:inline-block;"></i>Verde: Baja</span>
-                <span style="display:inline-flex;align-items:center;gap:0.32rem;"><i style="width:10px;height:10px;border-radius:999px;background:#F59E0B;display:inline-block;"></i>Naranja: Media</span>
-                <span style="display:inline-flex;align-items:center;gap:0.32rem;"><i style="width:10px;height:10px;border-radius:999px;background:#EF4444;display:inline-block;"></i>Rojo: Alta</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        plot_config = {"displayModeBar": True, "displaylogo": False, "responsive": True, "modeBarButtonsToRemove": ["lasso2d", "select2d"]}
+        components.html(_cached_park_html(fig=fig_layout, df_layout=df_layout, wind_speed=float(main_sector_visual_meta["representative_speed"]), curva_df=df_curva, plot_config=plot_config, direction_deg=float(main_sector_visual_meta["dominant_deg"])), height=int(fig_layout.layout.height or 610) + 6, scrolling=False)
+        st.markdown("""<div style="display:flex;align-items:center;gap:.9rem;margin:.35rem 0 .1rem 0;padding:.48rem .7rem;border:1px solid #cbd5e1;border-radius:12px;background:#fbfdff;font-size:.82rem;">
+            <span style="font-weight:800;color:#0a2444">Afectación local por estela</span>
+            <span style="display:inline-flex;align-items:center;gap:.32rem"><i style="width:10px;height:10px;border-radius:999px;background:#10B981;display:inline-block"></i>Baja</span>
+            <span style="display:inline-flex;align-items:center;gap:.32rem"><i style="width:10px;height:10px;border-radius:999px;background:#F59E0B;display:inline-block"></i>Media</span>
+            <span style="display:inline-flex;align-items:center;gap:.32rem"><i style="width:10px;height:10px;border-radius:999px;background:#EF4444;display:inline-block"></i>Alta</span>
+        </div>""", unsafe_allow_html=True)
 
 with view_cols[1]:
     with st.container(border=True, key="f4_card_geom_summary"):
-        _render_section_header("Resumen geométrico del arreglo", "◎")
-        _render_summary_item("Número de aerogeneradores", f"{len(df_layout)}")
-        _render_summary_item("Separación X (en D)", f"{dx_D:.2f}")
-        _render_summary_item("Separación Y (en D)", f"{dy_D:.2f}")
-        _render_summary_item("Rotación del arreglo (°)", f"{rotation_deg:.2f}")
-        _render_summary_item("Ct", f"{ct:.2f}")
-        _render_summary_item("Constante de expansión kw", f"{kw:.3f}")
-        _render_summary_item("Altura deseada (m)", f"{altura_deseada:.2f}")
-        _render_summary_item("Velocidad geométrica", f"{velocidad_geom_state:.2f} m/s")
-        _render_summary_item("Eficiencia geométrica", f"{eficiencia_geom:.2f}%")
-        _render_summary_item("Sectores críticos", ", ".join(sectores_geom_criticos))
+        _section_header("Resumen geométrico", "Parámetros del arreglo actual", "info", "#7c3aed")
+        summary_items = [
+            ("Aerogeneradores", f"{len(df_layout)}"), ("Sep. X (D)", f"{dx_D:.2f}"),
+            ("Sep. Y (D)", f"{dy_D:.2f}"), ("Rotación (°)", f"{rotation_deg:.2f}"),
+            ("Ct", f"{ct:.2f}"), ("kw", f"{kw:.3f}"),
+            ("Altura (m)", f"{altura_deseada:.2f}"), ("Vel. geom.", f"{velocidad_geom_state:.2f} m/s"),
+            ("Eficiencia geom.", f"{eficiencia_geom:.2f}%"), ("Sectores críticos", ", ".join(sectores_geom_criticos)),
+        ]
+        for label, value in summary_items:
+            st.markdown(f'<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee"><span style="color:#5a6b85;font-size:13px">{label}</span><b style="color:#0a2444;font-size:13px">{value}</b></div>', unsafe_allow_html=True)
         st.button("Exportar vista", use_container_width=True, key="f4_btn_exportar_vista_layout")
 
-with st.container(border=True, key="f4_card_wind_base"):
-    _render_section_header("Base de viento para el análisis anual", _icon_svg("waves", 24, "#0B63F6"))
-    with st.form("f4_wind_base_form", clear_on_submit=False):
 
-        # Initialize widget state before creating widgets
+# ═══════════════════════════════════════════════════════════════════════════════
+# 4. Wind base form
+# ═══════════════════════════════════════════════════════════════════════════════
+with st.container(border=True, key="f4_card_wind_base"):
+    _section_header("Base de viento para análisis anual", "Seleccione el modelo de extrapolación y velocidad geométrica", "wind", "#0ea5e9")
+    with st.form("f4_wind_base_form", clear_on_submit=False):
         _init_widget_state("f4_base_viento", base_viento_default)
         _init_widget_state("f4_dir_altura", dir_altura_default)
         _init_widget_state("f4_geom_speed", geom_speed_default)
 
         v1, v2, v3, v4 = st.columns(4, gap="medium")
         with v1:
-            base_viento = st.selectbox(
-                "Base de viento anual",
-                ["50 m", "10 m", "Altura deseada - Exponencial", "Altura deseada - Log A (2 puntos)", "Altura deseada - Promedio Log-Exp"],
-                index=["50 m", "10 m", "Altura deseada - Exponencial", "Altura deseada - Log A (2 puntos)", "Altura deseada - Promedio Log-Exp"].index(base_viento_default)
-                if base_viento_default in ["50 m", "10 m", "Altura deseada - Exponencial", "Altura deseada - Log A (2 puntos)", "Altura deseada - Promedio Log-Exp"] else 0,
-                key="f4_base_viento",
-            )
+            base_viento = st.selectbox("Base de viento anual", ["50 m", "10 m", "Altura deseada - Exponencial", "Altura deseada - Log A (2 puntos)", "Altura deseada - Promedio Log-Exp"],
+                index=["50 m", "10 m", "Altura deseada - Exponencial", "Altura deseada - Log A (2 puntos)", "Altura deseada - Promedio Log-Exp"].index(base_viento_default) if base_viento_default in ["50 m", "10 m", "Altura deseada - Exponencial", "Altura deseada - Log A (2 puntos)", "Altura deseada - Promedio Log-Exp"] else 0, key="f4_base_viento")
         with v2:
-            dir_altura = st.selectbox(
-                "Dirección usada cuando hay altura deseada",
-                ["WD50M", "WD10M"],
-                index=0 if dir_altura_default == "WD50M" else 1,
-                key="f4_dir_altura",
-            )
+            dir_altura = st.selectbox("Dirección con altura deseada", ["WD50M", "WD10M"], index=0 if dir_altura_default == "WD50M" else 1, key="f4_dir_altura")
         with v3:
-            st.markdown('<div class="f4-inline-caption">Promedio Log-Exp = promedio entre Exponencial y Log A.</div>', unsafe_allow_html=True)
+            st.caption("Promedio Log-Exp = promedio entre Exponencial y Log A.")
             roughness_label = roughness_default
         with v4:
-            velocidad_geom = st.number_input(
-                "Velocidad para análisis geométrico (m/s)",
-                min_value=0.10,
-                value=geom_speed_default,
-                step=0.10,
-                format="%.2f",
-                key="f4_geom_speed",
-            )
-
+            velocidad_geom = st.number_input("Vel. análisis geométrico (m/s)", min_value=0.10, value=geom_speed_default, step=0.10, format="%.2f", key="f4_geom_speed")
         st.form_submit_button("Actualizar análisis anual", use_container_width=True)
-    # Persist widget values to database (reads from session_state via keys)
     guardar_config_values({
         "f4_base_viento": st.session_state.get("f4_base_viento", base_viento_default),
         "f4_base_viento_canonica": energia_calc.normalize_base_viento_for_energy(st.session_state.get("f4_base_viento", base_viento_default)),
@@ -3945,18 +2002,10 @@ with st.container(border=True, key="f4_card_wind_base"):
     })
 
     try:
-        df_viento_analisis, meta_viento = construir_viento_analisis(
-            df_nasa=df_nasa,
-            base_viento=base_viento,
-            altura_deseada=altura_deseada,
-            roughness_label=roughness_label,
-            direccion_altura=dir_altura,
-        )
+        df_viento_analisis, meta_viento = construir_viento_analisis(df_nasa=df_nasa, base_viento=base_viento, altura_deseada=altura_deseada, roughness_label=roughness_label, direccion_altura=dir_altura)
     except Exception as e:
         st.error(f"No pude construir la base de viento: {e}")
         st.stop()
-
-
 
     wind_metrics = []
     if meta_viento["parametro_1_nombre"]:
@@ -3967,135 +2016,40 @@ with st.container(border=True, key="f4_card_wind_base"):
         wind_metrics.append((meta_viento["parametro_2_nombre"], f"{v:.6f}" if pd.notna(v) else "N/A", "Parámetro derivado"))
     wind_metrics.append(("Base canónica", energia_calc.normalize_base_viento_for_energy(base_viento), "Motor anual compartido"))
 
-    wind_metric_cols = st.columns(3, gap="medium")
-    for idx, col in enumerate(wind_metric_cols):
-        if idx >= len(wind_metrics):
-            continue
-        label, value, caption = wind_metrics[idx]
-        with col:
-            with st.container(border=True, key=f"f4_wind_metric_{idx + 1}"):
-                st.markdown(
-                    textwrap.dedent(
-                        f"""
-                        <div class="f4-kpi-html">
-                            <div class="f4-kpi-html__label">{label}</div>
-                            <div class="f4-kpi-html__value">{value}</div>
-                            <div class="f4-kpi-html__caption">{caption}</div>
-                        </div>
-                        """
-                    ).strip(),
-                    unsafe_allow_html=True,
-                )
+    wm_html = '<div class="f4-kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-top:8px">'
+    for label, value, caption in wind_metrics:
+        wm_html += _kpi_tile("📊", label, value, caption, "#0ea5e9")
+    wm_html += '</div>'
+    st.markdown(wm_html, unsafe_allow_html=True)
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 5. Geometric analysis
+# ═══════════════════════════════════════════════════════════════════════════════
 with st.container(border=True, key="f4_card_geom_analysis"):
-    _render_section_header("Análisis geométrico puro del arreglo", '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0B63F6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L3 21h18L12 3z"/><path d="M12 3v18"/><path d="M3 21l9-9"/></svg>')
-
-    _geom_icon_vel = (
-        '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
-        'style="display:block;overflow:visible;">'
-        '<path d="M4 12h12M16 12l-3-3M16 12l-3 3M4 6h16M4 18h8" stroke="#0B63F6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
-        '</svg>'
-    )
-    _geom_icon_loss = (
-        '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
-        'style="display:block;overflow:visible;">'
-        '<path d="M12 4v16M12 20l-4-4M12 20l4-4" stroke="#EF4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
-        '<path d="M4 12h3M17 12h3" stroke="#EF4444" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.4"/>'
-        '</svg>'
-    )
-    _geom_icon_sector = (
-        '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
-        'style="display:block;overflow:visible;">'
-        '<circle cx="12" cy="12" r="9" stroke="#F59E0B" stroke-width="2" fill="none"/>'
-        '<circle cx="12" cy="12" r="3" stroke="#F59E0B" stroke-width="2" fill="none"/>'
-        '<path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" fill="none"/>'
-        '</svg>'
-    )
-
-    g1, g2, g3 = st.columns(3, gap="medium")
-    with g1:
-        _render_kpi_card(
-            "Velocidad geométrica",
-            f"{velocidad_geom:.2f} m/s",
-            "Ref. del análisis",
-            icon=_geom_icon_vel,
-            class_name="f4-geom-kpi-card",
-        )
-    with g2:
-        _render_kpi_card(
-            "Peor pérdida geométrica",
-            f"{max_geom:.2f}%",
-            "Máxima entre sectores",
-            icon=_geom_icon_loss,
-            class_name="f4-geom-kpi-card",
-        )
-    with g3:
-        _render_kpi_card(
-            "Sectores críticos",
-            ", ".join(sectores_geom_criticos),
-            "Geométricamente críticos",
-            icon=_geom_icon_sector,
-            class_name="f4-geom-kpi-card",
-        )
+    _section_header("Análisis geométrico puro del arreglo", "Pérdidas geométricas por sector a velocidad de referencia", "compass", "#7c3aed")
+    gk_html = '<div class="f4-kpi-grid" style="grid-template-columns:repeat(3,1fr)">'
+    gk_html += _kpi_tile("💨", "Velocidad geométrica", f"{velocidad_geom:.2f} m/s", "Ref. del análisis", "#2563eb")
+    gk_html += _kpi_tile("📉", "Peor pérdida geom.", f"{max_geom:.2f}%", "Máxima entre sectores", "#ef4444")
+    gk_html += _kpi_tile("◎", "Sectores críticos", ", ".join(sectores_geom_criticos), "Geométricamente críticos", "#f59e0b")
+    gk_html += '</div>'
+    st.markdown(gk_html, unsafe_allow_html=True)
 
     fig_geom = crear_rosa_geom(resumen_geom)
-    fig_geom.update_layout(
-        title=None,
-        height=520,
-        margin=dict(l=10, r=100, t=20, b=20),
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
-    )
+    fig_geom.update_layout(title=None, height=520, margin=dict(l=10, r=100, t=20, b=20), paper_bgcolor="#ffffff", plot_bgcolor="#ffffff")
     fig_geom = _clean_plotly_labels(fig_geom)
     with st.container(border=True, key="f4_geom_rose_subcard"):
-        st.markdown('<div class="f4-geom-rose-title">Rosa geométrica de pérdidas por estela</div>', unsafe_allow_html=True)
+        st.markdown('<b style="color:#0a2444;font-size:15px">Rosa geométrica de pérdidas por estela</b>', unsafe_allow_html=True)
         st.plotly_chart(fig_geom, use_container_width=True, key="f4_geom_rose_plot", config=PLOTLY_PERF_CONFIG)
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. Annual energy analysis
+# ═══════════════════════════════════════════════════════════════════════════════
 try:
-    f4_energy_signature = (
-        _df_signature(df_layout),
-        _df_signature(df_nasa, ["timestamp", "WS10M", "WS50M", "WD10M", "WD50M"]),
-        _df_signature(df_curva),
-        base_viento,
-        "Weibull",
-        "Weibull",
-        float(altura_deseada),
-        roughness_label,
-        dir_altura,
-        int(len(df_layout)),
-        float(diametro),
-        float(ct),
-        float(kw),
-        "AutomÃ¡tica desde Fase 4",
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-    )
-    energy_result = _session_cached_result(
-        "f4_energy_result",
-        f4_energy_signature,
-        lambda: energia_calc.calcular_aep_autoritativa(
-            df_layout=df_layout,
-            df_nasa=df_nasa,
-            df_curva_raw=df_curva,
-            base_viento=base_viento,
-            modo_estadistico="Weibull",
-            metodo_detalle="Weibull",
-            altura_deseada=altura_deseada,
-            roughness_label=roughness_label,
-            direccion_fuente=dir_altura,
-            n_turbinas=len(df_layout),
-            diametro=diametro,
-            ct=ct,
-            kw=kw,
-            wake_mode="Automática desde Fase 4",
-            wake_manual_pct=0.0,
-            disp_pct=0.0,
-            elec_pct=0.0,
-            otras_pct=0.0,
-        ),
-    )
+    f4_energy_signature = (_df_signature(df_layout), _df_signature(df_nasa, ["timestamp", "WS10M", "WS50M", "WD10M", "WD50M"]), _df_signature(df_curva), base_viento, "Weibull", "Weibull", float(altura_deseada), roughness_label, dir_altura, int(len(df_layout)), float(diametro), float(ct), float(kw), "Automática desde Fase 4", 0.0, 0.0, 0.0, 0.0)
+    energy_result = _session_cached_result("f4_energy_result", f4_energy_signature,
+        lambda: energia_calc.calcular_aep_autoritativa(df_layout=df_layout, df_nasa=df_nasa, df_curva_raw=df_curva, base_viento=base_viento, modo_estadistico="Weibull", metodo_detalle="Weibull", altura_deseada=altura_deseada, roughness_label=roughness_label, direccion_fuente=dir_altura, n_turbinas=len(df_layout), diametro=diametro, ct=ct, kw=kw, wake_mode="Automática desde Fase 4", wake_manual_pct=0.0, disp_pct=0.0, elec_pct=0.0, otras_pct=0.0))
 except Exception as e:
     st.error(f"No pude calcular el análisis anual: {e}")
     st.stop()
@@ -4108,27 +2062,8 @@ if len(resumen_estelas) == 0:
     st.warning("No hay resultados para mostrar.")
     st.stop()
 
-df_sector_energy = energy_result["df_sector"][[
-    "Sector",
-    "AEP bruta parque (MWh/año)",
-    "AEP con estela (MWh/año)",
-    "Pérdida estela energética (MWh/año)",
-]].rename(columns={
-    "AEP bruta parque (MWh/año)": "Energía bruta (MWh/año)",
-    "AEP con estela (MWh/año)": "Energía con estela (MWh/año)",
-    "Pérdida estela energética (MWh/año)": "Pérdida energética (MWh/año)",
-})
-resumen_estelas = resumen_estelas.drop(
-    columns=[
-        col for col in [
-            "Energía bruta (MWh/año)",
-            "Energía con estela (MWh/año)",
-            "Pérdida energética (MWh/año)",
-        ]
-        if col in resumen_estelas.columns
-    ],
-    errors="ignore",
-).merge(df_sector_energy, on="Sector", how="left")
+df_sector_energy = energy_result["df_sector"][["Sector", "AEP bruta parque (MWh/año)", "AEP con estela (MWh/año)", "Pérdida estela energética (MWh/año)"]].rename(columns={"AEP bruta parque (MWh/año)": "Energía bruta (MWh/año)", "AEP con estela (MWh/año)": "Energía con estela (MWh/año)", "Pérdida estela energética (MWh/año)": "Pérdida energética (MWh/año)"})
+resumen_estelas = resumen_estelas.drop(columns=[col for col in ["Energía bruta (MWh/año)", "Energía con estela (MWh/año)", "Pérdida energética (MWh/año)"] if col in resumen_estelas.columns], errors="ignore").merge(df_sector_energy, on="Sector", how="left")
 
 worst_row = resumen_estelas.sort_values("Pérdida ponderada (%)", ascending=False).iloc[0]
 worst_sector = str(worst_row["Sector"])
@@ -4138,67 +2073,44 @@ energia_bruta_total = float(energy_result["resumen"]["aep_bruta_total"])
 energia_wake_total = float(energy_result["resumen"]["aep_con_estela_total"])
 energia_perdida_total = float(energy_result["resumen"]["perdida_estela_mwh"])
 
-guardar_config_values({
-    "f4_weighted_wake_loss_pct": perdida_ponderada,
-    "f4_worst_sector": worst_sector,
-    "f4_worst_sector_loss_pct": worst_sector_loss,
-    "f4_energia_bruta_mwh": energia_bruta_total,
-    "f4_energia_wake_mwh": energia_wake_total,
-    "f4_energia_perdida_mwh": energia_perdida_total,
-    "f4_geom_critical_sectors": ", ".join(sectores_geom_criticos),
-    "f4_geom_max_loss_pct": max_geom,
-})
+guardar_config_values({"f4_weighted_wake_loss_pct": perdida_ponderada, "f4_worst_sector": worst_sector, "f4_worst_sector_loss_pct": worst_sector_loss, "f4_energia_bruta_mwh": energia_bruta_total, "f4_energia_wake_mwh": energia_wake_total, "f4_energia_perdida_mwh": energia_perdida_total, "f4_geom_critical_sectors": ", ".join(sectores_geom_criticos), "f4_geom_max_loss_pct": max_geom})
 
 with st.container(border=True, key="f4_card_annual_analysis"):
-    _render_section_header("Análisis anual ponderado", "◉")
-    a1, a2, a3, a4 = st.columns(4)
-    with a1:
-        st.metric("Pérdida anual ponderada total", f"{perdida_ponderada:.2f}%")
-    with a2:
-        st.metric("Sector anual más crítico", worst_sector)
-    with a3:
-        st.metric("Pérdida ponderada sector crítico", f"{worst_weighted:.3f}%")
-    with a4:
-        st.metric("Sectores geométricamente críticos", ", ".join(sectores_geom_criticos))
-
-    a5, a6, a7 = st.columns(3)
-    with a5:
-        st.metric("Energía bruta", f"{energia_bruta_total:.2f} MWh/año")
-    with a6:
-        st.metric("Energía con estela", f"{energia_wake_total:.2f} MWh/año")
-    with a7:
-        st.metric("Pérdida energética", f"{energia_perdida_total:.2f} MWh/año")
-
-
+    _section_header("Análisis anual ponderado", "Pérdidas ponderadas por frecuencia y energía direccional", "bar-chart-2", "#7c3aed")
+    ak_html = '<div class="f4-kpi-grid" style="grid-template-columns:repeat(4,1fr)">'
+    ak_html += _kpi_tile("📊", "Pérdida anual pond.", f"{perdida_ponderada:.2f}%", "Total ponderada", "#7c3aed")
+    ak_html += _kpi_tile("🧭", "Sector crítico", worst_sector, f"Pérdida: {worst_weighted:.3f}%", "#ef4444")
+    ak_html += _kpi_tile("⚡", "Energía bruta", f"{energia_bruta_total:.1f} MWh/año", "", "#2563eb")
+    ak_html += _kpi_tile("🔋", "Energía con estela", f"{energia_wake_total:.1f} MWh/año", f"Pérdida: {energia_perdida_total:.1f} MWh", "#10b981")
+    ak_html += '</div>'
+    st.markdown(ak_html, unsafe_allow_html=True)
 
     fig_rosa_anual = crear_rosa_anual(resumen_estelas)
-    fig_rosa_anual.update_layout(
-        title=None,
-        height=520,
-        margin=dict(l=26, r=28, t=18, b=24),
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
-    )
+    fig_rosa_anual.update_layout(title=None, height=520, margin=dict(l=26, r=28, t=18, b=24), paper_bgcolor="#ffffff", plot_bgcolor="#ffffff")
     fig_rosa_anual = _clean_plotly_labels(fig_rosa_anual)
-    st.markdown('<div class="f4-plot-caption">Rosa anual ponderada de pérdidas por estela</div>', unsafe_allow_html=True)
+    st.caption("Rosa anual ponderada de pérdidas por estela")
     st.plotly_chart(fig_rosa_anual, use_container_width=True, key="f4_annual_wake_rose_plot", config=PLOTLY_PERF_CONFIG)
 
 chart_cols = st.columns(2, gap="medium")
 with chart_cols[0]:
     with st.container(border=True, key="f4_card_compare_bars"):
-        _render_section_header("Comparación: criticidad geométrica vs criticidad anual", '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0B63F6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h10M4 14l4-4M4 14l4 4M20 10H10M20 10l-4-4M20 10l-4 4"/></svg>')
+        _section_header("Geométrica vs Anual", "Comparación de criticidad por sector", "bar-chart-2", "#2563eb")
         fig_compare = crear_barras_geom_vs_anual(resumen_geom, resumen_estelas)
         fig_compare.update_layout(title=None, height=360, margin=dict(l=30, r=16, t=14, b=34))
         fig_compare = _clean_plotly_labels(fig_compare)
         st.plotly_chart(fig_compare, use_container_width=True, key="f4_geom_vs_annual_bars_plot", config=PLOTLY_PERF_CONFIG)
 with chart_cols[1]:
     with st.container(border=True, key="f4_card_energy_bars"):
-        _render_section_header("Energía anual por dirección", '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0B63F6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/><path d="M4 22h16"/></svg>')
+        _section_header("Energía anual por dirección", "Bruta vs con estela por sector", "bar-chart-2", "#2563eb")
         fig_energy = crear_barras_energia_direccional(resumen_estelas)
         fig_energy.update_layout(title=None, height=360, margin=dict(l=30, r=16, t=14, b=34))
         fig_energy = _clean_plotly_labels(fig_energy)
         st.plotly_chart(fig_energy, use_container_width=True, key="f4_directional_energy_bars_plot", config=PLOTLY_PERF_CONFIG)
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 7. Detail by direction
+# ═══════════════════════════════════════════════════════════════════════════════
 _detail_icon_speed = _icon_svg("wind", 24, "#0ea5e9")
 _detail_icon_loss = _icon_svg("trending-down", 24, "#ef4444")
 _detail_icon_eff = _icon_svg("activity", 24, "#10b981")
@@ -4207,19 +2119,11 @@ _detail_icon_freq = _icon_svg("bar-chart-2", 24, "#8b5cf6")
 _detail_icon_hours = _icon_svg("clock", 24, "#0ea5e9")
 
 with st.container(border=True, key="f4_card_detail_direction"):
-    _render_section_header("Detalle por dirección", '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0B63F6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>')
+    _section_header("Detalle por dirección", "Análisis geométrico y anual por sector", "compass", "#7c3aed")
     sectores_disponibles = resumen_estelas["Sector"].tolist()
     sector_index = sectores_disponibles.index(sector_default) if sector_default in sectores_disponibles else 0
-
     _init_widget_state("f4_selected_sector", sector_default if sector_default in sectores_disponibles else sectores_disponibles[0])
-
-    sector_elegido = st.selectbox(
-        "Seleccione una dirección",
-        sectores_disponibles,
-        index=sector_index,
-        key="f4_selected_sector",
-    )
-
+    sector_elegido = st.selectbox("Seleccione una dirección", sectores_disponibles, index=sector_index, key="f4_selected_sector")
     guardar_config_values({"f4_selected_sector": st.session_state.get("f4_selected_sector", sector_default)})
 
     fila_sector_detalle = resumen_estelas[resumen_estelas["Sector"] == sector_elegido].iloc[0]
@@ -4230,15 +2134,7 @@ with st.container(border=True, key="f4_card_detail_direction"):
     with tab1:
         fila_geom = resumen_geom[resumen_geom["Sector"] == sector_elegido].iloc[0]
         direccion_centro_geom = _get_direction_center_value(fila_geom)
-        df_detalle_geom = calcular_estelas_jensen_direccion(
-            df_layout=df_layout,
-            wind_speed=velocidad_sector_detalle,
-            direction_deg=direccion_centro_geom,
-            diametro=diametro,
-            ct=ct,
-            kw=kw,
-            curva_df=df_curva,
-        )
+        df_detalle_geom = calcular_estelas_jensen_direccion(df_layout=df_layout, wind_speed=velocidad_sector_detalle, direction_deg=direccion_centro_geom, diametro=diametro, ct=ct, kw=kw, curva_df=df_curva)
         p_base_detalle = float(df_detalle_geom["potencia_base_W"].sum())
         p_wake_detalle = float(df_detalle_geom["potencia_wake_W"].sum())
         perdida_geom_detalle = 100.0 * (1.0 - p_wake_detalle / p_base_detalle) if p_base_detalle > 0 else 0.0
@@ -4255,274 +2151,88 @@ with st.container(border=True, key="f4_card_detail_direction"):
         fila_geom["Turbinas afectadas"] = turbinas_afectadas_detalle
 
         g1, g2, g3, g4 = st.columns(4)
-        with g1:
-            _render_kpi_card("Velocidad dirección", f"{fila_geom['Velocidad referencia (m/s)']:.2f} m/s", "", _detail_icon_speed, "f4-detail-kpi")
-        with g2:
-            _render_kpi_card("Pérdida geométrica", f"{fila_geom['Pérdida geométrica (%)']:.2f}%", "", _detail_icon_loss, "f4-detail-kpi")
-        with g3:
-            _render_kpi_card("Eficiencia geométrica", f"{fila_geom['Eficiencia geométrica (%)']:.2f}%", "", _detail_icon_eff, "f4-detail-kpi")
-        with g4:
-            _render_kpi_card("Turbinas afectadas", f"{int(fila_geom['Turbinas afectadas'])}", "", _detail_icon_turbines, "f4-detail-kpi")
+        with g1: st.metric("Velocidad dirección", f"{fila_geom['Velocidad referencia (m/s)']:.2f} m/s")
+        with g2: st.metric("Pérdida geométrica", f"{fila_geom['Pérdida geométrica (%)']:.2f}%")
+        with g3: st.metric("Eficiencia geométrica", f"{fila_geom['Eficiencia geométrica (%)']:.2f}%")
+        with g4: st.metric("Turbinas afectadas", f"{int(fila_geom['Turbinas afectadas'])}")
 
-        fig_dir_geom = crear_figura_direccion_estela(
-            df_detalle=df_detalle_geom,
-            sector=sector_elegido,
-            direction_deg=direccion_centro_geom,
-            diametro=diametro,
-        )
-        fig_dir_geom = _add_wake_visual_layers(
-            fig_dir_geom,
-            df_detalle_geom if not df_detalle_geom.empty else df_layout,
-            direction_deg=direccion_centro_geom,
-        )
-        # Hide Plotly colorbar; the figure uses a custom visual legend instead.
+        fig_dir_geom = crear_figura_direccion_estela(df_detalle=df_detalle_geom, sector=sector_elegido, direction_deg=direccion_centro_geom, diametro=diametro)
+        fig_dir_geom = _add_wake_visual_layers(fig_dir_geom, df_detalle_geom if not df_detalle_geom.empty else df_layout, direction_deg=direccion_centro_geom)
         for trace in fig_dir_geom.data:
             if hasattr(trace, "marker") and trace.marker is not None and hasattr(trace.marker, "colorbar") and trace.marker.colorbar is not None:
                 trace.marker.showscale = False
-
-        # Tight margins to reduce empty space
-        fig_dir_geom.update_layout(
-            title=None,
-            height=490,
-            margin=dict(l=28, r=28, t=24, b=34),
-            paper_bgcolor="#ffffff",
-            plot_bgcolor="#f8fbff",
-            showlegend=False,
-            xaxis=dict(
-                title=dict(text="X (m)", font=dict(size=12, color="#475569")),
-                showgrid=True,
-                gridcolor="rgba(148,163,184,0.20)",
-                zeroline=True,
-                zerolinecolor="rgba(148,163,184,0.30)",
-                tickfont=dict(size=11, color="#64748b"),
-            ),
-            yaxis=dict(
-                title=dict(text="Y (m)", font=dict(size=12, color="#475569")),
-                showgrid=True,
-                gridcolor="rgba(148,163,184,0.20)",
-                zeroline=True,
-                zerolinecolor="rgba(148,163,184,0.30)",
-                tickfont=dict(size=11, color="#64748b"),
-                scaleanchor="x",
-                scaleratio=1,
-            ),
-            annotations=(
-                # Keep only existing non-empty annotations from the base figure,
-                # then add our clean wind-direction badge.
-                [a for a in (fig_dir_geom.layout.annotations or []) if getattr(a, 'text', '') not in ('', None)]
-                + [
-                    dict(
-                        xref="paper", yref="paper",
-                        x=0.01, y=0.99,
-                        xanchor="left", yanchor="top",
-                        text=(
-                            f"<b>&#8599; Viento {sector_elegido} · "
-                            f"{direccion_centro_geom:.0f}°</b>"
-                        ),
-                        showarrow=False,
-                        align="left",
-                        bgcolor="rgba(239,246,255,0.92)",
-                        bordercolor="#93c5fd",
-                        borderwidth=1,
-                        borderpad=5,
-                        font=dict(size=12, color="#1e3a8a"),
-                    ),
-                ]
-            ),
-        )
+        fig_dir_geom.update_layout(title=None, height=490, margin=dict(l=28, r=28, t=24, b=34), paper_bgcolor="#ffffff", plot_bgcolor="#f8fbff", showlegend=False,
+            xaxis=dict(title=dict(text="X (m)", font=dict(size=12, color="#475569")), showgrid=True, gridcolor="rgba(148,163,184,0.20)", zeroline=True, zerolinecolor="rgba(148,163,184,0.30)", tickfont=dict(size=11, color="#64748b")),
+            yaxis=dict(title=dict(text="Y (m)", font=dict(size=12, color="#475569")), showgrid=True, gridcolor="rgba(148,163,184,0.20)", zeroline=True, zerolinecolor="rgba(148,163,184,0.30)", tickfont=dict(size=11, color="#64748b"), scaleanchor="x", scaleratio=1),
+            annotations=([a for a in (fig_dir_geom.layout.annotations or []) if getattr(a, 'text', '') not in ('', None)] + [dict(xref="paper", yref="paper", x=0.01, y=0.99, xanchor="left", yanchor="top", text=f"<b>&#8599; Viento {sector_elegido} · {direccion_centro_geom:.0f}°</b>", showarrow=False, bgcolor="rgba(239,246,255,0.92)", bordercolor="#93c5fd", borderwidth=1, borderpad=5, font=dict(size=12, color="#1e3a8a"))]))
         fig_dir_geom = _replace_wake_colorbar_with_legend(fig_dir_geom)
         fig_dir_geom = _clean_plotly_labels(fig_dir_geom)
-        st.plotly_chart(
-            fig_dir_geom,
-            use_container_width=True,
-            key=f"f4_detail_geom_plot_{sector_elegido}",
-            config=PLOTLY_INTERACTIVE_CONFIG,
-        )
+        st.plotly_chart(fig_dir_geom, use_container_width=True, key=f"f4_detail_geom_plot_{sector_elegido}", config=PLOTLY_INTERACTIVE_CONFIG)
         _render_f4_wake_legend()
 
     with tab2:
         fila_sector = fila_sector_detalle
         df_detalle_sector = detalles_estelas.get(sector_elegido, pd.DataFrame())
-
         y1, y2, y3, y4, y5 = st.columns(5)
-        with y1:
-            _render_kpi_card("Frecuencia", f"{fila_sector['Frecuencia (%)']:.2f}%", "", _detail_icon_freq, "f4-detail-kpi")
-        with y2:
-            _render_kpi_card("Horas eq. anuales", f"{fila_sector['Horas equivalentes anuales (h/año)']:.1f}", "", _detail_icon_hours, "f4-detail-kpi")
-        with y3:
-            _render_kpi_card("U media sector", f"{fila_sector['Velocidad media sector (m/s)']:.2f} m/s", "", _detail_icon_speed, "f4-detail-kpi")
-        with y4:
-            _render_kpi_card("Pérdida por estela", f"{fila_sector['Pérdida por estela (%)']:.2f}%", "", _detail_icon_loss, "f4-detail-kpi")
-        with y5:
-            _render_kpi_card("Pérdida ponderada", f"{fila_sector['Pérdida ponderada (%)']:.3f}%", "", _detail_icon_loss, "f4-detail-kpi")
+        with y1: st.metric("Frecuencia", f"{fila_sector['Frecuencia (%)']:.2f}%")
+        with y2: st.metric("Horas eq. anuales", f"{fila_sector['Horas equivalentes anuales (h/año)']:.1f}")
+        with y3: st.metric("U media sector", f"{fila_sector['Velocidad media sector (m/s)']:.2f} m/s")
+        with y4: st.metric("Pérdida estela", f"{fila_sector['Pérdida por estela (%)']:.2f}%")
+        with y5: st.metric("Pérdida ponderada", f"{fila_sector['Pérdida ponderada (%)']:.3f}%")
 
-        fig_dir = crear_figura_direccion_estela(
-            df_detalle=df_detalle_sector,
-            sector=sector_elegido,
-            direction_deg=float(fila_sector["Dirección centro (°)"]),
-            diametro=diametro,
-        )
-        fig_dir = _add_wake_visual_layers(
-            fig_dir,
-            df_detalle_sector if not df_detalle_sector.empty else df_layout,
-            direction_deg=float(fila_sector["Dirección centro (°)"]),
-        )
-        # Hide Plotly colorbar; the figure uses a custom visual legend instead.
+        fig_dir = crear_figura_direccion_estela(df_detalle=df_detalle_sector, sector=sector_elegido, direction_deg=float(fila_sector["Dirección centro (°)"]), diametro=diametro)
+        fig_dir = _add_wake_visual_layers(fig_dir, df_detalle_sector if not df_detalle_sector.empty else df_layout, direction_deg=float(fila_sector["Dirección centro (°)"]))
         for trace in fig_dir.data:
             if hasattr(trace, "marker") and trace.marker is not None and hasattr(trace.marker, "colorbar") and trace.marker.colorbar is not None:
                 trace.marker.showscale = False
-
-        # Tight margins to reduce empty space
-        fig_dir.update_layout(
-            title=None,
-            height=490,
-            margin=dict(l=28, r=28, t=24, b=34),
-            paper_bgcolor="#ffffff",
-            plot_bgcolor="#f8fbff",
-            showlegend=False,
-            xaxis=dict(
-                title=dict(text="X (m)", font=dict(size=12, color="#475569")),
-                showgrid=True,
-                gridcolor="rgba(148,163,184,0.20)",
-                zeroline=True,
-                zerolinecolor="rgba(148,163,184,0.30)",
-                tickfont=dict(size=11, color="#64748b"),
-            ),
-            yaxis=dict(
-                title=dict(text="Y (m)", font=dict(size=12, color="#475569")),
-                showgrid=True,
-                gridcolor="rgba(148,163,184,0.20)",
-                zeroline=True,
-                zerolinecolor="rgba(148,163,184,0.30)",
-                tickfont=dict(size=11, color="#64748b"),
-                scaleanchor="x",
-                scaleratio=1,
-            ),
-            annotations=(
-                [a for a in (fig_dir.layout.annotations or []) if getattr(a, 'text', '') not in ('', None)]
-                + [
-                    dict(
-                        xref="paper", yref="paper",
-                        x=0.01, y=0.99,
-                        xanchor="left", yanchor="top",
-                        text=(
-                            f"<b>&#8599; Viento {sector_elegido} · "
-                            f"{float(fila_sector['Dirección centro (°)']):.0f}°</b>"
-                        ),
-                        showarrow=False,
-                        align="left",
-                        bgcolor="rgba(239,246,255,0.92)",
-                        bordercolor="#93c5fd",
-                        borderwidth=1,
-                        borderpad=5,
-                        font=dict(size=12, color="#1e3a8a"),
-                    ),
-                ]
-            ),
-        )
+        fig_dir.update_layout(title=None, height=490, margin=dict(l=28, r=28, t=24, b=34), paper_bgcolor="#ffffff", plot_bgcolor="#f8fbff", showlegend=False,
+            xaxis=dict(title=dict(text="X (m)", font=dict(size=12, color="#475569")), showgrid=True, gridcolor="rgba(148,163,184,0.20)", zeroline=True, zerolinecolor="rgba(148,163,184,0.30)", tickfont=dict(size=11, color="#64748b")),
+            yaxis=dict(title=dict(text="Y (m)", font=dict(size=12, color="#475569")), showgrid=True, gridcolor="rgba(148,163,184,0.20)", zeroline=True, zerolinecolor="rgba(148,163,184,0.30)", tickfont=dict(size=11, color="#64748b"), scaleanchor="x", scaleratio=1),
+            annotations=([a for a in (fig_dir.layout.annotations or []) if getattr(a, 'text', '') not in ('', None)] + [dict(xref="paper", yref="paper", x=0.01, y=0.99, xanchor="left", yanchor="top", text=f"<b>&#8599; Viento {sector_elegido} · {float(fila_sector['Dirección centro (°)']):.0f}°</b>", showarrow=False, bgcolor="rgba(239,246,255,0.92)", bordercolor="#93c5fd", borderwidth=1, borderpad=5, font=dict(size=12, color="#1e3a8a"))]))
         fig_dir = _replace_wake_colorbar_with_legend(fig_dir)
         fig_dir = _clean_plotly_labels(fig_dir)
-        st.plotly_chart(
-            fig_dir,
-            use_container_width=True,
-            key=f"f4_detail_annual_plot_{sector_elegido}",
-            config=PLOTLY_INTERACTIVE_CONFIG,
-        )
+        st.plotly_chart(fig_dir, use_container_width=True, key=f"f4_detail_annual_plot_{sector_elegido}", config=PLOTLY_INTERACTIVE_CONFIG)
         _render_f4_wake_legend()
 
-    st.markdown("<div class='f4-detail-controls'>", unsafe_allow_html=True)
     toolbar_cols = st.columns([1, 1.5, 1.5, 1], gap="small", vertical_alignment="bottom")
     with toolbar_cols[1]:
         st.selectbox("Velocidad", [f"{velocidad_sector_detalle:.1f} m/s"], index=0, key="f4_detail_speed_visual")
     with toolbar_cols[2]:
         st.selectbox("Dirección", [f"{sector_elegido} ({SECTOR_CENTERS_16[SECTOR_LABELS_16.index(sector_elegido)]:.1f}°)"], index=0, key="f4_detail_direction_visual")
-    st.markdown("</div>", unsafe_allow_html=True)
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. Scenarios
+# ═══════════════════════════════════════════════════════════════════════════════
 with st.container(border=True, key="f4_card_scenarios"):
-    st.markdown(
-        f"""
-        <div class="f4-scenario-hero">
-            <div class="f4-scenario-hero__icon">{_icon_svg("cloud-upload", 30, "#ffffff")}</div>
-            <div>
-                <div class="f4-scenario-hero__title">Guardar y comparar configuraciones</div>
-                <div class="f4-scenario-hero__subtitle">Administre escenarios del parque, recupere configuraciones y compare alternativas guardadas.</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    _section_header("Guardar y comparar configuraciones", "Administre escenarios del parque y compare alternativas", "cloud-upload", "#7c3aed")
 
     scenario_cols = st.columns([0.95, 1.2, 1.0], gap="medium")
 
     with scenario_cols[0]:
         with st.container(border=True, key="f4_card_scenario_save"):
-            st.markdown(
-                f'<div class="f4-scenario-card-title"><span class="f4-scenario-card-title__icon">{_icon_svg("export", 20, "#2563eb")}</span><span>Guardar escenario actual</span></div>',
-                unsafe_allow_html=True,
-            )
+            _section_header("Guardar escenario actual", "", "export", "#2563eb")
             current_scenario_name = st.text_input("Nombre del escenario", value="Escenario_actual")
             if st.button("Guardar escenario", icon=":material/cloud_upload:", use_container_width=True):
-                settings_dict = {
-                    "layout_type": layout_type,
-                    "num_turbinas": int(len(df_layout)),
-                    "dx_D": dx_D,
-                    "dy_D": dy_D,
-                    "rotation_deg": rotation_deg,
-                    "ct": ct,
-                    "kw": kw,
-                    "altura_deseada": altura_deseada,
-                    "base_viento": base_viento,
-                    "dir_altura": dir_altura,
-                    "roughness_label": roughness_label,
-                    "velocidad_geom": velocidad_geom,
-                    "diametro": diametro,
-                }
-
-                metrics_dict = {
-                    "perdida_anual_ponderada_pct": perdida_ponderada,
-                    "sector_anual_critico": worst_sector,
-                    "perdida_sector_anual_pct": worst_sector_loss,
-                    "sectores_geom_criticos": ", ".join(sectores_geom_criticos),
-                    "perdida_geom_max_pct": max_geom,
-                    "energia_bruta_mwh": energia_bruta_total,
-                    "energia_wake_mwh": energia_wake_total,
-                    "energia_perdida_mwh": energia_perdida_total,
-                }
-
-                guardar_escenario_parque(
-                    name=current_scenario_name.strip(),
-                    df_layout=df_layout,
-                    settings_dict=settings_dict,
-                    metrics_dict=metrics_dict,
-                )
+                settings_dict = {"layout_type": layout_type, "num_turbinas": int(len(df_layout)), "dx_D": dx_D, "dy_D": dy_D, "rotation_deg": rotation_deg, "ct": ct, "kw": kw, "altura_deseada": altura_deseada, "base_viento": base_viento, "dir_altura": dir_altura, "roughness_label": roughness_label, "velocidad_geom": velocidad_geom, "diametro": diametro}
+                metrics_dict = {"perdida_anual_ponderada_pct": perdida_ponderada, "sector_anual_critico": worst_sector, "perdida_sector_anual_pct": worst_sector_loss, "sectores_geom_criticos": ", ".join(sectores_geom_criticos), "perdida_geom_max_pct": max_geom, "energia_bruta_mwh": energia_bruta_total, "energia_wake_mwh": energia_wake_total, "energia_perdida_mwh": energia_perdida_total}
+                guardar_escenario_parque(name=current_scenario_name.strip(), df_layout=df_layout, settings_dict=settings_dict, metrics_dict=metrics_dict)
                 st.success("Escenario guardado.")
                 st.rerun()
-            st.markdown(
-                f'<div class="f4-scenario-helper">{_icon_svg("clock", 16, "#64748b")}<span>Última actualización: al guardar el escenario actual.</span></div>',
-                unsafe_allow_html=True,
-            )
 
     df_scenarios = listar_escenarios_parque()
 
     with scenario_cols[1]:
         with st.container(border=True, key="f4_card_scenario_list"):
-            st.markdown(
-                f'<div class="f4-scenario-card-title"><span class="f4-scenario-card-title__icon">{_icon_svg("database-stack", 20, "#2563eb")}</span><span>Escenarios guardados</span></div>',
-                unsafe_allow_html=True,
-            )
+            _section_header("Escenarios guardados", "", "database-stack", "#2563eb")
             if len(df_scenarios) > 0:
-                st.markdown('<div class="f4-scenario-table-wrap">', unsafe_allow_html=True)
                 st.dataframe(df_scenarios, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.caption("No hay escenarios guardados.")
 
     with scenario_cols[2]:
         with st.container(border=True, key="f4_card_scenario_compare"):
-            st.markdown(
-                f'<div class="f4-scenario-card-title"><span class="f4-scenario-card-title__icon">{_icon_svg("bar-chart-2", 20, "#2563eb")}</span><span>Comparación de configuraciones</span></div>',
-                unsafe_allow_html=True,
-            )
+            _section_header("Comparación", "", "bar-chart-2", "#2563eb")
             if len(df_scenarios) > 0:
                 names = df_scenarios["name"].tolist()
                 escenario_cargar = st.selectbox("Escenario base", names, index=0, key="f4_load_scenario")
@@ -4555,134 +2265,18 @@ with st.container(border=True, key="f4_card_scenarios"):
                         st.plotly_chart(fig_comp, use_container_width=True, key="f4_scenario_comparison_plot", config=PLOTLY_PERF_CONFIG)
 
                         tabla_comp = pd.DataFrame({
-                            "Indicador": [
-                                "Pérdida anual ponderada (%)",
-                                "Sector anual crítico",
-                                "Pérdida sector anual (%)",
-                                "Sectores geométricos críticos",
-                                "Pérdida geométrica máxima (%)",
-                                "Energía bruta (MWh/año)",
-                                "Energía con estela (MWh/año)",
-                                "Pérdida energética (MWh/año)",
-                            ],
-                            esc_a: [
-                                met_a.get("perdida_anual_ponderada_pct", ""),
-                                met_a.get("sector_anual_critico", ""),
-                                met_a.get("perdida_sector_anual_pct", ""),
-                                met_a.get("sectores_geom_criticos", ""),
-                                met_a.get("perdida_geom_max_pct", ""),
-                                met_a.get("energia_bruta_mwh", ""),
-                                met_a.get("energia_wake_mwh", ""),
-                                met_a.get("energia_perdida_mwh", ""),
-                            ],
-                            esc_b: [
-                                met_b.get("perdida_anual_ponderada_pct", ""),
-                                met_b.get("sector_anual_critico", ""),
-                                met_b.get("perdida_sector_anual_pct", ""),
-                                met_b.get("sectores_geom_criticos", ""),
-                                met_b.get("perdida_geom_max_pct", ""),
-                                met_b.get("energia_bruta_mwh", ""),
-                                met_b.get("energia_wake_mwh", ""),
-                                met_b.get("energia_perdida_mwh", ""),
-                            ],
+                            "Indicador": ["Pérdida anual ponderada (%)", "Sector anual crítico", "Pérdida sector anual (%)", "Sectores geométricos críticos", "Pérdida geométrica máxima (%)", "Energía bruta (MWh/año)", "Energía con estela (MWh/año)", "Pérdida energética (MWh/año)"],
+                            esc_a: [met_a.get("perdida_anual_ponderada_pct", ""), met_a.get("sector_anual_critico", ""), met_a.get("perdida_sector_anual_pct", ""), met_a.get("sectores_geom_criticos", ""), met_a.get("perdida_geom_max_pct", ""), met_a.get("energia_bruta_mwh", ""), met_a.get("energia_wake_mwh", ""), met_a.get("energia_perdida_mwh", "")],
+                            esc_b: [met_b.get("perdida_anual_ponderada_pct", ""), met_b.get("sector_anual_critico", ""), met_b.get("perdida_sector_anual_pct", ""), met_b.get("sectores_geom_criticos", ""), met_b.get("perdida_geom_max_pct", ""), met_b.get("energia_bruta_mwh", ""), met_b.get("energia_wake_mwh", ""), met_b.get("energia_perdida_mwh", "")],
                         })
-
                         st.dataframe(tabla_comp, use_container_width=True)
 
 
-
-
-
-        st.markdown(
-            """
-            <style>
-            /* =========================================================
-               FORZADO FINAL: estilo SMA 2.0 para cards grandes - Fase 4
-               ========================================================= */
-
-            .st-key-f4_card_config,
-            .st-key-f4_card_edit_table,
-            .st-key-f4_card_move_layout,
-            .st-key-f4_card_view_layout,
-            .st-key-f4_card_geom_summary,
-            .st-key-f4_card_wind_base,
-            .st-key-f4_card_geom_analysis,
-            .st-key-f4_card_annual_analysis,
-            .st-key-f4_card_compare_bars,
-            .st-key-f4_card_energy_bars,
-            .st-key-f4_card_detail_direction,
-            .st-key-f4_card_scenarios,
-            .st-key-f4_card_scenario_save,
-            .st-key-f4_card_scenario_list,
-            .st-key-f4_card_scenario_compare,
-            .st-key-f4_card_gis_map {
-                border: 1.4px solid #cbd5e1 !important;
-                border-radius: 28px !important;
-                background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
-                box-shadow:
-                    0 1px 4px rgba(15, 23, 42, 0.045),
-                    0 8px 22px rgba(15, 23, 42, 0.040) !important;
-                overflow: visible !important;
-                box-sizing: border-box !important;
-            }
-
-            .st-key-f4_card_config div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_edit_table div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_move_layout div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_view_layout div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_geom_summary div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_wind_base div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_geom_analysis div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_annual_analysis div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_compare_bars div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_energy_bars div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_detail_direction div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_scenarios div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_scenario_save div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_scenario_list div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_scenario_compare div[data-testid="stVerticalBlockBorderWrapper"],
-            .st-key-f4_card_gis_map div[data-testid="stVerticalBlockBorderWrapper"] {
-                border: none !important;
-                box-shadow: none !important;
-                border-radius: 28px !important;
-                background: transparent !important;
-                overflow: visible !important;
-                box-sizing: border-box !important;
-            }
-
-            /* --- FORZADO: Sombra con volumen estilo Fase 3 --- */
-            .st-key-f4_card_move_layout,
-            .st-key-f4_card_edit_table,
-            .st-key-f4_card_config,
-            .st-key-f4_card_view_layout,
-            .st-key-f4_card_geom_summary,
-            .st-key-f4_top_kpi_1,
-            .st-key-f4_top_kpi_2,
-            .st-key-f4_top_kpi_3,
-            .st-key-f4_top_kpi_4,
-            .st-key-f4_top_kpi_5,
-            .st-key-f4_card_wind_base,
-            .st-key-f4_card_geom_analysis,
-            .st-key-f4_card_annual_analysis,
-            .st-key-f4_card_compare_bars,
-            .st-key-f4_card_energy_bars,
-            .st-key-f4_card_detail_direction,
-            .st-key-f4_card_scenarios,
-            .st-key-f4_card_gis_map {
-                border: 1px solid #cbd5e1 !important;
-                box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
-            }
-
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-
-# B8 - Mapa GIS turbinas (folium)
+# ═══════════════════════════════════════════════════════════════════════════════
+# 9. GIS Map
+# ═══════════════════════════════════════════════════════════════════════════════
 with st.container(border=True, key="f4_card_gis_map"):
-    st.markdown("### 🗺️ Mapa GIS · turbinas geo-referenciadas (B8)")
-    st.caption("Visualiza el layout sobre mapa real usando lat/lon del sitio + posiciones x/y del parque.")
+    _section_header("Mapa GIS · Turbinas geo-referenciadas", "Visualiza el layout sobre mapa real usando lat/lon del sitio", "map-pin", "#2563eb")
 
     try:
         lat_site = float(config.get("nasa_lat") or 0.0)
@@ -4698,7 +2292,6 @@ with st.container(border=True, key="f4_card_gis_map"):
         try:
             import folium
             from streamlit_folium import st_folium
-
             from calculos import turbinas_xy_a_latlon
 
             df_latlon = turbinas_xy_a_latlon(df_layout, lat_centro=lat_site, lon_centro=lon_site, rotation_deg=0.0)
@@ -4713,26 +2306,13 @@ with st.container(border=True, key="f4_card_gis_map"):
             map_tiles_gis = st.selectbox("Capa base", ["OpenStreetMap", "CartoDB positron", "CartoDB dark_matter"], key="f4_map_tiles_gis")
 
             mapa_gis = folium.Map(location=[lat_mean, lon_mean], zoom_start=int(map_zoom_gis), tiles=map_tiles_gis)
-            folium.Marker(
-                location=[lat_site, lon_site],
-                popup=f"Centro del sitio<br>lat: {lat_site:.5f}<br>lon: {lon_site:.5f}",
-                icon=folium.Icon(color="purple", icon="star"),
-            ).add_to(mapa_gis)
+            folium.Marker(location=[lat_site, lon_site], popup=f"Centro del sitio<br>lat: {lat_site:.5f}<br>lon: {lon_site:.5f}", icon=folium.Icon(color="purple", icon="star")).add_to(mapa_gis)
 
             for _, row in df_latlon.iterrows():
                 tid = row.get("turbina_id", "T?")
                 lat_t = float(row["lat"])
                 lon_t = float(row["lon"])
-                folium.CircleMarker(
-                    location=[lat_t, lon_t],
-                    radius=8,
-                    color="#2563eb",
-                    fill=True,
-                    fill_color="#2563eb",
-                    fill_opacity=0.85,
-                    tooltip=f"{tid} · ({lat_t:.5f}, {lon_t:.5f})",
-                    popup=f"<b>{tid}</b><br>lat: {lat_t:.6f}<br>lon: {lon_t:.6f}",
-                ).add_to(mapa_gis)
+                folium.CircleMarker(location=[lat_t, lon_t], radius=8, color="#7c3aed", fill=True, fill_color="#7c3aed", fill_opacity=0.85, tooltip=f"{tid} · ({lat_t:.5f}, {lon_t:.5f})", popup=f"<b>{tid}</b><br>lat: {lat_t:.6f}<br>lon: {lon_t:.6f}").add_to(mapa_gis)
 
             lats_gis = df_latlon["lat"].tolist()
             lons_gis = df_latlon["lon"].tolist()
