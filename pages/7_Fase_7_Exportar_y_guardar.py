@@ -107,7 +107,7 @@ st.markdown(
 }
 
 /* ════════ Hero card (gradiente del acento) ════════ */
-.hero-card{position:relative;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);border:1px solid #cbd5e1;border-radius:20px;padding:22px 28px;margin-bottom:1rem;box-shadow:0 1px 4px rgba(15,23,42,.045);min-height:unset !important;height:auto !important}
+.hero-card{position:relative;overflow:hidden;background:linear-gradient(118deg,#d97706 0%,#92400e 80%);border:none;border-radius:20px;padding:22px 28px;margin-bottom:1rem;box-shadow:0 22px 44px rgba(217,119,6,.32),inset 0 1px 0 rgba(255,255,255,.25);min-height:unset !important;height:auto !important}
 .hero-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:
   radial-gradient(circle at 86% 12%, rgba(255,255,255,.20) 0 54px, transparent 55px),
   radial-gradient(circle at 95% 70%, rgba(255,255,255,.12) 0 86px, transparent 87px),
