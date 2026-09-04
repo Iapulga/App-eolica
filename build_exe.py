@@ -120,7 +120,7 @@ def limpiar():
 
 
 def compilar():
-    print("\n[3/5] Compilando con PyInstaller (puede tardar 2-3 min)...")
+    print("\n[3/5] Compilando con PyInstaller (puede tardar varios minutos)...")
     print(f"    Spec: {SPEC}")
     # Pasar UTF-8 al subprocess también
     env = os.environ.copy()
@@ -217,8 +217,8 @@ def verificar_archivos_clave_empaquetados():
          "imports perezosos de reportes (arranque más rápido)"),
         (internal / "calculos.py", "Scattergl",
          "serie horaria en WebGL (render rápido en PCs grandes)"),
-        (internal / "pages" / "2_Fase_2_Perfiles_de_viento.py", "webgl=True",
-         "Fase 2 usa la serie horaria WebGL"),
+        (internal / "pages" / "2_Fase_2_Perfiles_de_viento.py", "render_perfil_fig_svg",
+         "Fase 2 contiene el renderizado actual de perfiles"),
         (internal / "pages" / "3_Fase_3_Velocidad_promedio.py", "ResizeObserver",
          "gráficas Fase 3 se ajustan al zoom de página (150%)"),
     ]

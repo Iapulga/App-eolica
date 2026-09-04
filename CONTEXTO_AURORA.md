@@ -1,7 +1,9 @@
 # CONTEXTO — Rediseño "Aurora" SMA 2.0 (para el agente del próximo chat)
 
 > **Agente: lee esto primero.** Es el estado del rediseño en curso y qué sigue.
-> Estás trabajando en este mismo worktree. Última actualización: **F6 terminada** (último commit `265bf66`). Pendientes = **Fase 4** y **Fase 5** (el usuario saltó a F6 por petición expresa).
+> Estás trabajando en este mismo worktree. Última actualización: **F4, F5 y F7 recuperadas y commiteadas** (commits `a5728f5` F4, `27ee7b4` F5, `2e0f842` F7). El rediseño completo (Inicio + F1–F7) está ahora en la rama `rediseno-aurora`.
+>
+> **Estado global:** TODAS las fases rediseñadas (Aurora aplicado). Pendiente = **revisión visual del usuario en la app** → con su **"aplica"** se hace el merge a `main`.
 
 ---
 
@@ -40,8 +42,15 @@ El usuario pidió saltar a F6 (orden natural era F4). 5 secciones (selector radi
 - **Fase G** (`265bf66`): **decimales ES** — helper `_es_num` (regex `\d[\d.,]*\d` + swap `,`↔`.` solo en tokens numéricos) aplicado a value+sub de los KPIs → "10,23 m/s"/"58.825 MWh"/"k=3,82" sin tocar "IEC 61400-1"/"ISO 14040". Eliminado bloque CSS viejo muerto.
 - **GOTCHAS F6**: NO hay folium en F6 (los mapas son scatter plotly) → menos cuelgue. El preview MCP **arrastra a F5** (la app escritorio fuerza navegación); para verificar F6: clic en el ancla `a[href*=Fase_6]` y reintentar en bucle corto leyendo `.aur-card-head h2` hasta ver "Idoneidad"/"Secciones de estudio" (el `window.location.assign` también cae en F5). Cambiar de sección: clic en `input` del label del chip (no el label). Los KPIs/banners solo aparecen tras ejecutar el estudio (`if res`). Verificado en vivo: hero, 5 chips, las 5 secciones (dividers 🗺️/🌿/⚡/🎯/📋), KPIs IEC con aros de color + decimales ES + banner bad teal.
 
-## 3. PRÓXIMO PASO  → **Fase 4** (Estelas y arreglo, acento violeta #7c3aed) y luego **Fase 5** (AEP, verde #059669)
-Reconstruir `pages/4_Fase_4_Estelas_y_arreglo.py` 1:1 con `04_fase4_*` (HTML/PNG en `Nuevos diseños SMA 2.0\`), **mismo método que F2/F3**: explorar la página actual, hero Aurora + emoji + KPIs, gráficas→SVG vía `components.html` (plotly intacto para reportes), tooltips con `data-tip` donde haga falta, verificar por DOM (F4 probablemente también cuelga screenshots). Luego F5, F6, F7. Al final: tour + revisión del usuario en escritorio → con su **"aplica"** se hace el merge (la DB real migra sola a v3 al arrancar).
+## 2.c FASES 4, 5 y 7 RECUPERADAS (commits `a5728f5` / `27ee7b4` / `2e0f842`)
+Estas tres fases **ya estaban rediseñadas en el working tree** (sucias, sin commitear) de un agente/chat anterior cuyo trabajo se cortó antes de commitear. El `CONTEXTO_AURORA.md` previo estaba desactualizado y las listaba como pendientes. En esta sesión (2026-06-20) se descubrieron, se verificaron (`py_compile` OK + `pytest tests/` **30/30**) y se commitearon **tal cual** en `rediseno-aurora` — sin reescribirlas.
+- **F4** (`pages/4_Fase_4_Estelas_y_arreglo.py`, violeta `#7c3aed`): hero 🌪️ + pills Turbinas/Estela anual/Escenarios; helpers locales `_section_header`/`_kpi_tile` con paleta violeta; CSS `.f4-*` (patrón Aurora más viejo que el `.aur-*` de F3/F6, pero visualmente equivalente); cards Aurora (radio 28px, overflow visible). Reescritura grande (-2802/+382 vs HEAD).
+- **F5** (`pages/5_Fase_5_AEP_bruta_y_neta.py`, verde `#059669`): hero ⚡ + pills AEP neta/LCOE/P90; cards Aurora verdes/emerald. Reescritura parcial (-487/+330).
+- **F7** (`pages/7_Fase_7_Exportar_y_guardar.py`, amber `#d97706`): hero 📦 + pills Reportes/Bankable/GIS; export tiles, conservados PDF/Word/Excel/JSON/bankable. Reescritura (-680/+564).
+- **NO verificadas visualmente en vivo todavía** (esta sesión priorizó el fix de streamlit). El usuario debe revisarlas en la app antes de dar "aplica".
+
+## 3. PRÓXIMO PASO  → **Revisión visual del usuario** (F4, F5, F7 en la app)
+Las tres fases recuperadas NO se han visto en vivo esta sesión. El usuario debe abrirlas en la app (`run_web.bat` → Fase 4/5/7, o desktop `run_app.bat`) y reportar qué pulir. Posibles deltas con el mockup (sin verificar): los SVGs estrella de F4 (`svg_parque_estelas` vista en planta, `svg_detalle_direccion` mapa por dirección) puede que sigan como plotly/components en vez de SVG portados del mockup; F5 (`svg_waterfall` cascada bruta→neta, donuts CAPEX/OPEX) idem. Tras pulir → tour final → **"aplica"** del usuario → merge a `main` (la DB real migra sola a v3 al arrancar).
 
 ## 4. Método validado + GOTCHAS
 - **Verificar = preview MCP** (NO PrintWindow). Config **`alfa-streamlit`, puerto 8502** en `.claude/launch.json`. `preview_start("alfa-streamlit")`; navegar con `preview_eval` `window.location.href='/Fase_3_Velocidad_promedio'`; **runOnSave OFF** → tras editar `window.location.reload()`; esperar ~16-18 s.

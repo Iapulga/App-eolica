@@ -53,7 +53,7 @@ hiddenimports = [
     # Estos hiddenimports disparan los hooks oficiales de PyInstaller para PySide6,
     # que recolectan automáticamente QtWebEngineProcess.exe + resources (icudtl.dat,
     # *.pak) + qtwebengine_locales. Sin ellos el .exe abriría una ventana en blanco.
-    'PySide6', 'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets',
+    'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets',
     'PySide6.QtNetwork', 'PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
     'PySide6.QtWebChannel',
     # Streamlit internals necesarios
@@ -90,6 +90,20 @@ for pkg in COLLECT_PKGS:
         hiddenimports += tmp[2]
     except Exception:
         pass
+
+# collect_all() también devuelve suites de pruebas y módulos de desarrollo de
+# pandas/numpy/plotly. No son necesarios para ejecutar la app y hacen que el
+# análisis de PyInstaller sea muy lento; conservar solo imports de runtime.
+hiddenimports = [
+    name for name in hiddenimports
+    if not (
+        ".tests" in name
+        or name.endswith(".conftest")
+        or name in {"pandas.conftest", "numpy.conftest", "plotly.conftest"}
+        or name.startswith("streamlit.testing")
+        or name.startswith("streamlit.hello")
+    )
+]
 
 # ── 4. copy_metadata: dist-info para importlib.metadata ──────
 #    ESTA es la línea que corrige "No package metadata was found"

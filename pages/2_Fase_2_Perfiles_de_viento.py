@@ -2858,6 +2858,7 @@ st.markdown(
         overflow: visible !important;
         background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
         box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+        margin-bottom: 1.5rem !important;
     }
 
     /* Neutralizar el borde original interno de Streamlit para que no se vea cuadrado */
@@ -2902,6 +2903,7 @@ st.markdown(
         background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
         border: 1.3px solid #cbd5e1 !important;
         box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 6px 14px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(37, 99, 235, 0.06) !important;
+        margin-bottom: 1.5rem !important;
     }
     .st-key-f2_f_chart_card_1 div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f2_f_chart_card_2 div[data-testid="stVerticalBlockBorderWrapper"],
@@ -2965,7 +2967,7 @@ st.markdown(
 
 /* KPI */
 .f2-kpi{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:13px 14px;display:flex;gap:12px;align-items:center;
-  box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06);min-height:74px;height:100%}
+  box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06);min-height:74px;height:100%;margin-bottom:0.7rem !important}
 .f2-ki{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
   background:linear-gradient(135deg, color-mix(in srgb,var(--kc,#2563eb) 17%,#fff), color-mix(in srgb,var(--kc,#2563eb) 6%,#fff));
   border:1.5px solid color-mix(in srgb,var(--kc,#2563eb) 38%,#fff);
@@ -4222,7 +4224,7 @@ if len(df_nasa) > 0:
             )
             components.html(
                 render_cizalladura_svg(v10, v50, v_promedio_deseada, alpha, altura_deseada),
-                height=330,
+                height=300,
                 scrolling=False,
             )
         with ec_right:

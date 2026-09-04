@@ -2175,21 +2175,21 @@ def _render_phase3_css():
         .st-key-f3_cfg_general,
         .st-key-f3_cfg_cuts,
         .st-key-f3_cfg_sector {
-            height: 250px !important;
-            min-height: 250px !important;
-            max-height: 250px !important;
+            height: 320px !important;
+            min-height: 320px !important;
+            max-height: 320px !important;
             box-sizing: border-box !important;
-            overflow: hidden !important;
+            overflow: visible !important;
         }
 
         .st-key-f3_cfg_general div[data-testid="stVerticalBlockBorderWrapper"],
         .st-key-f3_cfg_cuts div[data-testid="stVerticalBlockBorderWrapper"],
         .st-key-f3_cfg_sector div[data-testid="stVerticalBlockBorderWrapper"] {
-            height: 250px !important;
-            min-height: 250px !important;
-            max-height: 250px !important;
+            height: 320px !important;
+            min-height: 320px !important;
+            max-height: 320px !important;
             box-sizing: border-box !important;
-            overflow: hidden !important;
+            overflow: visible !important;
             padding-bottom: 0 !important;
         }
 
@@ -2404,7 +2404,7 @@ st.markdown(
     <style>
     .f3-hero{position:relative;overflow:hidden;border-radius:26px !important;padding:22px 28px !important;
       background:linear-gradient(118deg,#4f46e5 0%, #3730a3 80%) !important;border:none !important;
-      box-shadow:0 22px 44px rgba(79,70,229,.32), inset 0 1px 0 rgba(255,255,255,.25) !important;margin:0 !important}
+      box-shadow:0 22px 44px rgba(79,70,229,.32), inset 0 1px 0 rgba(255,255,255,.25) !important;margin:0 0 1rem 0 !important}
     .f3-hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:
       radial-gradient(circle at 86% 12%, rgba(255,255,255,.20) 0 54px, transparent 55px),
       radial-gradient(circle at 95% 70%, rgba(255,255,255,.12) 0 86px, transparent 87px),
@@ -2447,7 +2447,7 @@ st.markdown(
     .aur-ki-emoji{font-size:23px;line-height:1;display:flex;align-items:center;justify-content:center}
     .aur-kpi-copy{min-width:0}
     .aur-kpi-copy small{display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
-    .aur-kpi-copy b{font-size:19px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
+    .aur-kpi-copy b{font-size:20px;letter-spacing:-.025em;line-height:1.08;display:block;margin-top:3px;color:#0b2447;font-variant-numeric:tabular-nums}
     .aur-kpi-copy i{font-style:normal;font-size:10px;color:#5a6b85;display:block;margin-top:2.5px;font-weight:600;line-height:1.25}
     .aur-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-weight:800;color:#5a6b85;margin:12px 0 2px;justify-content:center}
     .aur-legend i{font-style:normal;display:inline-flex;align-items:center;gap:6px}
@@ -2455,13 +2455,13 @@ st.markdown(
     /* Hero ocupa el contenedor sin borde/padding del wrapper */
     .st-key-f3_card_header div[data-testid="stVerticalBlockBorderWrapper"]{border:none !important;background:transparent !important;padding:0 !important;box-shadow:none !important}
     .st-key-f3_card_header::before{display:none !important}
-    /* KPIs del sector (4 en card mitad): compactos y sin texto cortado */
-    .st-key-f3_skpi_1 .aur-kpi,.st-key-f3_skpi_2 .aur-kpi,.st-key-f3_skpi_3 .aur-kpi,.st-key-f3_skpi_4 .aur-kpi{padding:9px 9px;gap:8px;height:68px !important;min-height:68px !important}
-    .st-key-f3_skpi_1 .aur-ki,.st-key-f3_skpi_2 .aur-ki,.st-key-f3_skpi_3 .aur-ki,.st-key-f3_skpi_4 .aur-ki{width:34px;height:34px}
-    .st-key-f3_skpi_1 .aur-ki-emoji,.st-key-f3_skpi_2 .aur-ki-emoji,.st-key-f3_skpi_3 .aur-ki-emoji,.st-key-f3_skpi_4 .aur-ki-emoji{font-size:16px}
-    .st-key-f3_skpi_1 .aur-kpi-copy small,.st-key-f3_skpi_2 .aur-kpi-copy small,.st-key-f3_skpi_3 .aur-kpi-copy small,.st-key-f3_skpi_4 .aur-kpi-copy small{font-size:8px;letter-spacing:.02em;white-space:nowrap}
-    .st-key-f3_skpi_1 .aur-kpi-copy b,.st-key-f3_skpi_2 .aur-kpi-copy b,.st-key-f3_skpi_3 .aur-kpi-copy b,.st-key-f3_skpi_4 .aur-kpi-copy b{font-size:14px;white-space:nowrap}
-    .st-key-f3_skpi_1 .aur-kpi-copy i,.st-key-f3_skpi_2 .aur-kpi-copy i,.st-key-f3_skpi_3 .aur-kpi-copy i,.st-key-f3_skpi_4 .aur-kpi-copy i{font-size:9px;white-space:nowrap}
+    /* KPIs del sector (4 en card mitad): mismo look que el strip, legibles */
+    .st-key-f3_skpi_1 .aur-kpi,.st-key-f3_skpi_2 .aur-kpi,.st-key-f3_skpi_3 .aur-kpi,.st-key-f3_skpi_4 .aur-kpi{padding:13px 14px;gap:12px;height:92px !important;min-height:92px !important}
+    .st-key-f3_skpi_1 .aur-ki,.st-key-f3_skpi_2 .aur-ki,.st-key-f3_skpi_3 .aur-ki,.st-key-f3_skpi_4 .aur-ki{width:44px;height:44px}
+    .st-key-f3_skpi_1 .aur-ki-emoji,.st-key-f3_skpi_2 .aur-ki-emoji,.st-key-f3_skpi_3 .aur-ki-emoji,.st-key-f3_skpi_4 .aur-ki-emoji{font-size:20px}
+    .st-key-f3_skpi_1 .aur-kpi-copy small,.st-key-f3_skpi_2 .aur-kpi-copy small,.st-key-f3_skpi_3 .aur-kpi-copy small,.st-key-f3_skpi_4 .aur-kpi-copy small{font-size:9px;letter-spacing:.04em;white-space:nowrap}
+    .st-key-f3_skpi_1 .aur-kpi-copy b,.st-key-f3_skpi_2 .aur-kpi-copy b,.st-key-f3_skpi_3 .aur-kpi-copy b,.st-key-f3_skpi_4 .aur-kpi-copy b{font-size:18px;white-space:nowrap}
+    .st-key-f3_skpi_1 .aur-kpi-copy i,.st-key-f3_skpi_2 .aur-kpi-copy i,.st-key-f3_skpi_3 .aur-kpi-copy i,.st-key-f3_skpi_4 .aur-kpi-copy i{font-size:10px;white-space:nowrap}
     /* Rosa centrada en su columna */
     .st-key-f3_rose_plot_col_v3{display:flex;align-items:center;justify-content:center}
     /* Anular alturas fijas viejas (600px) de las cards rosa/sector → ajustar al contenido SVG */
@@ -2495,28 +2495,28 @@ st.markdown(
     /* FORZADO: estilo SMA 2.0 para '3. Heatmap de probabilidad para 16 sectores' */
     .st-key-f3_card_rose_v3,
     .st-key-f3_card_sector_v3 {
-        min-height: 650px !important;
+        min-height: 0 !important;
         box-sizing: border-box !important;
     }
 
     .st-key-f3_card_rose_v3 div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f3_card_sector_v3 div[data-testid="stVerticalBlockBorderWrapper"] {
-        min-height: 650px !important;
+        min-height: 0 !important;
         box-sizing: border-box !important;
     }
 
     .st-key-f3_rose_body_v3,
     .st-key-f3_sector_body_v3 {
-        min-height: 585px !important;
+        min-height: 0 !important;
         box-sizing: border-box !important;
     }
 
     .st-key-f3_rose_plot_col_v3 {
-        min-height: 560px !important;
+        min-height: 0 !important;
     }
 
     .st-key-f3_sector_plot_wrap_v3 {
-        min-height: 500px !important;
+        min-height: 0 !important;
     }
 
     .st-key-f3_card_heatmap {
@@ -2628,6 +2628,45 @@ st.markdown(
         margin: 0 !important;
         padding: 0 !important;
         line-height: 1 !important;
+    }
+
+    /* ── Separación vertical entre cards (fix "contenedores pegados") ── */
+    .st-key-f3_card_header,
+    .st-key-f3_cfg_general,
+    .st-key-f3_cfg_cuts,
+    .st-key-f3_cfg_sector,
+    .st-key-f3_card_rose_v3,
+    .st-key-f3_card_sector_v3,
+    .st-key-f3_sector_table_detached,
+    .st-key-f3_card_heatmap,
+    .st-key-f3_card_expanders {
+        margin-bottom: 1.6rem !important;
+    }
+
+    /* ── Separación entre las 2 filas de mini-fields de Parámetros generales ── */
+    .st-key-f3_pg_altura,
+    .st-key-f3_pg_modelo,
+    .st-key-f3_pg_vmax,
+    .st-key-f3_pg_binwidth {
+        margin-bottom: 0.6rem !important;
+    }
+
+    /* ── Separación entre el strip de KPIs y la fila de gráficas (rosa|sector) ── */
+    .st-key-f3_kpi_1, .st-key-f3_kpi_2, .st-key-f3_kpi_3,
+    .st-key-f3_kpi_4, .st-key-f3_kpi_5 {
+        margin-bottom: 1.4rem !important;
+    }
+    /* Resumen sectorial dentro de la card rosa: separarlo del botón y del SVG */
+    .st-key-f3_sector_summary {
+        margin-top: 0.9rem !important;
+    }
+    /* ── Separación entre las 2 filas de KPIs del sector (Análisis por sector) ── */
+    .st-key-f3_skpi_1, .st-key-f3_skpi_2 {
+        margin-bottom: 0.8rem !important;
+    }
+    /* ── Expanders despegados del heatmap de arriba ── */
+    .st-key-f3_card_expanders {
+        margin-top: 1.4rem !important;
     }
 
     </style>
@@ -2950,7 +2989,7 @@ if _alpha_calc_med and str(_alpha_calc_med).strip():
     except (TypeError, ValueError):
         pass
 
-config_cols = st.columns([1.12, 1.2, 0.94], gap="small")
+config_cols = st.columns([1.0, 1.0, 1.0], gap="small")
 with config_cols[0]:
     with _phase_card("f3_cfg_general"):
         _hdr_left, _hdr_right = st.columns([0.62, 0.38], gap="small")
