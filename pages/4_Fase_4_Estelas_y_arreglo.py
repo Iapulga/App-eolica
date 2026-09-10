@@ -1537,9 +1537,19 @@ st.markdown("""
 [data-testid="stAppViewContainer"]{background:linear-gradient(180deg,#f5f3ff 0%,#ede9fe 100%) !important}
 
 /* ════ Hero ════ */
-.hero-card{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--ac),var(--ac2));border:none;border-radius:22px;padding:22px 28px;margin-bottom:1rem;box-shadow:0 8px 28px rgba(124,58,237,.22);min-height:unset !important;height:auto !important}
-.hero-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 86% 12%,rgba(255,255,255,.15) 0 54px,transparent 55px),radial-gradient(circle at 95% 70%,rgba(255,255,255,.08) 0 86px,transparent 87px)}
-.hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2}
+.hero-card{position:relative;overflow:hidden;background:linear-gradient(118deg,var(--ac) 0%,var(--ac2) 80%);border:none;border-radius:26px;padding:22px 28px;margin:0 !important;box-shadow:0 22px 44px rgba(124,58,237,.32),inset 0 1px 0 rgba(255,255,255,.25);min-height:unset !important;height:auto !important}
+.hero-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 86% 12%,rgba(255,255,255,.20) 0 54px,transparent 55px),radial-gradient(circle at 95% 70%,rgba(255,255,255,.12) 0 86px,transparent 87px),linear-gradient(180deg,rgba(255,255,255,.08),transparent 40%)}
+/* mismo alto que F1/F2/F3 (131px: padding 22 + fila 87 + 22) */
+.hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2;min-height:87px}
+.hero-text{flex:1;min-width:0}
+.f4-wind{position:absolute;left:-30px;top:0;bottom:0;width:58%;height:100%;opacity:.45;pointer-events:none;z-index:1}
+.f4-wind path{stroke:rgba(255,255,255,.55);stroke-width:2;fill:none;stroke-dasharray:16 11;animation:f4windmove 2.6s linear infinite}
+.f4-wind path:nth-child(2){animation-duration:3.4s;opacity:.7}
+.f4-wind path:nth-child(3){animation-duration:4.2s;opacity:.5}
+@keyframes f4windmove{to{stroke-dashoffset:-54}}
+/* el hero NO va dentro de una card blanca (el st-key cae en el propio stVerticalBlock) */
+#root .st-key-f4_card_header{background:transparent !important;border:none !important;box-shadow:none !important;padding:0 !important;border-radius:0 !important;min-height:0 !important;height:auto !important;overflow:visible !important;margin-bottom:14px !important;gap:0 !important}
+#root .st-key-f4_card_header::before{display:none !important}
 .hero-icon{width:62px;height:62px;border-radius:19px;background:rgba(255,255,255,.17);border:1.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:31px;flex-shrink:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 8px 18px rgba(0,0,0,.12)}
 .fase-hero-title{font-size:25px;line-height:1.08;font-weight:800;letter-spacing:-.025em;color:#fff;margin:0 0 4px 0;text-shadow:0 1px 2px rgba(0,0,0,.12)}
 .fase-hero-subtitle{color:rgba(255,255,255,.94);font-size:12.5px;line-height:1.45;font-weight:400;max-width:840px;margin:0}
@@ -1653,18 +1663,31 @@ div[data-testid="stMetricValue"]{color:#0a2444 !important;font-weight:800 !impor
 # ═══════════════════════════════════════════════════════════════════════════════
 # HERO
 # ═══════════════════════════════════════════════════════════════════════════════
-with st.container(border=True, key="f4_card_header"):
-    st.markdown("""
+def _f4_hero_html(n_turb="—", estela="—", n_esc="—") -> str:
+    """Hero Aurora (mockup 04_fase4): icono + título + 3 pills (Turbinas / Estela anual / Escenarios)."""
+    return f"""
 <div class="hero-card">
+<svg class="f4-wind" viewBox="0 0 600 190" preserveAspectRatio="none">
+    <path d="M0 42 Q150 24 300 44 T600 34"/><path d="M0 100 Q180 82 340 102 T600 92"/><path d="M0 156 Q140 142 300 158 T600 150"/>
+</svg>
 <div class="hero-row">
     <div class="hero-icon">🌪️</div>
-    <div>
-        <div class="fase-hero-title">Fase 4 · Estelas y arreglo</div>
-        <div class="fase-hero-subtitle">Configure el arreglo de aerogeneradores, analice el efecto de estela por sector y optimice el layout del parque.</div>
+    <div class="hero-text">
+        <div class="fase-hero-title">Fase 4 · Estelas y arreglo del parque</div>
+        <div class="fase-hero-subtitle">Configure el arreglo de aerogeneradores, analice el efecto estela geométrico y anual, y compare escenarios.</div>
     </div>
-    <div class="hero-pills" id="f4_hero_pills"></div>
+    <div class="hero-pills">
+        <div class="hpill"><b>{n_turb}</b><span>Turbinas</span></div>
+        <div class="hpill"><b>{estela}</b><span>Estela anual</span></div>
+        <div class="hpill"><b>{n_esc}</b><span>Escenarios</span></div>
+    </div>
 </div>
-</div>""", unsafe_allow_html=True)
+</div>"""
+
+
+with st.container(border=True, key="f4_card_header"):
+    _f4_hero_slot = st.empty()
+    _f4_hero_slot.markdown(_f4_hero_html(), unsafe_allow_html=True)
 
 st.markdown("""
 <div class="f4-banner info">
@@ -2328,5 +2351,14 @@ with st.container(border=True, key="f4_card_gis_map"):
         except Exception as exc:
             st.error(f"Error generando mapa: {exc}")
 
+
+# Pills del hero con los valores reales (calculados más abajo en la página)
+try:
+    _f4_hero_n_turb = str(int(len(df_layout))) if df_layout is not None else "—"
+    _f4_hero_estela = f"{float(perdida_ponderada):.2f} %".replace(".", ",")
+    _f4_hero_n_esc = str(int(len(df_scenarios)))
+    _f4_hero_slot.markdown(_f4_hero_html(_f4_hero_n_turb, _f4_hero_estela, _f4_hero_n_esc), unsafe_allow_html=True)
+except Exception:
+    pass
 
 render_dropdown_visibility_fix()
