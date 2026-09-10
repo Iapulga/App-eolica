@@ -443,6 +443,18 @@ div[data-testid="stButton"]>button[kind="primary"]:hover{filter:brightness(1.05)
 .f6-how svg text{font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif}
 .f6-how p{margin:6px 0 0;font-size:11px;color:#5a6b85;font-weight:600;line-height:1.45}
 .f6-pills{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 4px}
+/* Operación y red = acento ámbar del mockup (franja + squircle del card-head) */
+.st-key-f6_card_scada,.st-key-f6_card_curtail,.st-key-f6_card_hibrido{--acl:#d97706}
+.st-key-f6_card_scada .aur-cicon,.st-key-f6_card_curtail .aur-cicon,.st-key-f6_card_hibrido .aur-cicon{
+  background:linear-gradient(135deg, color-mix(in srgb,#d97706 16%,#fff), color-mix(in srgb,#d97706 7%,#fff)) !important;
+  border-color:color-mix(in srgb,#d97706 35%,#fff) !important;box-shadow:0 5px 12px color-mix(in srgb,#d97706 16%,transparent) !important}
+.st-key-f6_card_scada [data-testid="stFileUploaderDropzone"]{
+  border:2px dashed color-mix(in srgb,#d97706 45%,#fff) !important;border-radius:18px !important;
+  background:linear-gradient(180deg, color-mix(in srgb,#d97706 6%,#fff), #fff) !important}
+.f6-how.amb{border-color:color-mix(in srgb,#d97706 40%,#fff);background:linear-gradient(180deg, color-mix(in srgb,#d97706 5%,#fff), #fff)}
+.f6-how.amb .f6-how-t{color:#b45309}
+.f6-charge{animation:f6charge 2.4s ease-in-out infinite}
+@keyframes f6charge{0%,100%{opacity:.2}50%{opacity:1}}
 </style>
 """,
     unsafe_allow_html=True,
@@ -2037,16 +2049,330 @@ def _n_years_serie(df_h: pd.DataFrame) -> float:
     return max(n / 8760.0, 1e-9) if n else 1.0
 
 
+# -----------------------------------------------------------------------------
+# Operación y red · gráficos SVG Aurora (paridad mockup 06_fase6, acento ámbar).
+# Mismo idioma que Ambiental: SVG inline + <title> = tooltip nativo.
+# -----------------------------------------------------------------------------
+_F6_MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+
+def _f6_ticks(lo: float, hi: float, n: int = 5) -> list:
+    """Marcas 'redondas' (1/2/2,5/5 × 10^k) entre lo y hi."""
+    span = float(hi) - float(lo)
+    if not np.isfinite(span) or span <= 0:
+        return [float(lo)]
+    raw = span / n
+    e = 10 ** np.floor(np.log10(raw))
+    step = next(m * e for m in (1, 2, 2.5, 5, 10) if m * e >= raw)
+    start = np.ceil(float(lo) / step) * step
+    return [float(v) for v in np.arange(start, float(hi) + step * 0.5, step) if v <= float(hi) + 1e-9]
+
+
+def _f6_fmt(v: float) -> str:
+    a = abs(float(v))
+    if a >= 1000:
+        s = f"{v:,.0f}"
+    elif a >= 10:
+        s = f"{v:.0f}"
+    elif a >= 1:
+        s = f"{v:.1f}"
+    elif a == 0:
+        s = "0"
+    else:
+        s = f"{v:.2f}"
+    return _es_num(s)
+
+
+def _f6_frame(W, H, L, R, T, B, xlo, xhi, ylo, yhi, xlabel="", ylabel="", x_ticks=True):
+    """Lienzo con rejilla, ejes y números. Devuelve (partes, sx, sy); el llamador cierra </svg>."""
+    xspan = (float(xhi) - float(xlo)) or 1.0
+    yspan = (float(yhi) - float(ylo)) or 1.0
+
+    def sx(v):
+        return L + (float(v) - float(xlo)) / xspan * (W - L - R)
+
+    def sy(v):
+        return H - B - (float(v) - float(ylo)) / yspan * (H - T - B)
+
+    p = [f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg">']
+    for t in _f6_ticks(ylo, yhi, 5):
+        y = sy(t)
+        p.append(
+            f'<line x1="{L}" y1="{y:.1f}" x2="{W - R}" y2="{y:.1f}" stroke="#eef4fb" stroke-width="1.2"/>'
+            f'<text x="{L - 6}" y="{y + 3.5:.1f}" text-anchor="end" font-size="10.5" font-weight="700" fill="#94a3b8">{_f6_fmt(t)}</text>'
+        )
+    if x_ticks:
+        for t in _f6_ticks(xlo, xhi, 6):
+            p.append(
+                f'<text x="{sx(t):.1f}" y="{H - B + 15}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#94a3b8">{_f6_fmt(t)}</text>'
+            )
+    p.append(
+        f'<line x1="{L}" y1="{H - B}" x2="{W - R}" y2="{H - B}" stroke="#c4d4e8" stroke-width="1.6"/>'
+        f'<line x1="{L}" y1="{T - 6}" x2="{L}" y2="{H - B}" stroke="#c4d4e8" stroke-width="1.6"/>'
+    )
+    if xlabel:
+        p.append(
+            f'<text x="{(L + W - R) / 2:.1f}" y="{H - 5}" text-anchor="middle" font-size="11" font-weight="800" fill="#64748b">{_svg_t(xlabel)}</text>'
+        )
+    if ylabel:
+        ym = (T + H - B) / 2
+        p.append(
+            f'<text x="13" y="{ym:.1f}" text-anchor="middle" font-size="11" font-weight="800" fill="#64748b" '
+            f'transform="rotate(-90 13 {ym:.1f})">{_svg_t(ylabel)}</text>'
+        )
+    return p, sx, sy
+
+
+def _f6_scatter_svg(x, y) -> str:
+    """Potencia modelo vs real (cada punto una hora) + línea 1:1."""
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    m = np.isfinite(x) & np.isfinite(y)
+    x, y = x[m], y[m]
+    if not len(x):
+        return ""
+    hi = float(max(x.max(), y.max(), 1e-6)) * 1.05
+    lo = float(min(0.0, x.min(), y.min()))
+    p, sx, sy = _f6_frame(380, 320, 50, 14, 16, 42, lo, hi, lo, hi, "Modelo (MW)", "Real (MW)")
+    p.append(
+        '<g fill="#d97706" fill-opacity=".30">'
+        + "".join(f'<circle cx="{sx(a):.1f}" cy="{sy(b):.1f}" r="2.3"/>' for a, b in zip(x, y))
+        + "</g>"
+    )
+    p.append(
+        f'<g><title>Línea 1:1 · modelo perfecto</title><line x1="{sx(lo):.1f}" y1="{sy(lo):.1f}" x2="{sx(hi):.1f}" '
+        f'y2="{sy(hi):.1f}" stroke="#dc2626" stroke-width="2.2" stroke-dasharray="6 5"/></g>'
+        f'<text x="{sx(hi) - 4:.1f}" y="{sy(hi) + 16:.1f}" text-anchor="end" font-size="11" font-weight="900" fill="#dc2626">1:1</text>'
+        "</svg>"
+    )
+    return "".join(p)
+
+
+def _f6_hist_svg(vals, bias: float) -> str:
+    """Histograma de residuales (real − modelo) con línea en 0 y en el bias."""
+    v = np.asarray(vals, dtype=float)
+    v = v[np.isfinite(v)]
+    if not len(v):
+        return ""
+    counts, edges = np.histogram(v, bins=40)
+    top = float(counts.max()) * 1.14 or 1.0
+    p, sx, sy = _f6_frame(380, 320, 50, 14, 28, 42, float(edges[0]), float(edges[-1]), 0, top,
+                          "Residual real − modelo (MW)", "Horas")
+    for c, a, b in zip(counts, edges[:-1], edges[1:]):
+        if c <= 0:
+            continue
+        x0, x1, yy = sx(a), sx(b), sy(c)
+        tip = _es_num(f"{a:.2f} a {b:.2f} MW: {int(c):,} horas")
+        p.append(
+            f'<rect x="{x0 + 0.6:.1f}" y="{yy:.1f}" width="{max(1.0, x1 - x0 - 1.2):.1f}" height="{sy(0) - yy:.1f}" rx="2" '
+            f'fill="#fcd34d" stroke="#d97706" stroke-width=".8"><title>{_svg_t(tip)}</title></rect>'
+        )
+    for xv, col, etq, dash in ((0.0, "#64748b", "", "none"),
+                               (float(bias), "#dc2626", _es_num(f"sesgo {bias:+.2f} MW"), "6 5")):
+        if edges[0] <= xv <= edges[-1]:
+            xx = sx(xv)
+            p.append(f'<line x1="{xx:.1f}" y1="20" x2="{xx:.1f}" y2="{sy(0):.1f}" stroke="{col}" stroke-width="2" stroke-dasharray="{dash}"/>')
+            if etq:
+                p.append(f'<text x="{xx:.1f}" y="15" text-anchor="middle" font-size="10.5" font-weight="900" fill="{col}">{_svg_t(etq)}</text>')
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_barras_mes_svg(df_mes, series) -> str:
+    """Barras apiladas por mes. series=[(columna, nombre, color)]."""
+    cols = [c for c, _, _ in series]
+    tot = df_mes[cols].sum(axis=1)
+    top = float(tot.max()) * 1.15 if len(tot) and float(tot.max()) > 0 else 1.0
+    W, H, L, R, T, B = 380, 250, 50, 10, 16, 34
+    p, sx, sy = _f6_frame(W, H, L, R, T, B, 0, 12, 0, top, "", "MWh/año", x_ticks=False)
+    w = (sx(1) - sx(0)) * 0.64
+    for m in df_mes.index:
+        i = int(m) - 1
+        if not 0 <= i < 12:
+            continue
+        xc = sx(i + 0.5)
+        acc = 0.0
+        for col, nombre, color in series:
+            val = float(df_mes.loc[m, col])
+            if val <= 0:
+                continue
+            y1, y0 = sy(acc + val), sy(acc)
+            tip = _es_num(f"{_F6_MESES[i]} · {nombre}: {val:,.1f} MWh/año")
+            p.append(
+                f'<rect x="{xc - w / 2:.1f}" y="{y1:.1f}" width="{w:.1f}" height="{max(0.6, y0 - y1):.1f}" fill="{color}">'
+                f"<title>{_svg_t(tip)}</title></rect>"
+            )
+            acc += val
+    for i in range(12):
+        p.append(
+            f'<text x="{sx(i + 0.5):.1f}" y="{H - B + 15}" text-anchor="middle" font-size="10" font-weight="800" fill="#64748b">{_F6_MESES[i]}</text>'
+        )
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_barrido_svg(x, e_iny, curt, x_rec: float) -> str:
+    """Barrido solar: energía inyectada (eje izq., ámbar) y curtailment % (eje der., rojo)."""
+    x = np.asarray(x, dtype=float)
+    e = np.asarray(e_iny, dtype=float)
+    c = np.asarray(curt, dtype=float)
+    if len(x) < 2:
+        return ""
+    # Lienzo ancho: la card híbrida ocupa todo el ancho (texto legible sin agigantarse).
+    W, H, L, R, T, B = 900, 300, 84, 70, 32, 46
+    e_hi = float(np.nanmax(e)) * 1.12 or 1.0
+    c_hi = max(float(np.nanmax(c)) * 1.15, 1.0)
+    p, sx, sy = _f6_frame(W, H, L, R, T, B, float(x.min()), float(x.max()), 0, e_hi,
+                          "Capacidad solar añadida (MW)", "Energía inyectada (MWh/año)")
+
+    def sy2(v):
+        return H - B - float(v) / c_hi * (H - T - B)
+
+    for t in _f6_ticks(0, c_hi, 5):
+        p.append(f'<text x="{W - R + 7}" y="{sy2(t) + 3.5:.1f}" font-size="10.5" font-weight="700" fill="#f87171">{_f6_fmt(t)} %</text>')
+    ym = (T + H - B) / 2
+    p.append(
+        f'<text x="{W - 8}" y="{ym:.1f}" text-anchor="middle" font-size="11" font-weight="800" fill="#dc2626" '
+        f'transform="rotate(90 {W - 8} {ym:.1f})">Curtailment (%)</text>'
+    )
+    pts_e = " L".join(f"{sx(a):.1f},{sy(b):.1f}" for a, b in zip(x, e))
+    p.append(
+        f'<path d="M{pts_e} L{sx(x[-1]):.1f},{H - B} L{sx(x[0]):.1f},{H - B} Z" fill="#d97706" opacity=".10"/>'
+        f'<path d="M{pts_e}" fill="none" stroke="#d97706" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+    pts_c = " L".join(f"{sx(a):.1f},{sy2(b):.1f}" for a, b in zip(x, c))
+    p.append(f'<path d="M{pts_c}" fill="none" stroke="#dc2626" stroke-width="2.6" stroke-dasharray="7 5" stroke-linecap="round"/>')
+    xr = sx(x_rec)
+    p.append(
+        f'<line x1="{xr:.1f}" y1="{T - 8}" x2="{xr:.1f}" y2="{H - B}" stroke="#16a34a" stroke-width="2.4" stroke-dasharray="5 4"/>'
+        f'<text x="{xr:.1f}" y="{T - 12}" text-anchor="middle" font-size="11" font-weight="900" fill="#15803d">'
+        f'{_svg_t(_es_num(f"Recomendado {x_rec:.0f} MW"))}</text>'
+    )
+    for a, b, cc in zip(x, e, c):
+        tip = _es_num(f"Solar {a:.0f} MW\nInyectada {b:,.0f} MWh/año\nCurtailment {cc:.1f} %")
+        p.append(
+            f'<g class="f6-bar"><title>{_svg_t(tip)}</title>'
+            f'<circle cx="{sx(a):.1f}" cy="{sy(b):.1f}" r="4.2" fill="#fff" stroke="#d97706" stroke-width="2.6"/>'
+            f'<circle cx="{sx(a):.1f}" cy="{sy2(cc):.1f}" r="3.4" fill="#fff" stroke="#dc2626" stroke-width="2.2"/></g>'
+        )
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_torre_red_svg(x: float, y: float, s: float = 1.0) -> str:
+    """Torre de alta tensión (celosía) para los esquemas de red."""
+    return (
+        f'<g transform="translate({x:.1f},{y:.1f}) scale({s})" fill="none" stroke="#475569" stroke-width="2" stroke-linejoin="round">'
+        '<path d="M-12,0 L-3,-46 L3,-46 L12,0"/><path d="M-9,-14 L9,-14 M-6,-30 L6,-30 M-10,-5 L6,-30 M10,-5 L-6,-30"/>'
+        '<path d="M-20,-38 L20,-38 M-16,-44 L16,-44"/></g>'
+    )
+
+
+def _f6_esquema_operacion(tipo: str) -> str:
+    """Esquemas '¿Cómo se valida/calcula?' de Operación y red (tono ámbar)."""
+    if tipo == "scada":
+        xs = np.linspace(40, 330, 30)
+        mod = 92 - 42 * np.sin((xs - 40) / 290 * 2 * np.pi) - 10 * np.sin((xs - 40) / 45)
+        real = mod + 9 * np.sin((xs - 40) / 23) + 4
+        pm = " L".join(f"{a:.1f},{b:.1f}" for a, b in zip(xs, mod))
+        pr = " L".join(f"{a:.1f},{b:.1f}" for a, b in zip(xs, real))
+        svg = (
+            '<svg viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg">'
+            '<line x1="36" y1="140" x2="336" y2="140" stroke="#c4d4e8" stroke-width="1.6"/>'
+            '<line x1="36" y1="24" x2="36" y2="140" stroke="#c4d4e8" stroke-width="1.6"/>'
+            f'<path d="M{pm}" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round"/>'
+            f'<path d="M{pr}" fill="none" stroke="#d97706" stroke-width="2.6" stroke-dasharray="6 5" class="f6-flow"/>'
+            '<text x="186" y="156" text-anchor="middle" font-size="10" font-weight="800" fill="#64748b">horas</text>'
+            '<text x="44" y="20" font-size="10" font-weight="900" fill="#0f766e">— modelo</text>'
+            '<text x="116" y="20" font-size="10" font-weight="900" fill="#b45309">- - real (SCADA)</text>'
+            '<g font-size="10" font-weight="900">'
+            '<rect x="356" y="26" width="192" height="26" rx="13" fill="#fffbeb" stroke="#fde68a"/>'
+            '<text x="452" y="43" text-anchor="middle" fill="#b45309">R² · ¿sigue la misma forma?</text>'
+            '<rect x="356" y="62" width="192" height="26" rx="13" fill="#fffbeb" stroke="#fde68a"/>'
+            '<text x="452" y="79" text-anchor="middle" fill="#b45309">Sesgo · error medio (real − modelo)</text>'
+            '<rect x="356" y="98" width="192" height="26" rx="13" fill="#fffbeb" stroke="#fde68a"/>'
+            '<text x="452" y="115" text-anchor="middle" fill="#b45309">RMSE · error típico hora a hora</text>'
+            "</g></svg>"
+        )
+        titulo = "💡 ¿Cómo se valida?"
+        txt = ("Se alinean por hora la potencia que predice el modelo (Fases 2–5) y la medida en el parque. "
+               "Si el ratio real/modelo está entre 0,95 y 1,05 el modelo es fiable; fuera de eso conviene recalibrar.")
+    elif tipo == "curtail":
+        svg = (
+            '<svg viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg">'
+            + _f6_turbina_svg(56, 138, "Parque", "Producción del parque", 1.4)
+            + '<path d="M84,112 L236,112" stroke="#fbbf24" stroke-width="4" stroke-dasharray="8 7" class="f6-flow"/>'
+            '<rect x="238" y="88" width="78" height="48" rx="10" fill="#fff" stroke="#d97706" stroke-width="2.2"/>'
+            '<text x="277" y="108" text-anchor="middle" font-size="10" font-weight="900" fill="#b45309">Conexión</text>'
+            '<text x="277" y="124" text-anchor="middle" font-size="9.5" font-weight="800" fill="#64748b">límite MW</text>'
+            '<path d="M318,112 L452,112" stroke="#16a34a" stroke-width="4" stroke-dasharray="8 7" class="f6-flow"/>'
+            + _f6_torre_red_svg(486, 140, 1.1)
+            + '<text x="486" y="156" text-anchor="middle" font-size="10" font-weight="900" fill="#475569">Red</text>'
+            '<g font-size="10" font-weight="900">'
+            '<rect x="20" y="10" width="170" height="26" rx="13" fill="#eff6ff" stroke="#bfdbfe"/>'
+            '<text x="105" y="27" text-anchor="middle" fill="#1d4ed8">⚡ Capacidad: supera el límite</text>'
+            '<rect x="196" y="10" width="170" height="26" rx="13" fill="#fffbeb" stroke="#fde68a"/>'
+            '<text x="281" y="27" text-anchor="middle" fill="#b45309">💲 Económico: precio &lt; costo</text>'
+            '<rect x="372" y="10" width="170" height="26" rx="13" fill="#fef2f2" stroke="#fecaca"/>'
+            '<text x="457" y="27" text-anchor="middle" fill="#b91c1c">🚧 Red: no disponible</text>'
+            "</g></svg>"
+        )
+        titulo = "💡 ¿Cómo se calcula?"
+        txt = ("Hora a hora se recorta la energía que no cabe en la conexión, la que se vendería por debajo del costo "
+               "variable (precio de bolsa simulado) y la que se pierde cuando la red no está disponible.")
+    else:  # hibrido
+        panel = (
+            '<g transform="translate(158,132)">'
+            '<path d="M-30,0 L-18,-30 L30,-30 L18,0 Z" fill="#1e40af" stroke="#1e3a8a" stroke-width="1.6"/>'
+            '<path d="M-26,-10 L22,-10 M-22,-20 L26,-20 M-6,0 L6,-30 M10,0 L22,-30 M-22,0 L-10,-30" stroke="#93c5fd" stroke-width="1.2"/>'
+            '<line x1="0" y1="0" x2="0" y2="8" stroke="#475569" stroke-width="3"/></g>'
+            '<circle cx="182" cy="58" r="11" fill="#fbbf24"/>'
+        )
+        bateria = (
+            '<g transform="translate(252,100)">'
+            '<rect x="-24" y="-24" width="48" height="40" rx="7" fill="#fff" stroke="#16a34a" stroke-width="2.4"/>'
+            '<rect x="-8" y="-30" width="16" height="6" rx="2" fill="#16a34a"/>'
+            '<rect x="-17" y="4" width="34" height="7" rx="2" fill="#16a34a" class="f6-charge"/>'
+            '<rect x="-17" y="-6" width="34" height="7" rx="2" fill="#16a34a" class="f6-charge" style="animation-delay:.4s"/>'
+            '<rect x="-17" y="-16" width="34" height="7" rx="2" fill="#16a34a" class="f6-charge" style="animation-delay:.8s"/></g>'
+        )
+        svg = (
+            '<svg viewBox="0 0 620 160" xmlns="http://www.w3.org/2000/svg">'
+            + _f6_turbina_svg(62, 136, "Viento", "Parque eólico", 1.4) + panel + bateria
+            + '<text x="158" y="152" text-anchor="middle" font-size="9.5" font-weight="900" fill="#1e3a8a">Solar</text>'
+            '<text x="252" y="136" text-anchor="middle" font-size="9.5" font-weight="900" fill="#15803d">BESS</text>'
+            '<path d="M88,104 Q260,40 382,96" fill="none" stroke="#60a5fa" stroke-width="3" stroke-dasharray="7 6" class="f6-flow"/>'
+            '<path d="M188,110 Q290,80 382,100" fill="none" stroke="#fbbf24" stroke-width="3" stroke-dasharray="7 6" class="f6-flow"/>'
+            '<path d="M278,98 L382,104" fill="none" stroke="#4ade80" stroke-width="3" stroke-dasharray="7 6" class="f6-flow"/>'
+            '<circle cx="404" cy="102" r="22" fill="#fffbeb" stroke="#d97706" stroke-width="2.4"/>'
+            '<text x="404" y="109" text-anchor="middle" font-size="18">⚡</text>'
+            '<text x="404" y="142" text-anchor="middle" font-size="9.5" font-weight="900" fill="#b45309">Punto de conexión</text>'
+            '<path d="M428,102 L520,102" stroke="#d97706" stroke-width="4" stroke-dasharray="8 7" class="f6-flow"/>'
+            + _f6_torre_red_svg(552, 130, 1.1)
+            + '<text x="552" y="148" text-anchor="middle" font-size="9.5" font-weight="900" fill="#475569">Red</text>'
+            '<text x="310" y="20" text-anchor="middle" font-size="12" font-weight="900" fill="#0b2447">'
+            "Viento + solar comparten la misma conexión; la batería guarda lo que no cabe</text>"
+            "</svg>"
+        )
+        titulo = "💡 ¿Cómo funciona?"
+        txt = ("Se prueba añadir cada vez más potencia solar sobre la misma conexión: al principio casi todo se inyecta; "
+               "a partir de cierto tamaño crece el recorte. Se recomienda el mayor solar con recorte menor al 10 % y "
+               "se dimensiona una batería para desplazar la energía recortada.")
+    return f'<div class="f6-how amb"><div class="f6-how-t">{titulo}</div>{svg}<p>{_escape(txt)}</p></div>'
+
+
 def _render_card_scada() -> None:
     with st.container(border=True, key="f6_card_scada"):
         _section_header(
             "Validación contra SCADA",
-            "Compara la producción modelada con datos reales de operación: bias, RMSE y R² hora a hora.",
-            "database",
+            "Producción modelada frente a la real del parque, hora a hora",
+            "🗄️",
         )
-        st.caption(
-            "Suba un CSV/Excel de SCADA con columnas `timestamp` y `P_kW` (o `P_MW`); "
-            "opcional `turbine_id` (se agregan todas las turbinas por hora)."
+        st.markdown(
+            '<div class="f6-pills"><span class="f6-pill warn">📑 CSV o Excel</span>'
+            '<span class="f6-pill warn">columnas timestamp + P_kW (o P_MW)</span>'
+            '<span class="f6-pill info">turbine_id opcional</span></div>',
+            unsafe_allow_html=True,
         )
         scada_file = st.file_uploader("Archivo SCADA (.csv / .xlsx)", type=["csv", "xlsx", "xls"], key="f6_scada_file")
 
@@ -2057,13 +2383,14 @@ def _render_card_scada() -> None:
             try:
                 df_scada = validacion_scada.importar_scada_csv(scada_file.getvalue(), scada_file.name)
                 st.caption(
-                    f"SCADA leído: {len(df_scada):,} filas · {df_scada['turbine_id'].nunique()} turbina(s) · "
-                    f"{df_scada['timestamp'].min()} → {df_scada['timestamp'].max()}"
+                    _es_num(f"SCADA leído: {len(df_scada):,} filas · {df_scada['turbine_id'].nunique()} turbina(s) · ")
+                    + f"{df_scada['timestamp'].min()} → {df_scada['timestamp'].max()}"
                 )
             except ValueError as exc:
                 st.error(str(exc))
 
-        if st.button("Comparar contra el modelo", key="f6_scada_btn", type="primary", disabled=df_scada is None):
+        if st.button("📊 Comparar contra el modelo", key="f6_scada_btn", type="primary", disabled=df_scada is None,
+                     use_container_width=True):
             import validacion_scada
 
             serie = _get_serie_horaria_parque()
@@ -2077,59 +2404,50 @@ def _render_card_scada() -> None:
 
         res = st.session_state.get("f6_scada_result")
         if not res:
+            st.markdown(_f6_esquema_operacion("scada"), unsafe_allow_html=True)
             return
         if res.get("error"):
             st.warning(res["error"])
             return
         if not res.get("ok"):
-            st.warning(f"{res.get('msg', 'Overlap insuficiente')} (n={res.get('n_samples', 0)}). "
+            st.warning(f"{res.get('msg', 'Solapamiento insuficiente')} (n={res.get('n_samples', 0)}). "
                        "Verifique que las fechas del SCADA coincidan con la serie NASA.")
             return
 
+        r2 = float(res["r2"])
         st.markdown(
             _kpi_html([
-                ("activity", "R²", f"{res['r2']:.3f}", f"{res['n_samples']:,} horas comparadas"),
-                ("trending-down", "Bias", f"{res['bias_MW']:+.2f} MW",
-                 "real − modelo (negativo = modelo optimista)"),
-                ("sigma", "RMSE", f"{res['rmse_MW']:.2f} MW", f"MAE = {res['mae_MW']:.2f} MW"),
-                ("bolt", "Ratio de eficiencia", f"{res['efficiency_ratio']:.3f}",
-                 f"energía real/modelo = {res['energia_real_MWh']:,.0f}/{res['energia_modelo_MWh']:,.0f} MWh"),
-            ]),
+                ("R²", "R²", f"{r2:.3f}", f"{res['n_samples']:,} horas comparadas",
+                 _F6_VERDE if r2 >= 0.8 else (_F6_AMBAR if r2 >= 0.6 else _F6_ROJO)),
+                ("Δ", "Sesgo", f"{res['bias_MW']:+.2f} MW", "real − modelo (negativo = modelo optimista)", _F6_AMBAR),
+                ("σ", "RMSE", f"{res['rmse_MW']:.2f} MW", f"MAE = {res['mae_MW']:.2f} MW", _F6_AZUL),
+                ("⚖️", "Ratio de eficiencia", f"{res['efficiency_ratio']:.3f}",
+                 f"energía real/modelo = {res['energia_real_MWh']:,.0f}/{res['energia_modelo_MWh']:,.0f} MWh", "#0d9488"),
+            ], n=2),
             unsafe_allow_html=True,
         )
         tono = "ok" if 0.95 <= res["efficiency_ratio"] <= 1.05 else ("warn" if 0.90 <= res["efficiency_ratio"] <= 1.10 else "bad")
         st.markdown(
-            _badge_html(f"Desviación modelo vs real: {(res['efficiency_ratio'] - 1) * 100:+.1f}%", tono),
+            _badge_html(_es_num(f"Desviación modelo vs real: {(res['efficiency_ratio'] - 1) * 100:+.1f} %"), tono),
             unsafe_allow_html=True,
         )
 
-        import plotly.graph_objects as go
-
         dfc = res["df_compare"]
-        muestras = dfc.sample(min(len(dfc), 3000), random_state=7) if len(dfc) > 3000 else dfc
-        p_max = float(max(muestras["P_modelo_MW"].max(), muestras["P_real_MW"].max()))
-        col_s1, col_s2 = st.columns(2)
-        with col_s1:
-            fig = go.Figure()
-            fig.add_scatter(x=muestras["P_modelo_MW"], y=muestras["P_real_MW"], mode="markers",
-                            marker={"size": 5, "opacity": 0.35, "color": _F6_TEAL}, name="Horas")
-            fig.add_scatter(x=[0, p_max], y=[0, p_max], mode="lines",
-                            line={"dash": "dash", "color": _F6_ROJO}, name="1:1")
-            fig.update_layout(xaxis_title="Modelo (MW)", yaxis_title="Real (MW)")
-            st.plotly_chart(_f6_fig_layout(fig, "Potencia modelo vs real", 400),
-                            use_container_width=True, key="f6_scada_scatter")
-        with col_s2:
-            fig_h = go.Figure(go.Histogram(
-                x=dfc["residual_MW"], nbinsx=40, marker_color="#5eead4",
-                marker_line={"width": 1, "color": _F6_TEAL},
-            ))
-            fig_h.add_vline(x=0, line_color=_F6_GRIS)
-            fig_h.add_vline(x=res["bias_MW"], line_dash="dash", line_color=_F6_ROJO,
-                            annotation_text=f"bias {res['bias_MW']:+.2f} MW",
-                            annotation_font_color=_F6_ROJO)
-            fig_h.update_layout(xaxis_title="Residual real − modelo (MW)", yaxis_title="Horas")
-            st.plotly_chart(_f6_fig_layout(fig_h, "Distribución de residuales", 400),
-                            use_container_width=True, key="f6_scada_hist")
+        muestras = dfc.sample(min(len(dfc), 1500), random_state=7) if len(dfc) > 1500 else dfc
+        st.markdown(
+            _f6_fig_html("Potencia modelo vs real · cada punto es una hora",
+                         _f6_scatter_svg(muestras["P_modelo_MW"], muestras["P_real_MW"]),
+                         [("Horas comparadas", _F6_AMBAR), ("1:1 = modelo perfecto", _F6_ROJO)]),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            _f6_fig_html("Distribución de residuales · pase el cursor por cada barra",
+                         _f6_hist_svg(dfc["residual_MW"], float(res["bias_MW"])),
+                         [("Horas por intervalo de error", "#fcd34d"), ("Sesgo medio", _F6_ROJO)]),
+            unsafe_allow_html=True,
+        )
+        with st.expander("💡 ¿Cómo se valida?"):
+            st.markdown(_f6_esquema_operacion("scada"), unsafe_allow_html=True)
         st.caption(_F6_SERIE_CAPTION)
 
 
@@ -2137,22 +2455,23 @@ def _render_card_curtailment() -> None:
     with st.container(border=True, key="f6_card_curtail"):
         _section_header(
             "Curtailment de red",
-            "Pérdidas por límite de inyección, recorte económico (precio < costo variable) y disponibilidad de la red.",
+            "Energía que no se puede inyectar: límite de conexión, precio y disponibilidad de la red",
             "🔌",
         )
         pot_inst = _cfg_float(config, "f5_potencia_instalada_mw", 0.0)
         c1, c2, c3 = st.columns(3)
         with c1:
             cap_iny = st.number_input(
-                "Capacidad de inyección (MW)", min_value=0.1, max_value=5000.0,
+                "Cap. inyección (MW)", min_value=0.1, max_value=5000.0,
                 value=_cfg_float(config, "f6_cap_inyeccion_mw", round(pot_inst * 0.8, 1) if pot_inst > 0 else 10.0),
                 step=0.5, key="f6_curt_cap",
-                help="Límite del punto de conexión (STN/SDL).",
+                help="Capacidad de inyección: límite del punto de conexión (STN/SDL).",
             )
         with c2:
             disp_red = st.number_input(
-                "Disponibilidad de red (%)", min_value=80.0, max_value=100.0,
+                "Disp. red (%)", min_value=80.0, max_value=100.0,
                 value=_cfg_float(config, "f6_disp_red_pct", 98.0), step=0.5, key="f6_curt_disp",
+                help="Disponibilidad de la red: % del tiempo en que la red puede recibir energía.",
             )
         with c3:
             cv_usd = st.number_input(
@@ -2160,7 +2479,7 @@ def _render_card_curtailment() -> None:
                 key="f6_curt_cv", help="Si el precio de bolsa simulado cae por debajo, no se inyecta.",
             )
 
-        if st.button("Simular curtailment", key="f6_curt_btn", type="primary"):
+        if st.button("🔌 Simular curtailment", key="f6_curt_btn", type="primary", use_container_width=True):
             import grid_curtailment
 
             serie = _get_serie_horaria_parque()
@@ -2194,6 +2513,7 @@ def _render_card_curtailment() -> None:
 
         res = st.session_state.get("f6_curt_result")
         if not res:
+            st.markdown(_f6_esquema_operacion("curtail"), unsafe_allow_html=True)
             return
         if res.get("error"):
             st.warning(res["error"])
@@ -2203,50 +2523,46 @@ def _render_card_curtailment() -> None:
         ny = res.get("n_years", 1.0)
         st.markdown(
             _kpi_html([
-                ("bolt", "Energía inyectada", f"{kpis['energia_final_inyectada_MWh'] / ny:,.0f} MWh/año",
-                 f"de {kpis['energia_bruta_MWh'] / ny:,.0f} MWh/año generables"),
-                ("trending-down", "Recorte total", f"{kpis['pct_recorte_total']:.2f}%",
-                 f"{kpis['energia_recortada_total_MWh'] / ny:,.0f} MWh/año perdidos"),
-                ("layout", "Por capacidad", f"{kpis['pct_recorte_capacity']:.2f}%",
-                 f"{int(kpis['horas_curtailed_capacity'] / ny):,} h/año limitadas"),
-                ("info", "Económico + red", f"{kpis['pct_recorte_economico']:.2f}% + {kpis['pct_recorte_downtime']:.2f}%",
-                 f"{int(kpis['horas_curtailed_economico'] / ny):,} h/año bajo costo variable"),
-            ]),
+                ("⚡", "Energía inyectada", f"{kpis['energia_final_inyectada_MWh'] / ny:,.0f} MWh/año",
+                 f"de {kpis['energia_bruta_MWh'] / ny:,.0f} MWh/año generables", _F6_VERDE),
+                ("✂️", "Recorte total", f"{kpis['pct_recorte_total']:.2f} %",
+                 f"{kpis['energia_recortada_total_MWh'] / ny:,.0f} MWh/año perdidos", _F6_ROJO),
+                ("🔌", "Por capacidad", f"{kpis['pct_recorte_capacity']:.2f} %",
+                 f"{int(kpis['horas_curtailed_capacity'] / ny):,} h/año limitadas", _F6_AZUL),
+                ("💲", "Económico + red", f"{kpis['pct_recorte_economico']:.2f} % + {kpis['pct_recorte_downtime']:.2f} %",
+                 f"{int(kpis['horas_curtailed_economico'] / ny):,} h/año bajo costo variable", _F6_AMBAR),
+            ], n=2),
             unsafe_allow_html=True,
         )
-        st.caption("Precio de bolsa simulado (lognormal ~45 USD/MWh) — conecte datos XM reales para análisis fino.")
-
-        import plotly.graph_objects as go
-
-        ny_k = res.get("n_years", 1.0)
-        col_c1, col_c2 = st.columns([1, 1.6])
-        with col_c1:
-            e_cap = kpis["pct_recorte_capacity"]
-            e_eco = kpis["pct_recorte_economico"]
-            e_red = kpis["pct_recorte_downtime"]
-            fig_dona = go.Figure(go.Pie(
-                labels=["Inyectada", "Recorte capacidad", "Recorte económico", "Recorte red"],
-                values=[max(0.0, 100.0 - e_cap - e_eco - e_red), e_cap, e_eco, e_red],
-                hole=0.6, textinfo="label+percent",
-                marker={"colors": [_F6_VERDE, _F6_TEAL, _F6_AMBAR, _F6_ROJO]},
-            ))
-            st.plotly_chart(_f6_fig_layout(fig_dona, "Reparto de la energía generable", 380),
-                            use_container_width=True, key="f6_curt_dona")
-        with col_c2:
-            if res.get("df_mes") is not None and len(res["df_mes"]):
-                df_mes = res["df_mes"]
-                meses_lbl = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-                fig = go.Figure()
-                for col, nombre, color in (
-                    ("energia_recortada_capacity_MWh", "Capacidad", _F6_AZUL),
-                    ("energia_recortada_economica_MWh", "Económico", _F6_AMBAR),
-                    ("energia_recortada_downtime_MWh", "Red caída", _F6_ROJO),
-                ):
-                    fig.add_bar(x=[meses_lbl[m - 1] for m in df_mes.index], y=df_mes[col], name=nombre,
-                                marker_color=color)
-                fig.update_layout(barmode="stack", yaxis_title="MWh/año")
-                st.plotly_chart(_f6_fig_layout(fig, "Energía recortada por mes", 380),
-                                use_container_width=True, key="f6_curt_bar")
+        e_cap = kpis["pct_recorte_capacity"]
+        e_eco = kpis["pct_recorte_economico"]
+        e_red = kpis["pct_recorte_downtime"]
+        segs = [
+            ("Inyectada", max(0.0, 100.0 - e_cap - e_eco - e_red), _F6_VERDE),
+            ("Recorte por capacidad", e_cap, _F6_AZUL),
+            ("Recorte económico", e_eco, _F6_AMBAR),
+            ("Red no disponible", e_red, _F6_ROJO),
+        ]
+        st.markdown(
+            _f6_fig_html("Reparto de la energía generable",
+                         _f6_donut_svg(segs, _es_num(f"{kpis['pct_recorte_total']:.1f} %"), "recorte total"),
+                         [(e, c) for e, _, c in segs]),
+            unsafe_allow_html=True,
+        )
+        if res.get("df_mes") is not None and len(res["df_mes"]):
+            series = [
+                ("energia_recortada_capacity_MWh", "Capacidad", _F6_AZUL),
+                ("energia_recortada_economica_MWh", "Económico", _F6_AMBAR),
+                ("energia_recortada_downtime_MWh", "Red caída", _F6_ROJO),
+            ]
+            st.markdown(
+                _f6_fig_html("Energía recortada por mes · MWh/año", _f6_barras_mes_svg(res["df_mes"], series),
+                             [(n, c) for _, n, c in series]),
+                unsafe_allow_html=True,
+            )
+        st.caption("Precio de bolsa simulado (lognormal ~45 USD/MWh) — conecte datos XM reales para un análisis fino.")
+        with st.expander("💡 ¿Cómo se calcula?"):
+            st.markdown(_f6_esquema_operacion("curtail"), unsafe_allow_html=True)
 
 
 def _render_card_hibrido() -> None:
@@ -2254,10 +2570,11 @@ def _render_card_hibrido() -> None:
 
     with st.container(border=True, key="f6_card_hibrido"):
         _section_header(
-            "Planta híbrida (viento + solar + BESS)",
-            "Barrido de capacidad solar complementaria sobre la misma conexión y dimensionado preliminar de baterías.",
-            "🔋",
+            "Planta híbrida · viento + solar + BESS",
+            "Cuánta potencia solar cabe en la misma conexión y qué batería conviene",
+            "🔆",
         )
+        st.markdown(_f6_esquema_operacion("hibrido"), unsafe_allow_html=True)
         if importlib.util.find_spec("pvlib") is None:
             st.caption(
                 "ℹ️ `pvlib` no está instalado: el perfil solar usa una aproximación sinusoidal. "
@@ -2266,18 +2583,19 @@ def _render_card_hibrido() -> None:
         c1, c2, c3 = st.columns(3)
         with c1:
             cap_iny_h = st.number_input(
-                "Capacidad de inyección (MW)", min_value=0.1, max_value=5000.0,
+                "Cap. inyección (MW)", min_value=0.1, max_value=5000.0,
                 value=_cfg_float(config, "f6_cap_inyeccion_mw",
                                  round(_cfg_float(config, "f5_potencia_instalada_mw", 10.0) * 0.8, 1) or 10.0),
                 step=0.5, key="f6_hib_cap",
+                help="Capacidad de inyección del punto de conexión compartido.",
             )
         with c2:
-            solar_max = st.slider("Capacidad solar máxima a evaluar (MW)", 5, 200,
+            solar_max = st.slider("Solar máxima a evaluar (MW)", 5, 200,
                                   50, 5, key="f6_hib_solar_max")
         with c3:
             bess_usd = st.number_input("Costo BESS (USD/kWh)", 50.0, 1000.0, 300.0, 25.0, key="f6_hib_bess")
 
-        if st.button("Analizar planta híbrida", key="f6_hib_btn", type="primary"):
+        if st.button("🔆 Analizar planta híbrida", key="f6_hib_btn", type="primary", use_container_width=True):
             import hybrid_plant
 
             serie = _get_serie_horaria_parque()
@@ -2291,7 +2609,9 @@ def _render_card_hibrido() -> None:
                         float(cap_iny_h),
                         _cfg_float(config, "nasa_lat", 0.0), _cfg_float(config, "nasa_lon", 0.0),
                         capacidad_solar_max_mw=int(solar_max),
-                        timestamps=pd.to_datetime(df_h["timestamp"], errors="coerce"),
+                        # DatetimeIndex (no Series): pvlib.get_clearsky falla con una Series de fechas
+                        # en pandas reciente ("Addition/subtraction of integers ... DatetimeArray").
+                        timestamps=pd.DatetimeIndex(pd.to_datetime(df_h["timestamp"], errors="coerce")),
                         costo_bess_usd_kwh=float(bess_usd),
                     )
                 if not res_h:
@@ -2311,42 +2631,37 @@ def _render_card_hibrido() -> None:
         storage = res.get("storage") or {}
         st.markdown(
             _kpi_html([
-                ("bolt", "Solar recomendado", f"{res['recomendacion_solar_mw']:.0f} MW",
-                 "máxima inyección con curtailment < 10%"),
-                ("activity", "Energía inyectada", f"{res['energia_inyectada_recomendada_MWh'] / ny:,.0f} MWh/año",
-                 f"curtailment {res['curtailment_pct_recomendado']:.1f}%"),
-                ("database", "BESS sugerido", f"{storage.get('capacidad_bess_MWh', 0.0):,.1f} MWh",
-                 f"CAPEX ≈ {storage.get('capex_bess_usd', 0.0) / 1e6:,.1f} MUSD"),
-                ("clock", "Energía desplazable", f"{storage.get('energia_potencial_shift_anual_MWh', 0.0) / ny:,.0f} MWh/año",
-                 f"round-trip {storage.get('eficiencia_round_trip_pct', 0):.0f}%"),
+                ("☀️", "Solar recomendado", f"{res['recomendacion_solar_mw']:.0f} MW",
+                 "máxima inyección con curtailment < 10 %" if float(res["curtailment_pct_recomendado"]) < 10.0
+                 else "ningún tamaño baja del 10 % de recorte: máxima inyección", _F6_AMBAR),
+                ("⚡", "Energía inyectada", f"{res['energia_inyectada_recomendada_MWh'] / ny:,.0f} MWh/año",
+                 f"curtailment {res['curtailment_pct_recomendado']:.1f} %", _F6_VERDE),
+                ("🔋", "BESS sugerido", f"{storage.get('capacidad_bess_MWh', 0.0):,.1f} MWh",
+                 f"CAPEX ≈ {storage.get('capex_bess_usd', 0.0) / 1e6:,.1f} MUSD", _F6_AZUL),
+                ("🔁", "Energía desplazable", f"{storage.get('energia_potencial_shift_anual_MWh', 0.0) / ny:,.0f} MWh/año",
+                 f"eficiencia ida y vuelta {storage.get('eficiencia_round_trip_pct', 0):.0f} %", "#0d9488"),
             ]),
             unsafe_allow_html=True,
         )
-
-        import plotly.graph_objects as go
-
         sweep = res["sweep_solar"]
-        fig = go.Figure()
-        fig.add_scatter(x=sweep["capacidad_solar_MW"], y=sweep["energia_inyectada_MWh"] / ny,
-                        mode="lines+markers", name="Inyectada (MWh/año)", line={"color": "#0d9488"})
-        fig.add_scatter(x=sweep["capacidad_solar_MW"], y=sweep["curtailment_pct"],
-                        mode="lines+markers", name="Curtailment (%)", yaxis="y2",
-                        line={"color": "#dc2626", "dash": "dot"})
-        fig.add_vline(x=res["recomendacion_solar_mw"], line_dash="dash", line_color="#16a34a")
-        fig.update_layout(
-            height=400, margin={"l": 10, "r": 10, "t": 30, "b": 10},
-            title="Barrido de capacidad solar",
-            xaxis_title="Capacidad solar (MW)",
-            yaxis={"title": "Energía inyectada (MWh/año)"},
-            yaxis2={"title": "Curtailment (%)", "overlaying": "y", "side": "right"},
+        st.markdown(
+            _f6_fig_html(
+                "Barrido solar · inyección vs curtailment (pase el cursor por cada punto)",
+                _f6_barrido_svg(sweep["capacidad_solar_MW"], sweep["energia_inyectada_MWh"] / ny,
+                                sweep["curtailment_pct"], float(res["recomendacion_solar_mw"])),
+                [("Energía inyectada (MWh/año)", _F6_AMBAR), ("Curtailment (%)", _F6_ROJO), ("Solar recomendado", _F6_VERDE)],
+            ),
+            unsafe_allow_html=True,
         )
-        st.plotly_chart(fig, use_container_width=True, key="f6_hib_sweep")
         st.caption(_F6_SERIE_CAPTION)
 
 
 def _render_operacion_red() -> None:
-    _render_card_scada()
-    _render_card_curtailment()
+    col_a, col_b = st.columns(2, gap="medium")
+    with col_a:
+        _render_card_scada()
+    with col_b:
+        _render_card_curtailment()
     _render_card_hibrido()
 
 
