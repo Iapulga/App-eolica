@@ -475,6 +475,17 @@ div[data-testid="stButton"]>button[kind="primary"]:hover{filter:brightness(1.05)
 .f6-esc i{display:block;font-style:normal;font-size:10px;color:#5a6b85;font-weight:600;margin-top:4px;line-height:1.3}
 .f6-esc.rec::after{content:"🏆 Recomendado";display:inline-block;margin-top:6px;font-size:9.5px;font-weight:900;color:#15803d;
   background:#dcfce7;border-radius:999px;padding:2px 9px}
+/* Auditoría: tarjetas de acción, cabecera por categoría y columna de ID */
+.f6-acc{display:flex;gap:12px;align-items:center;background:#fff;border:1.5px solid #fecaca;border-left:5px solid #dc2626;
+  border-radius:14px;padding:10px 14px;margin:8px 0;box-shadow:0 2px 8px rgba(220,38,38,.06)}
+.f6-acc-x{font-size:17px;flex-shrink:0}
+.f6-acc b{display:block;color:#0b2447;font-size:12.5px;font-weight:900}
+.f6-acc small{display:block;color:#5a6b85;font-size:10.5px;font-weight:700;margin-top:2px}
+.f6-acc-d{margin-left:auto;flex-shrink:0}
+.f6-audit-tbl tr.f6-tcat td{background:linear-gradient(90deg, color-mix(in srgb,#0d9488 11%,#fff), #fff) !important;
+  font-weight:900;color:#0f766e;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:8px 12px}
+.f6-audit-tbl td.id{font-family:ui-monospace,Consolas,monospace;font-weight:800;color:#475569;white-space:nowrap}
+.f6-audit-tbl td:nth-child(3){white-space:nowrap}
 </style>
 """,
     unsafe_allow_html=True,
@@ -563,7 +574,7 @@ with st.container(border=True, key="f6_card_header"):
     <div class="f6-hero-pills">
       <div class="f6-hpill"><b>13</b><span>Estudios</span></div>
       <div class="f6-hpill"><b>5</b><span>Secciones</span></div>
-      <div class="f6-hpill"><b>{_score_label}</b><span>Score audit</span></div>
+      <div class="f6-hpill"><b>{_score_label}</b><span>Puntaje audit.</span></div>
     </div>
   </div>
 </div>
@@ -3130,13 +3141,180 @@ def _render_optimizacion() -> None:
         _render_card_repowering()
 
 
+# -----------------------------------------------------------------------------
+# Auditoría · checklist previo estilo DNV (paridad mockup 06_fase6). Solo capa
+# visual: el cálculo (pre_audit_checklist) no cambia; los textos se muestran en
+# español con los mapas de abajo.
+# -----------------------------------------------------------------------------
+_F6_AUDIT_CAT_ES = {
+    "Data Quality": "Calidad de datos", "Wake": "Estelas", "IEC 61400-1": "IEC 61400-1",
+    "Económico": "Económico", "Ambiental": "Ambiental", "Social": "Social",
+}
+_F6_AUDIT_CAT_ICO = {
+    "Data Quality": "🛰️", "Wake": "🌪️", "IEC 61400-1": "🛡️", "Económico": "💰", "Ambiental": "🌿", "Social": "🤝",
+}
+_F6_AUDIT_CRIT_ES = {
+    "DQ01": "≥ 3 años de datos satelitales NASA POWER",
+    "DQ02": "Torre meteorológica con ≥ 12 meses de solape",
+    "DQ03": "MCP R² ≥ 0,85 (satélite ↔ torre)",
+    "DQ04": "Recuperación de datos de la torre ≥ 90 %",
+    "DQ05": "Temperatura T2M de NASA disponible (densidad real)",
+    "WK01": "Modelo de estela de referencia (py_wake DTU o WAsP)",
+    "WK02": "Comparación de ≥ 2 modelos de estela",
+    "WK03": "Separación mínima entre turbinas ≥ 3D",
+    "IEC01": "Idoneidad del sitio completa y conforme",
+    "IEC02": "V_ref a 50 años calculada (Gumbel)",
+    "IEC03": "TI a 15 m/s ≤ límite de la categoría",
+    "EC01": "DSCR mínimo ≥ 1,3",
+    "EC02": "WACC desglosado calculado",
+    "EC03": "P90 bancario calculado (Monte Carlo)",
+    "EC04": "TIR > WACC (proyecto viable)",
+    "EN01": "Parpadeo de sombra < 30 h/año en todo receptor",
+    "EN02": "Ruido ≤ 50 dB(A) diurno residencial",
+    "EN03": "Riesgo de colisión de aves evaluado",
+    "SO01": "Consulta previa Wayuu documentada (manual)",
+    "SO02": "Mesa de diálogo activa con comunidades (manual)",
+}
+# Dónde se resuelve cada criterio dentro de la app
+_F6_AUDIT_DONDE = {
+    "DQ01": "Fase 2 · datos NASA", "DQ02": "Fase 2 · torre + MCP", "DQ03": "Fase 2 · torre + MCP",
+    "DQ04": "Fase 2 · torre + MCP", "DQ05": "Fase 5 · densidad mensual",
+    "WK01": "Fase 4/5 · modelo de estela", "WK02": "Fase 4/5 · modelo de estela", "WK03": "Fase 4 · separación",
+    "IEC01": "Fase 5 · validación IEC", "IEC02": "F6 · Sitio y cumplimiento", "IEC03": "Fase 5 · validación IEC",
+    "EC01": "Fase 5 · economía", "EC02": "Fase 5 · economía", "EC03": "Fase 5 · Monte Carlo", "EC04": "Fase 5 · economía",
+    "EN01": "F6 · Ambiental (parpadeo)", "EN02": "F6 · Ambiental (ruido)", "EN03": "F6 · Ambiental (aves)",
+    "SO01": "documentos del proyecto", "SO02": "documentos del proyecto",
+}
+_F6_AUDIT_ESTADO = {"PASS": ("ok", "Cumple"), "FAIL": ("bad", "Falla"), "N/A": ("info", "Sin dato"), "MANUAL": ("warn", "Manual")}
+_F6_AUDIT_CAT_COL = ["#0d9488", "#14b8a6", "#2563eb", "#d97706", "#16a34a", "#7c3aed"]
+
+
+def _f6_audit_evidencia(ev) -> str:
+    """'valor=0.2 no cumple >= 3' → 'valor 0,2 · no cumple ≥ 3' (solo presentación)."""
+    s = str(ev or "").replace("True", "sí").replace("False", "no")
+    ops = {">=": "≥", "<=": "≤", "==": "=", ">": ">", "<": "<"}
+    s = re.sub(r"valor=(\S+) no cumple (>=|<=|==|>|<) (\S+)",
+               lambda m: f"valor {m.group(1)} · no cumple {ops[m.group(2)]} {m.group(3)}", s)
+    s = re.sub(r"valor=(\S+)", r"valor \1", s)
+    return _es_num(s)
+
+
+def _f6_gauge_svg(score: float, etiqueta: str) -> str:
+    """Medidor semicircular 0-100 con zonas (roja < 70, ámbar 70-85, verde ≥ 85) y aguja."""
+    cx, cy, r, sw = 150.0, 150.0, 108.0, 22.0
+    v = min(100.0, max(0.0, float(score)))
+    col = _F6_VERDE if v >= 85 else (_F6_AMBAR if v >= 70 else _F6_ROJO)
+
+    def pt(val, rr):
+        a = np.pi * (1.0 - val / 100.0)
+        return cx + rr * np.cos(a), cy - rr * np.sin(a)
+
+    def arco(v0, v1, color, ancho, op=1.0):
+        (x0, y0), (x1, y1) = pt(v0, r), pt(v1, r)
+        return (f'<path d="M{x0:.1f},{y0:.1f} A{r},{r} 0 0 1 {x1:.1f},{y1:.1f}" fill="none" stroke="{color}" '
+                f'stroke-width="{ancho}" stroke-linecap="butt" opacity="{op}"/>')
+
+    p = ['<svg viewBox="0 0 300 222" xmlns="http://www.w3.org/2000/svg">',
+         arco(0, 70, "#fecaca", sw), arco(70, 85, "#fde68a", sw), arco(85, 100, "#bbf7d0", sw)]
+    if v > 0.2:
+        p.append(arco(0, v, col, sw * 0.62))
+    for t in (0, 70, 85, 100):
+        x, y = pt(t, r + 22)
+        p.append(f'<text x="{x:.1f}" y="{y + 4:.1f}" text-anchor="middle" font-size="10.5" font-weight="900" fill="#64748b">{t}</text>')
+    # Aguja corta y textos DEBAJO del eje: así la aguja nunca tapa el número.
+    nx, ny = pt(v, r - 34)
+    p.append(
+        f'<g><title>{_svg_t(_es_num(f"Puntaje {v:.1f} de 100"))}</title>'
+        f'<line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#0b2447" stroke-width="4" stroke-linecap="round"/>'
+        f'<circle cx="{cx}" cy="{cy}" r="9" fill="#0b2447"/><circle cx="{cx}" cy="{cy}" r="3.5" fill="#fff"/></g>'
+        f'<text x="{cx}" y="{cy + 42}" text-anchor="middle" font-size="28" font-weight="900" fill="{col}">'
+        f'{_svg_t(_es_num(f"{v:.1f}"))}<tspan font-size="11" font-weight="800" fill="#64748b"> / 100</tspan></text>'
+        f'<text x="{cx}" y="{cy + 64}" text-anchor="middle" font-size="12" font-weight="900" fill="{col}">{_svg_t(etiqueta)}</text>'
+        "</svg>"
+    )
+    return "".join(p)
+
+
+def _f6_cat_bars_svg(filas) -> str:
+    """Puntaje por categoría: pista = peso máximo, relleno = puntos obtenidos.
+    filas=[(etiqueta, obtenido, peso, tooltip)]."""
+    n = max(1, len(filas))
+    fila_h, top = 40.0, 8.0
+    W, H = 520.0, top + n * fila_h + 6
+    x0, x1 = 132.0, W - 92.0
+    pmax = max([float(pe) for _, _, pe, _ in filas] + [1.0])
+    p = [f'<svg viewBox="0 0 {W:.0f} {H:.0f}" xmlns="http://www.w3.org/2000/svg">']
+    for i, (etq, obt, peso, tip) in enumerate(filas):
+        yc = top + i * fila_h + fila_h / 2
+        wt = float(peso) / pmax * (x1 - x0)
+        wo = max(0.0, float(obt)) / pmax * (x1 - x0)
+        pct = (float(obt) / float(peso) * 100.0) if peso else 0.0
+        col = _F6_VERDE if pct >= 85 else ("#0d9488" if pct >= 50 else (_F6_AMBAR if pct >= 30 else _F6_ROJO))
+        p.append(
+            f'<g class="f6-bar"><title>{_svg_t(tip)}</title>'
+            f'<text x="{x0 - 10:.0f}" y="{yc + 4:.1f}" text-anchor="end" font-size="12" font-weight="800" fill="#475569">{_svg_t(etq)}</text>'
+            f'<rect x="{x0}" y="{yc - 11:.1f}" width="{wt:.1f}" height="22" rx="9" fill="#f0fdfa" stroke="#99f6e4"/>'
+            f'<rect x="{x0}" y="{yc - 11:.1f}" width="{max(wo, 3.0):.1f}" height="22" rx="9" fill="{col}"/>'
+            f'<rect x="{x0}" y="{yc - 11:.1f}" width="{max(wo, 3.0):.1f}" height="7" rx="4" fill="#fff" opacity=".25"/>'
+            f'<text x="{x0 + wt + 8:.1f}" y="{yc + 4:.1f}" font-size="11.5" font-weight="900" fill="#0b2447">'
+            f'{_svg_t(_es_num(f"{float(obt):.1f}"))}<tspan fill="#94a3b8" font-weight="700"> / {int(peso)}</tspan></text></g>'
+        )
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_esquema_audit() -> str:
+    """¿Cómo se calcula el puntaje? Pesos por categoría + reglas + umbrales."""
+    x, segs = 40.0, []
+    ancho = 480.0
+    for k, (cat, peso) in enumerate(_F6_AUDIT_PESOS_ORDEN()):
+        w = peso / 100.0 * ancho
+        col = _F6_AUDIT_CAT_COL[k % len(_F6_AUDIT_CAT_COL)]
+        segs.append(
+            f'<rect x="{x + 1:.1f}" y="30" width="{w - 2:.1f}" height="26" rx="7" fill="{col}"/>'
+            f'<text x="{x + w / 2:.1f}" y="47" text-anchor="middle" font-size="11" font-weight="900" fill="#fff">{peso}</text>'
+            f'<text x="{x + w / 2:.1f}" y="72" text-anchor="middle" font-size="9.5" font-weight="800" fill="#475569">{_svg_t(_F6_AUDIT_CAT_ES.get(cat, cat))}</text>'
+        )
+        x += w
+    umbral = (
+        '<rect x="40" y="128" width="336" height="14" rx="7" fill="#fecaca"/>'
+        '<rect x="376" y="128" width="72" height="14" fill="#fde68a"/>'
+        '<rect x="448" y="128" width="72" height="14" rx="7" fill="#bbf7d0"/>'
+        '<text x="208" y="158" text-anchor="middle" font-size="9.5" font-weight="900" fill="#b91c1c">0-70 · aún no listo</text>'
+        '<text x="412" y="158" text-anchor="middle" font-size="9.5" font-weight="900" fill="#b45309">70-85 · brechas</text>'
+        '<text x="484" y="158" text-anchor="middle" font-size="9.5" font-weight="900" fill="#15803d">≥ 85 · listo</text>'
+    )
+    reglas = (
+        '<g font-size="10" font-weight="900">'
+        '<rect x="40" y="86" width="150" height="24" rx="12" fill="#f0fdf4" stroke="#bbf7d0"/><text x="115" y="102" text-anchor="middle" fill="#15803d">✅ Cumple = 1 punto</text>'
+        '<rect x="205" y="86" width="165" height="24" rx="12" fill="#f8fafc" stroke="#cbd5e1"/><text x="287" y="102" text-anchor="middle" fill="#475569">➖ Sin dato / manual = ½</text>'
+        '<rect x="385" y="86" width="135" height="24" rx="12" fill="#fef2f2" stroke="#fecaca"/><text x="452" y="102" text-anchor="middle" fill="#b91c1c">❌ Falla = 0</text>'
+        "</g>"
+    )
+    svg = (
+        '<svg viewBox="0 0 560 168" xmlns="http://www.w3.org/2000/svg">'
+        '<text x="40" y="20" font-size="11.5" font-weight="900" fill="#0b2447">100 puntos repartidos por categoría</text>'
+        + "".join(segs) + reglas + umbral + "</svg>"
+    )
+    txt = ("Cada categoría reparte sus puntos entre sus criterios: un criterio que cumple suma completo, uno sin dato "
+           "o de verificación manual suma la mitad y uno que falla no suma. El total (0-100) indica si el análisis "
+           "ya puede enviarse a un auditor externo (DNV, UL, TÜV). No sustituye una certificación real.")
+    return f'<div class="f6-how"><div class="f6-how-t">💡 ¿Cómo se calcula el puntaje?</div>{svg}<p>{_escape(txt)}</p></div>'
+
+
+def _F6_AUDIT_PESOS_ORDEN():
+    import pre_audit_checklist as audit
+
+    return list(audit.PESO_CATEGORIA.items())
+
+
 def _render_auditoria() -> None:
     import pre_audit_checklist as audit
 
     with st.container(border=True, key="f6_card_audit"):
         _section_header(
-            "Pre-audit checklist (estilo DNV)",
-            "Chequeo automático de calidad del análisis antes de pagar un auditor externo. Score ≥ 85 = listo.",
+            "Checklist previo a auditoría · estilo DNV",
+            "¿Está el análisis listo para un auditor externo? Puntaje de 0 a 100 · ≥ 85 = listo",
             "table",
         )
         cfg_fresh = cargar_config()
@@ -3148,68 +3326,136 @@ def _render_auditoria() -> None:
 
         df_audit = audit.ejecutar_pre_audit(ctx)
         score_res = audit.calcular_audit_score(df_audit)
+        score = float(score_res.get("score", 0.0))
+        st.session_state["f6_audit_score_pct"] = score  # lo muestra el hero en el siguiente render
 
-        _readiness_es = {
-            "READY FOR AUDITOR": "LISTO PARA AUDITOR",
-            "MINOR GAPS": "BRECHAS MENORES",
-            "NOT READY": "AÚN NO LISTO",
-        }
-        st.markdown(
-            _kpi_html([
-                ("target", "Score de auditoría", f"{score_res['score']:.1f} / 100",
-                 _readiness_es.get(score_res.get("readiness_level", ""), score_res.get("readiness_level", ""))),
-                ("info", "Criterios que cumplen", f"{score_res['n_pass']} de {score_res['n_total']}", ""),
-                ("trending-down", "Criterios que fallan", str(score_res["n_fail"]),
-                 "cerrar antes de enviar a auditor"),
-                ("table", "Sin dato / manual", str(score_res["n_na_manual"]),
-                 "cuentan medio punto"),
-            ]),
-            unsafe_allow_html=True,
-        )
-        st.progress(min(1.0, score_res["score"] / 100.0))
-        tono = "ok" if score_res["score"] >= 85 else ("warn" if score_res["score"] >= 70 else "bad")
-        st.markdown(_badge_html(score_res["msg"], tono), unsafe_allow_html=True)
+        nivel = score_res.get("readiness_level", "")
+        _nivel_es = {"READY FOR AUDITOR": "LISTO PARA AUDITOR", "MINOR GAPS": "BRECHAS MENORES", "NOT READY": "AÚN NO LISTO"}
+        etq_nivel = _nivel_es.get(nivel, nivel)
+        cat_scores = score_res.get("scores_por_categoria") or {}
+        pct_cat = {c: (float(v) / audit.PESO_CATEGORIA[c] * 100.0 if audit.PESO_CATEGORIA.get(c) else 0.0)
+                   for c, v in cat_scores.items()}
+        peor_cat = min(pct_cat, key=pct_cat.get) if pct_cat else ""
 
-        import plotly.graph_objects as go
+        col_g, col_k = st.columns([1, 1.55], gap="medium")
+        with col_g:
+            st.markdown(
+                _f6_fig_html("Puntaje de auditoría", _f6_gauge_svg(score, etq_nivel),
+                             [("Aún no listo", "#fecaca"), ("Brechas", "#fde68a"), ("Listo", "#bbf7d0")]),
+                unsafe_allow_html=True,
+            )
+        with col_k:
+            st.markdown(
+                _kpi_html([
+                    ("✅", "Criterios que cumplen", f"{score_res['n_pass']} de {score_res['n_total']}", "suman el punto completo", _F6_VERDE),
+                    ("❌", "Criterios que fallan", str(score_res["n_fail"]), "cerrar antes de enviar al auditor", _F6_ROJO),
+                    ("✍️", "Sin dato / manual", str(score_res["n_na_manual"]), "cuentan medio punto", _F6_GRIS),
+                    ("📉", "Categoría más débil", _F6_AUDIT_CAT_ES.get(peor_cat, peor_cat) or "—",
+                     _es_num(f"{pct_cat.get(peor_cat, 0.0):.0f} % de su peso") if peor_cat else "", _F6_AMBAR),
+                ], n=2),
+                unsafe_allow_html=True,
+            )
+            s_txt = _es_num(f"{score:.1f}")
+            if score >= 85:
+                msg, tono = f"Puntaje {s_txt}: el proyecto está listo para un auditor externo (DNV/UL/TÜV).", "ok"
+            elif score >= 70:
+                msg, tono = f"Puntaje {s_txt}: brechas menores, refine antes de enviar al auditor.", "warn"
+            else:
+                msg, tono = f"Puntaje {s_txt}: aún no enviar al auditor, cierre los {score_res['n_fail']} criterios que fallan.", "bad"
+            st.markdown(_badge_html(msg, tono), unsafe_allow_html=True)
 
-        col_a1, col_a2 = st.columns([1.6, 1])
-        with col_a1:
-            cat_scores = score_res.get("scores_por_categoria") or {}
-            if cat_scores:
-                cats = list(cat_scores.keys())
-                fig_cat = go.Figure()
-                fig_cat.add_bar(
-                    x=[audit.PESO_CATEGORIA.get(c, 0) for c in cats], y=cats, orientation="h",
-                    name="Peso máximo", marker_color="#cbfbf1",
+        col_c, col_d = st.columns([1.6, 1], gap="medium")
+        with col_c:
+            filas = []
+            for cat, peso in audit.PESO_CATEGORIA.items():
+                obt = float(cat_scores.get(cat, 0.0))
+                sub = df_audit[df_audit["categoria"] == cat]
+                tip = _es_num(
+                    f"{_F6_AUDIT_CAT_ES.get(cat, cat)}: {obt:.1f} de {peso} puntos ({pct_cat.get(cat, 0.0):.0f} %)\n"
+                    f"{int((sub['status'] == 'PASS').sum())} cumplen · {int((sub['status'] == 'FAIL').sum())} fallan · "
+                    f"{int(sub['status'].isin(['N/A', 'MANUAL']).sum())} sin dato"
                 )
-                fig_cat.add_bar(
-                    x=[cat_scores[c] for c in cats], y=cats, orientation="h",
-                    name="Obtenido", marker_color=_F6_TEAL,
-                    text=[f"{cat_scores[c]:.1f}" for c in cats], textposition="outside",
+                filas.append((f"{_F6_AUDIT_CAT_ICO.get(cat, '')} {_F6_AUDIT_CAT_ES.get(cat, cat)}", obt, peso, tip))
+            st.markdown(
+                _f6_fig_html("Puntaje por categoría · obtenido / máximo", _f6_cat_bars_svg(filas),
+                             [("≥ 85 %", _F6_VERDE), ("50-85 %", "#0d9488"), ("30-50 %", _F6_AMBAR), ("< 30 %", _F6_ROJO)]),
+                unsafe_allow_html=True,
+            )
+        with col_d:
+            segs = [("Cumplen", score_res["n_pass"], _F6_VERDE), ("Fallan", score_res["n_fail"], _F6_ROJO),
+                    ("Sin dato / manual", score_res["n_na_manual"], _F6_GRIS)]
+            st.markdown(
+                _f6_fig_html("Resultado de criterios",
+                             _f6_donut_svg(segs, str(score_res["n_total"]), "criterios"),
+                             [(e, c) for e, _, c in segs]),
+                unsafe_allow_html=True,
+            )
+
+        fallan = df_audit[df_audit["status"] == "FAIL"]
+        if len(fallan):
+            acc = "".join(
+                f'<div class="f6-acc"><span class="f6-acc-x">❌</span><div><b>{_escape(r["id"])} · '
+                f'{_escape(_F6_AUDIT_CRIT_ES.get(r["id"], r["criterio"]))}</b>'
+                f'<small>{_escape(_f6_audit_evidencia(r["evidencia"]))}</small></div>'
+                f'<span class="f6-pill info f6-acc-d">🔧 {_escape(_F6_AUDIT_DONDE.get(r["id"], "revisar evidencia"))}</span></div>'
+                for _, r in fallan.iterrows()
+            )
+            st.markdown(f'<div class="f6-gtitle" style="margin-top:12px">🔧 Qué falta para estar listo</div>{acc}',
+                        unsafe_allow_html=True)
+        else:
+            st.markdown(_badge_html("Ningún criterio falla: solo quedan ítems sin dato o de verificación manual.", "ok"),
+                        unsafe_allow_html=True)
+
+        st.markdown('<div class="f6-gtitle" style="margin-top:14px">📋 Checklist completo</div>', unsafe_allow_html=True)
+        filtro = st.segmented_control(
+            "Mostrar", ["Todos", "❌ Fallan", "✅ Cumplen", "➖ Sin dato / manual"],
+            default="Todos", key="f6_audit_filtro", label_visibility="collapsed",
+        ) or "Todos"
+        estados = {"Todos": None, "❌ Fallan": {"FAIL"}, "✅ Cumplen": {"PASS"}, "➖ Sin dato / manual": {"N/A", "MANUAL"}}[filtro]
+        filas_html = []
+        for cat, peso in audit.PESO_CATEGORIA.items():
+            sub = df_audit[df_audit["categoria"] == cat]
+            if estados is not None:
+                sub = sub[sub["status"].isin(estados)]
+            if not len(sub):
+                continue
+            filas_html.append(
+                f'<tr class="f6-tcat"><td colspan="4">{_F6_AUDIT_CAT_ICO.get(cat, "")} {_escape(_F6_AUDIT_CAT_ES.get(cat, cat))}'
+                f' · {_escape(_es_num(f"{float(cat_scores.get(cat, 0.0)):.1f}"))} de {peso} puntos</td></tr>'
+            )
+            for _, r in sub.iterrows():
+                tono_p, txt_p = _F6_AUDIT_ESTADO.get(r["status"], ("info", str(r["status"])))
+                filas_html.append(
+                    f'<tr><td class="id">{_escape(r["id"])}</td>'
+                    f'<td>{_escape(_F6_AUDIT_CRIT_ES.get(r["id"], r["criterio"]))}</td>'
+                    f'<td><span class="f6-pill {tono_p}">{txt_p}</span></td>'
+                    f'<td>{_escape(_f6_audit_evidencia(r["evidencia"]))}</td></tr>'
                 )
-                fig_cat.update_layout(barmode="overlay", xaxis_title="Puntos")
-                st.plotly_chart(_f6_fig_layout(fig_cat, "Puntaje por categoría", 360),
-                                use_container_width=True, key="f6_audit_categorias")
-        with col_a2:
-            fig_p = go.Figure(go.Pie(
-                labels=["Cumplen", "Fallan", "Sin dato / manual"],
-                values=[score_res["n_pass"], score_res["n_fail"], score_res["n_na_manual"]],
-                hole=0.6, textinfo="label+value",
-                marker={"colors": [_F6_VERDE, _F6_ROJO, _F6_GRIS]},
-            ))
-            st.plotly_chart(_f6_fig_layout(fig_p, "Resultado de criterios", 360),
-                            use_container_width=True, key="f6_audit_dona")
+        if filas_html:
+            st.markdown(
+                '<table class="f6-tbl f6-audit-tbl"><thead><tr><th>ID</th><th>Criterio</th><th>Estado</th>'
+                f'<th>Evidencia</th></tr></thead><tbody>{"".join(filas_html)}</tbody></table>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.caption("No hay criterios con ese estado.")
 
         df_show = df_audit.rename(columns={
             "id": "ID", "categoria": "Categoría", "criterio": "Criterio",
             "status": "Estado", "evidencia": "Evidencia",
         })
+        df_show["Categoría"] = df_show["Categoría"].map(_F6_AUDIT_CAT_ES).fillna(df_show["Categoría"])
+        df_show["Criterio"] = df_show["ID"].map(_F6_AUDIT_CRIT_ES).fillna(df_show["Criterio"])
+        df_show["Evidencia"] = df_show["Evidencia"].map(_f6_audit_evidencia)
         df_show["Estado"] = df_show["Estado"].map(
             {"PASS": "✅ Cumple", "FAIL": "❌ Falla", "N/A": "➖ Sin dato", "MANUAL": "✍️ Manual"}
         ).fillna(df_show["Estado"])
-        st.dataframe(df_show, hide_index=True, use_container_width=True)
+        with st.expander("📑 Tabla ordenable (copiar / exportar)"):
+            st.dataframe(df_show, hide_index=True, use_container_width=True)
+        with st.expander("💡 ¿Cómo se calcula el puntaje?"):
+            st.markdown(_f6_esquema_audit(), unsafe_allow_html=True)
         st.caption(
-            "Los estudios de esta fase alimentan el checklist: ruido → EN02, shadow flicker → EN01, "
+            "Los estudios de esta fase alimentan el checklist: ruido → EN02, parpadeo de sombra → EN01, "
             "aves → EN03, IEC (validación de Fase 5) → IEC01/IEC03. Los ítems sociales son de verificación manual."
         )
 
@@ -3219,7 +3465,7 @@ _F6_DIVISORES = {
     "Ambiental": ("🌿", "Receptores · ruido · flicker · avifauna · huella CO₂", "#16a34a"),
     "Operación y red": ("⚡", "SCADA real · curtailment · planta híbrida", "#d97706"),
     "Optimización y fin de vida": ("🎯", "Layout óptimo · repotenciación", "#7c3aed"),
-    "Auditoría": ("📋", "Pre-audit checklist estilo DNV", "#0b66c2"),
+    "Auditoría": ("📋", "Checklist previo a auditoría · estilo DNV", "#0b66c2"),
 }
 _div_emoji, _div_sub, _div_color = _F6_DIVISORES[seccion]
 st.markdown(
