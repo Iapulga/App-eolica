@@ -157,7 +157,7 @@ def _section_header(title: str, subtitle: str = "", icon: str = "chart", color: 
         f"""
 <div class="f4-section-header">
     <div class="f4-icon-soft" style="background:linear-gradient(135deg,color-mix(in srgb,{color} 16%,#fff),color-mix(in srgb,{color} 7%,#fff));border:1.5px solid color-mix(in srgb,{color} 35%,#fff);box-shadow:0 5px 12px color-mix(in srgb,{color} 16%,transparent)">
-        {_safe_icon(icon, 21, color)}
+        {(f'<span style="font-size:22px;line-height:1">{_escape(icon)}</span>' if icon and not icon.isascii() else _safe_icon(icon, 21, color))}
     </div>
     <div>
         <div class="f4-section-title">{_escape(title)}</div>
@@ -168,12 +168,23 @@ def _section_header(title: str, subtitle: str = "", icon: str = "chart", color: 
     )
 
 
+import re as _re_f4
+
+# Formato español en KPIs: '62,859.3' → '62.859,3' (solo tokens numéricos).
+_F4_NUM_RE = _re_f4.compile(r"\d[\d.,]*\d")
+_F4_SWAP = str.maketrans({",": ".", ".": ","})
+
+
+def _f4_es(text) -> str:
+    return _F4_NUM_RE.sub(lambda m: m.group(0).translate(_F4_SWAP), str(text)) if text else text
+
+
 def _kpi_tile(emoji: str, label: str, value, sub: str = "", color: str = "#7c3aed") -> str:
     return f"""<div class="f4-kpi-card" style="--kc:{color}">
 <div class="f4-kpi-icon">{emoji}</div>
 <div><small class="f4-kpi-label">{_escape(str(label))}</small>
-<b class="f4-kpi-value">{_escape(str(value))}</b>
-<i class="f4-kpi-sub">{_escape(str(sub))}</i></div></div>"""
+<b class="f4-kpi-value">{_escape(_f4_es(str(value)))}</b>
+<i class="f4-kpi-sub">{_escape(_f4_es(str(sub)))}</i></div></div>"""
 
 
 # ---------------------------------------------------------------------------
@@ -1656,6 +1667,43 @@ div[data-testid="stMetricValue"]{color:#0a2444 !important;font-weight:800 !impor
 /* ════ Responsive ════ */
 @media(max-width:1100px){.f4-kpi-grid{grid-template-columns:repeat(3,1fr)}.f4-wake-legend-content{grid-template-columns:1fr}.f4-wake-legend-divider{width:100%;height:1px}}
 @media(max-width:700px){.f4-kpi-grid{grid-template-columns:repeat(2,1fr)}}
+/* ════ Aurora v2 (F4) ════ */
+/* Franja violeta que sigue la curva: radio 27px = card 28px - 1px de borde */
+#root div[data-testid="stVerticalBlock"][class*="st-key-f4_card_"]:not(.st-key-f4_card_header)::before{
+  top:0 !important;right:0 !important;bottom:0 !important;left:0 !important;height:auto !important;width:auto !important;
+  background:linear-gradient(90deg,#7c3aed, color-mix(in srgb,#7c3aed 25%,#fff) 70%, transparent) !important;
+  background-size:100% 4px !important;background-repeat:no-repeat !important;background-position:top left !important;
+  -webkit-clip-path:inset(0 round 27px 27px 0 0) !important;clip-path:inset(0 round 27px 27px 0 0) !important;pointer-events:none !important}
+/* Sub-tarjetas (radio 18/8): sin franja */
+#root :is(.st-key-f4_move_turbine_card,.st-key-f4_move_park_card,.st-key-f4_rotate_park_card,.st-key-f4_geom_rose_subcard)::before{display:none !important}
+/* Etiquetas estilo mockup (.field label) en Configuración y Mover */
+#root :is(.st-key-f4_card_config,.st-key-f4_card_move_layout) [data-testid="stWidgetLabel"] p{
+  font-size:9.5px !important;font-weight:900 !important;color:#64748b !important;text-transform:uppercase !important;letter-spacing:.06em !important}
+/* Botones: primario violeta, secundario ghost violeta */
+#root [data-testid="stFormSubmitButton"] button:is([kind="primaryFormSubmit"],[data-testid="stBaseButton-primaryFormSubmit"]),
+#root [data-testid="stButton"] button[kind="primary"]{
+  background:linear-gradient(120deg,#7c3aed,#5b21b6) !important;border:none !important;color:#fff !important;
+  box-shadow:0 10px 20px color-mix(in srgb,#7c3aed 32%,transparent), inset 0 1px 0 rgba(255,255,255,.28) !important}
+#root [data-testid="stFormSubmitButton"] button:is([kind="primaryFormSubmit"],[data-testid="stBaseButton-primaryFormSubmit"]) p,
+#root [data-testid="stButton"] button[kind="primary"] p{color:#fff !important}
+#root .st-key-f4_card_config [data-testid="stFormSubmitButton"] button:is([kind="secondaryFormSubmit"],[data-testid="stBaseButton-secondaryFormSubmit"]){
+  background:#fff !important;border:1.5px solid color-mix(in srgb,#7c3aed 38%,#fff) !important;box-shadow:0 2px 6px rgba(11,36,71,.05) !important}
+#root .st-key-f4_card_config [data-testid="stFormSubmitButton"] button:is([kind="secondaryFormSubmit"],[data-testid="stBaseButton-secondaryFormSubmit"]) p{color:#7c3aed !important}
+/* Chips de modelos de estela */
+.f4-wk{display:flex;gap:7px;flex-wrap:wrap;margin-top:25px}
+.f4-wk span{padding:6px 11px;border-radius:999px;background:color-mix(in srgb,#7c3aed 6%,#fff);border:1px solid color-mix(in srgb,#7c3aed 25%,#fff);
+  font-size:11px;font-weight:700;color:#5b21b6}
+/* Sub-tarjetas de mover/rotar en tono violeta */
+#root :is(.st-key-f4_move_turbine_card,.st-key-f4_move_park_card,.st-key-f4_rotate_park_card){
+  background:linear-gradient(180deg, color-mix(in srgb,#7c3aed 6%,#fff), #fff) !important;
+  border:1.5px solid color-mix(in srgb,#7c3aed 24%,#fff) !important;border-radius:18px !important;box-shadow:0 4px 12px rgba(124,58,237,.06) !important}
+#root :is(.st-key-f4_move_turbine_card,.st-key-f4_move_park_card,.st-key-f4_rotate_park_card) [data-testid="stButton"] button{
+  background:#fff !important;border:1.5px solid color-mix(in srgb,#7c3aed 35%,#fff) !important;border-radius:12px !important;
+  min-height:38px !important;box-shadow:0 2px 6px rgba(124,58,237,.08) !important}
+#root :is(.st-key-f4_move_turbine_card,.st-key-f4_move_park_card,.st-key-f4_rotate_park_card) [data-testid="stButton"] button p{
+  color:#7c3aed !important;font-weight:900 !important;font-size:16px !important}
+#root :is(.st-key-f4_move_turbine_card,.st-key-f4_move_park_card,.st-key-f4_rotate_park_card) [data-testid="stButton"] button:hover{
+  background:color-mix(in srgb,#7c3aed 10%,#fff) !important;border-color:#7c3aed !important}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1749,7 +1797,7 @@ TIPOS_ARREGLO = [
 # 1. Config card (🧩)
 # ═══════════════════════════════════════════════════════════════════════════════
 with st.container(border=True, key="f4_card_config"):
-    _section_header("Configuración del arreglo", "Tipo, separación, coeficientes y modelo de estela", "controls", "#7c3aed")
+    _section_header("Configuración del arreglo", "Geometría del parque y modelo de estela", "🧩", "#7c3aed")
     with st.form("f4_layout_config_form", clear_on_submit=False):
         c1, c2, c3, c4 = st.columns(4, gap="medium")
         with c1:
@@ -1771,23 +1819,29 @@ with st.container(border=True, key="f4_card_config"):
         with c8:
             altura_deseada = st.number_input("Altura deseada (m)", min_value=0.10, value=altura_deseada_default, step=0.10, format="%.2f")
 
-        c9, c10 = st.columns([1, 3], gap="medium")
+        c9, c10 = st.columns([1.3, 2.7], gap="medium")
         with c9:
             wake_model_f4 = st.selectbox("Modelo de estela", wake_model_options_f4, index=wake_model_options_f4.index(wake_model_default_f4), key="f4_wake_model", help="Jensen (clásico) · Larsen (perfil 3/2, TI ambiente) · Frandsen (parques grandes) · Gaussian (Bastankhah-PA 2014, estándar moderno) · TurbOPark (Orsted 2020, industria 2024)")
         with c10:
             guardar_config_values({"f4_wake_model": wake_model_f4, "f5_wake_model": wake_model_f4})
+            st.markdown(
+                '<div class="f4-wk"><span><b>Jensen</b> · clásico</span><span><b>Larsen</b> · perfil 3/2</span>'
+                '<span><b>Frandsen</b> · parques grandes</span><span><b>Gaussian</b> · estándar moderno</span>'
+                '<span><b>TurbOPark</b> · industria 2024</span></div>',
+                unsafe_allow_html=True,
+            )
 
         dx_m_preview = dx_D * diametro
         dy_m_preview = dy_D * diametro
-        action_cols = st.columns(2, gap="medium")
+        action_cols = st.columns([1.25, 1.15, 2.6], gap="small")
         with action_cols[0]:
-            if st.form_submit_button("Generar arreglo automático", icon=":material/autorenew:", use_container_width=True, key="f4_btn_generar"):
+            if st.form_submit_button("✨ Generar arreglo automático", use_container_width=True, key="f4_btn_generar", type="primary"):
                 df_layout_new = generar_layout_parque(layout_type, num_turbinas, dx_m_preview, dy_m_preview, rotation_deg)
                 guardar_layout_parque(df_layout_new)
                 st.success("Arreglo generado.")
                 st.rerun()
         with action_cols[1]:
-            if st.form_submit_button("Recargar layout guardado", icon=":material/restore:", use_container_width=True, key="f4_btn_recargar"):
+            if st.form_submit_button("🔄 Recargar layout guardado", use_container_width=True, key="f4_btn_recargar"):
                 st.rerun()
 
 dx_m = dx_D * diametro
@@ -1846,10 +1900,10 @@ if(hp)hp.innerHTML='<div class="hpill"><b>{len(df_layout)}</b><span>Turbinas</sp
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown('<div class="f4-kpi-grid">' +
     _kpi_tile("🌬️", "Aerogeneradores", f"{len(df_layout)}", "Total en el parque", "#2563eb") +
-    _kpi_tile("⊘", "Diámetro rotor", f"{diametro:.1f} m", "Referencia del modelo", "#0ea5e9") +
+    _kpi_tile("⭕", "Diámetro rotor", f"{diametro:.1f} m", "Referencia del modelo", "#0ea5e9") +
     _kpi_tile("💨", "Vel. geométrica", f"{velocidad_geom_state:.2f} m/s", "Para análisis geométrico", "#8b5cf6") +
-    _kpi_tile("◎", "Sector crítico", ", ".join(sectores_geom_criticos), "Geométricamente críticos", "#f59e0b") +
-    _kpi_tile("✓", "Eficiencia geom.", f"{eficiencia_geom:.2f}%", "Eficiencia del arreglo", "#10b981") +
+    _kpi_tile("🧭", "Sector crítico", ", ".join(sectores_geom_criticos), "Geométricamente críticos", "#f59e0b") +
+    _kpi_tile("✅", "Eficiencia geom.", f"{eficiencia_geom:.2f}%", "Eficiencia del arreglo", "#10b981") +
 '</div>', unsafe_allow_html=True)
 
 
@@ -1859,9 +1913,22 @@ st.markdown('<div class="f4-kpi-grid">' +
 layout_edit_cols = st.columns([1.05, 1.15], gap="small")
 with layout_edit_cols[0]:
     with st.container(border=True, key="f4_card_edit_table", height=435):
-        _section_header("Tabla editable del parque", "Coordenadas x/y en metros", "table", "#7c3aed")
-        edited_layout = st.data_editor(df_layout.copy(), num_rows="dynamic", use_container_width=True, key="f4_layout_editor_v4", height=240)
-        if st.button("Guardar tabla del parque", icon=":material/save:", use_container_width=True):
+        _section_header("Tabla editable del parque", "Coordenadas x/y por turbina — edite y guarde", "📝", "#7c3aed")
+        # Redondeo a mm solo para mostrar: el ruido de coma flotante (-5e-13 m) salía como "-0".
+        _df_edit_view = df_layout.copy()
+        for _c in ("x_m", "y_m"):
+            if _c in _df_edit_view.columns:
+                _df_edit_view[_c] = pd.to_numeric(_df_edit_view[_c], errors="coerce").round(3) + 0.0
+        edited_layout = st.data_editor(
+            _df_edit_view, num_rows="dynamic", use_container_width=True, key="f4_layout_editor_v4", height=240,
+            hide_index=True,
+            column_config={
+                "turbina_id": st.column_config.TextColumn("Turbina"),
+                "x_m": st.column_config.NumberColumn("x (m)", format="%.0f"),
+                "y_m": st.column_config.NumberColumn("y (m)", format="%.0f"),
+            },
+        )
+        if st.button("💾 Guardar tabla del parque", use_container_width=True, type="primary"):
             try:
                 df_save = edited_layout.copy()
                 df_save["turbina_id"] = df_save["turbina_id"].astype(str).str.strip()
@@ -1881,7 +1948,7 @@ df_layout = cargar_layout_parque()
 
 with layout_edit_cols[1]:
     with st.container(border=True, key="f4_card_move_layout", height=435):
-        _section_header("Mover turbinas y parque", "Desplazar individualmente o todo el arreglo", "move", "#7c3aed")
+        _section_header("Mover turbinas y parque", "Mover turbina · mover parque · rotar parque", "🕹️", "#7c3aed")
 
         if len(df_layout) > 0:
             turbine_options = df_layout["turbina_id"].astype(str).tolist()
@@ -1907,7 +1974,7 @@ with layout_edit_cols[1]:
             move_cards = st.columns(3, gap="small")
             with move_cards[0]:
                 with st.container(border=True, key="f4_move_turbine_card", height=235):
-                    st.markdown('<div class="f4-move-subcard-title" style="color:#7c3aed">Mover turbina</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f4-move-subcard-title" style="color:#7c3aed">🎯 Mover turbina</div>', unsafe_allow_html=True)
                     top_l, top_c, top_r = st.columns(3, gap="small")
                     with top_c:
                         if st.button("↑", use_container_width=True, key="f4_move_turbine_up"):
@@ -1925,7 +1992,7 @@ with layout_edit_cols[1]:
                             guardar_layout_parque(mover_turbina(df_layout, turbina_sel, 0, -move_step_turb)); st.rerun()
             with move_cards[1]:
                 with st.container(border=True, key="f4_move_park_card", height=235):
-                    st.markdown('<div class="f4-move-subcard-title" style="color:#7c3aed">Mover parque</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f4-move-subcard-title" style="color:#7c3aed">✥ Mover parque</div>', unsafe_allow_html=True)
                     top_l, top_c, top_r = st.columns(3, gap="small")
                     with top_c:
                         if st.button("↑", use_container_width=True, key="f4_move_park_up"):
@@ -1943,7 +2010,7 @@ with layout_edit_cols[1]:
                             guardar_layout_parque(mover_parque(df_layout, 0, -move_step_park)); st.rerun()
             with move_cards[2]:
                 with st.container(border=True, key="f4_rotate_park_card", height=235):
-                    st.markdown('<div class="f4-move-subcard-title" style="color:#16a34a">Rotar parque</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="f4-move-subcard-title" style="color:#7c3aed">🔄 Rotar parque</div>', unsafe_allow_html=True)
                     rot_l, rot_r = st.columns(2, gap="small")
                     with rot_l:
                         if st.button("↺ -", use_container_width=True, key="f4_rotate_park_minus"):
