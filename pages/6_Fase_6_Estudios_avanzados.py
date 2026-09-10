@@ -400,6 +400,49 @@ div[data-testid="stButton"]>button[kind="primary"]{
   background:linear-gradient(120deg,#0d9488,#115e59) !important;border:none !important;color:#fff !important;
   box-shadow:0 10px 20px color-mix(in srgb,#0d9488 35%,transparent), inset 0 1px 0 rgba(255,255,255,.28) !important}
 div[data-testid="stButton"]>button[kind="primary"]:hover{filter:brightness(1.05)}
+/* ════════ Aurora v2 (F6) ════════ */
+/* mismo alto de hero que F1-F5 (131px) */
+.f6-hero-row{min-height:87px}
+/* Franja de acento: una banda de 4px no se puede redondear (asomaba recta en las esquinas).
+   El ::before cubre todo el card, el color va solo en los 4px de arriba y el clip-path lo recorta
+   a la forma del card. Radio 25px = card 26px - 1px de borde. */
+#root div[data-testid="stVerticalBlock"][class*="st-key-f6_card_"]:not(.st-key-f6_card_header)::before{
+  top:0 !important;right:0 !important;bottom:0 !important;left:0 !important;height:auto !important;width:auto !important;
+  background:linear-gradient(90deg, var(--acl,#0d9488), color-mix(in srgb,var(--acl,#0d9488) 25%,#fff) 70%, transparent) !important;
+  background-size:100% 4px !important;background-repeat:no-repeat !important;background-position:top left !important;
+  -webkit-clip-path:inset(0 round 25px 25px 0 0) !important;clip-path:inset(0 round 25px 25px 0 0) !important;
+  border-radius:0 !important;pointer-events:none !important}
+/* Ambiental = acento verde del mockup (franja + squircle del card-head) */
+.st-key-f6_card_receptores,.st-key-f6_card_ruido,.st-key-f6_card_flicker,.st-key-f6_card_aves,.st-key-f6_card_lca{--acl:#16a34a}
+.st-key-f6_card_receptores .aur-cicon,.st-key-f6_card_ruido .aur-cicon,.st-key-f6_card_flicker .aur-cicon,
+.st-key-f6_card_aves .aur-cicon,.st-key-f6_card_lca .aur-cicon{
+  background:linear-gradient(135deg, color-mix(in srgb,#16a34a 16%,#fff), color-mix(in srgb,#16a34a 7%,#fff)) !important;
+  border-color:color-mix(in srgb,#16a34a 35%,#fff) !important;box-shadow:0 5px 12px color-mix(in srgb,#16a34a 16%,transparent) !important}
+/* Figuras SVG inline */
+.f6-fig{margin:8px 0}
+.f6-fig svg text{font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif}
+.f6-bar,.f6-rec,.f6-tb,.f6-seg{cursor:help}
+.f6-bar:hover rect:first-of-type{filter:brightness(1.1) saturate(1.1)}
+.f6-seg:hover{filter:brightness(1.08)}
+.f6-fig rect:hover{stroke:#0b2447;stroke-width:.6}
+.f6-spin{animation:f6sp 5s linear infinite}
+@keyframes f6sp{to{transform:rotate(360deg)}}
+.f6-pulse{animation:f6pulse 2.2s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes f6pulse{0%{transform:scale(.7);opacity:.75}100%{transform:scale(1.7);opacity:0}}
+.f6-wave{animation:f6wave 1.8s ease-in-out infinite}
+@keyframes f6wave{0%,100%{opacity:.25}50%{opacity:1}}
+.f6-blink{animation:f6blink .9s steps(2,jump-none) infinite}
+@keyframes f6blink{50%{opacity:.15}}
+.f6-flow{stroke-dashoffset:0;animation:f6flow 1.6s linear infinite}
+@keyframes f6flow{to{stroke-dashoffset:-26}}
+/* "¿Cómo se calcula?" */
+.f6-how{background:linear-gradient(180deg, color-mix(in srgb,#16a34a 5%,#fff), #fff);
+  border:1.5px dashed color-mix(in srgb,#16a34a 38%,#fff);border-radius:18px;padding:12px 14px;margin:10px 0 4px}
+.f6-how-t{font-size:12px;font-weight:900;color:#15803d;margin-bottom:6px;letter-spacing:-.01em}
+.f6-how svg{display:block;width:100%;height:auto}
+.f6-how svg text{font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif}
+.f6-how p{margin:6px 0 0;font-size:11px;color:#5a6b85;font-weight:600;line-height:1.45}
+.f6-pills{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 4px}
 </style>
 """,
     unsafe_allow_html=True,
@@ -1008,85 +1051,501 @@ def _receptores_desde_df(df: pd.DataFrame) -> list[dict]:
     return out
 
 
+# -----------------------------------------------------------------------------
+# Ambiental · gráficos SVG Aurora (paridad mockup 06_fase6). SVG inline (sin
+# iframe): el tamaño se ajusta solo y cada barra/celda/punto trae <title> →
+# tooltip nativo al pasar el cursor.
+# -----------------------------------------------------------------------------
+_F6_AZUL_T = "#2563eb"
+_F6_AZUL_OSC = "#1e3a8a"
+_F6_YLORRD = ["#ffffcc", "#ffeda0", "#fed976", "#feb24c", "#fd8d3c", "#fc4e2a", "#e31a1c", "#b10026"]
+
+
+def _svg_t(text) -> str:
+    return html.escape("" if text is None else str(text), quote=True)
+
+
+def _f6_fig_html(titulo: str, svg: str, leyenda=None) -> str:
+    """Contenedor .f6-fig (título + SVG + leyenda opcional [(texto, color)])."""
+    ley = ""
+    if leyenda:
+        ley = '<div class="f6-legend">' + "".join(
+            f'<i style="--lc:{c}">{_escape(t)}</i>' for t, c in leyenda
+        ) + "</div>"
+    return f'<div class="f6-fig"><div class="f6-gtitle">{_escape(titulo)}</div>{svg}{ley}</div>'
+
+
+def _f6_nombre_corto(nombre, n: int = 18) -> str:
+    """'Coragyps atratus (Zopilote)' → 'Zopilote'; recorta nombres largos."""
+    s = str(nombre or "")
+    m = re.search(r"\(([^)]+)\)\s*$", s)
+    if m:
+        s = m.group(1)
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def _f6_nice_floor(v: float) -> float:
+    """Mayor número 'redondo' (1/2/5 × 10^k) que no supera v (barra de escala)."""
+    if not np.isfinite(v) or v <= 0:
+        return 1.0
+    e = 10 ** np.floor(np.log10(v))
+    for m in (5, 2, 1):
+        if m * e <= v:
+            return float(m * e)
+    return float(e)
+
+
+def _f6_color_escala(t: float, stops=_F6_YLORRD) -> str:
+    t = min(1.0, max(0.0, float(t))) * (len(stops) - 1)
+    i = int(np.floor(t))
+    if i >= len(stops) - 1:
+        return stops[-1]
+    f = t - i
+    a = [int(stops[i][k:k + 2], 16) for k in (1, 3, 5)]
+    b = [int(stops[i + 1][k:k + 2], 16) for k in (1, 3, 5)]
+    return "#%02x%02x%02x" % tuple(round(a[j] + (b[j] - a[j]) * f) for j in range(3))
+
+
+def _f6_hbars_svg(filas, lineas=(), unidad: str = "", log: bool = False, decimales: int = 0,
+                  ancho: float = 380.0) -> str:
+    """Barras horizontales del mockup. filas=[(etiqueta, valor, color, tooltip)],
+    lineas=[(valor, color, etiqueta, dasharray)] = límites verticales.
+    ancho = ancho del lienzo SVG: 380 encaja en media columna con texto legible."""
+    n = max(1, len(filas))
+    fila_h = max(30.0, min(64.0, 170.0 / n))
+    bar_h = round(fila_h * 0.62, 1)
+    top = 32.0 if lineas else 12.0
+    alto = int(top + n * fila_h + 10)
+    x0, x1 = 112.0, ancho - 58.0
+    vals = [float(v) for _, v, _, _ in filas if np.isfinite(float(v))]
+    vals += [float(v) for v, *_ in lineas]
+    vmax = max(vals + [1e-9])
+    if log:
+        pos = [v for v in vals if v > 0] or [1.0]
+        lo = float(np.floor(np.log10(min(pos))))
+        hi = float(np.ceil(np.log10(vmax * 1.05)))
+        hi = hi if hi > lo else lo + 1.0
+
+        def sx(v):
+            v = max(float(v), 10 ** lo)
+            return x0 + (np.log10(v) - lo) / (hi - lo) * (x1 - x0)
+    else:
+        tope = vmax * 1.12
+
+        def sx(v):
+            return x0 + max(0.0, float(v)) / tope * (x1 - x0)
+
+    p = [f'<svg viewBox="0 0 {ancho:.0f} {alto}" xmlns="http://www.w3.org/2000/svg">']
+    for i, (etq, val, col, tip) in enumerate(filas):
+        yc = top + i * fila_h + fila_h / 2
+        y = yc - bar_h / 2
+        w = max(3.0, sx(val) - x0)
+        txt = _es_num(f"{float(val):,.{decimales}f}") + (f" {unidad}" if unidad else "")
+        p.append(
+            f'<g class="f6-bar"><title>{_svg_t(tip)}</title>'
+            f'<text x="{x0 - 8:.0f}" y="{yc + 4:.1f}" text-anchor="end" font-size="12" font-weight="800" fill="#475569">{_svg_t(_f6_nombre_corto(etq, 15))}</text>'
+            f'<rect x="{x0}" y="{y:.1f}" width="{w:.1f}" height="{bar_h}" rx="8" fill="{col}"/>'
+            f'<rect x="{x0}" y="{y:.1f}" width="{w:.1f}" height="{min(8.0, bar_h / 3):.1f}" rx="4" fill="#fff" opacity=".25"/>'
+            f'<text x="{x0 + w + 6:.1f}" y="{yc + 4:.1f}" font-size="11.5" font-weight="900" fill="#0b2447">{_svg_t(txt)}</text></g>'
+        )
+    for k, (v, col, etq, dash) in enumerate(lineas):
+        x = sx(v)
+        p.append(
+            f'<g><title>{_svg_t(etq)}</title>'
+            f'<line x1="{x:.1f}" y1="{top - 4:.1f}" x2="{x:.1f}" y2="{alto - 4}" stroke="{col}" stroke-width="2.4" stroke-dasharray="{dash}"/>'
+            f'<text x="{x:.1f}" y="{12 + 12 * (k % 2)}" text-anchor="middle" font-size="10" font-weight="900" fill="{col}">{_svg_t(etq)}</text></g>'
+        )
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_donut_svg(segmentos, centro_valor: str, centro_etq: str) -> str:
+    """Dona del mockup. segmentos=[(etiqueta, valor, color)]."""
+    total = sum(max(0.0, float(v)) for _, v, _ in segmentos) or 1.0
+    cx, cy, r, sw = 150.0, 122.0, 82.0, 30.0
+    circ = 2 * np.pi * r
+    p = [
+        '<svg viewBox="0 0 300 244" xmlns="http://www.w3.org/2000/svg">',
+        f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#eef4fb" stroke-width="{sw}"/>',
+    ]
+    off = 0.0
+    for etq, v, col in segmentos:
+        frac = max(0.0, float(v)) / total
+        dash = frac * circ
+        if dash <= 0:
+            continue
+        pct = _es_num(f"{frac * 100:.1f}")
+        p.append(
+            f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{col}" stroke-width="{sw}" '
+            f'stroke-dasharray="{dash:.2f} {circ - dash:.2f}" stroke-dashoffset="{-off:.2f}" '
+            f'transform="rotate(-90 {cx} {cy})" class="f6-seg"><title>{_svg_t(etq)}: {pct} %</title></circle>'
+        )
+        off += dash
+    p.append(
+        f'<text x="{cx}" y="{cy + 4}" text-anchor="middle" font-size="25" font-weight="900" fill="#0b2447">{_svg_t(centro_valor)}</text>'
+        f'<text x="{cx}" y="{cy + 24}" text-anchor="middle" font-size="10.5" font-weight="800" fill="#64748b">{_svg_t(centro_etq)}</text>'
+        "</svg>"
+    )
+    return "".join(p)
+
+
+def _f6_turbina_svg(x: float, y: float, etiqueta: str, tip: str, s: float = 1.0,
+                    color: str = _F6_AZUL_T, oscuro: str = _F6_AZUL_OSC) -> str:
+    """Aerogenerador del mockup (torre + 3 palas que giran)."""
+    return (
+        f'<g class="f6-tb"><title>{_svg_t(tip)}</title>'
+        f'<g transform="translate({x:.1f},{y:.1f}) scale({s})">'
+        f'<line x1="0" y1="0" x2="0" y2="-26" stroke="{oscuro}" stroke-width="3.4" stroke-linecap="round"/>'
+        '<g class="f6-spin" style="transform-origin:0px -26px">'
+        f'<path d="M0,-26 L0,-44 L3,-31 Z" fill="{color}"/>'
+        f'<path d="M0,-26 L15.6,-17 L4.2,-23.4 Z" fill="{color}"/>'
+        f'<path d="M0,-26 L-15.6,-17 L-4.2,-23.4 Z" fill="{color}"/></g>'
+        f'<circle cx="0" cy="-26" r="3.4" fill="{oscuro}"/></g>'
+        f'<text x="{x:.1f}" y="{y + 14 * s + 1:.1f}" text-anchor="middle" font-size="9.5" font-weight="900" fill="{oscuro}">{_svg_t(etiqueta)}</text></g>'
+    )
+
+
+def _f6_casa_svg(x: float, y: float, s: float = 1.0) -> str:
+    return (
+        f'<g transform="translate({x:.1f},{y:.1f}) scale({s})">'
+        '<path d="M-15,0 V-15 L0,-27 L15,-15 V0 Z" fill="#fff" stroke="#b91c1c" stroke-width="2.2" stroke-linejoin="round"/>'
+        '<path d="M-19,-13 L0,-30 L19,-13" fill="none" stroke="#dc2626" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<rect x="-4.5" y="-10" width="9" height="10" rx="1.5" fill="#fecaca"/></g>'
+    )
+
+
+def _f6_parque_receptores_svg(df_layout, receptores):
+    """Vista en planta (mockup 'Parque y receptores'): paisaje + turbinas reales
+    (Fase 4) + receptores, distancia a la turbina más cercana, escala y norte.
+    Devuelve (svg, [(receptor_id, nombre, turbina_id, distancia_m)])."""
+    turb = []
+    if df_layout is not None and len(df_layout):
+        for i, (_, r) in enumerate(df_layout.iterrows()):
+            try:
+                turb.append((str(r.get("turbina_id") or f"T{i + 1}"), float(r["x_m"]), float(r["y_m"])))
+            except (TypeError, ValueError, KeyError):
+                continue
+    recs = [(r["receptor_id"], r["nombre"], float(r["x_m"]), float(r["y_m"])) for r in receptores]
+    xs = [t[1] for t in turb] + [r[2] for r in recs]
+    ys = [t[2] for t in turb] + [r[3] for r in recs]
+    if not xs:
+        return "", []
+    W, H = 560.0, 300.0
+    L, R, T, B = 46.0, 46.0, 62.0, 48.0
+    xmin, xmax, ymin, ymax = min(xs), max(xs), min(ys), max(ys)
+    dx, dy = max(xmax - xmin, 1.0), max(ymax - ymin, 1.0)
+    esc = min((W - L - R) / dx, (H - T - B) / dy)
+    if dx < 50 and dy < 50:
+        esc = (W - L - R) / 400.0
+    xc, yc = (xmin + xmax) / 2, (ymin + ymax) / 2
+    cxp, cyp = L + (W - L - R) / 2, T + (H - T - B) / 2
+
+    def P(x, y):
+        return cxp + (x - xc) * esc, cyp - (y - yc) * esc
+
+    p = [
+        '<svg viewBox="0 0 560 300" xmlns="http://www.w3.org/2000/svg">',
+        '<rect x="8" y="8" width="544" height="284" rx="18" fill="#f2faf3"/>',
+        '<path d="M8 216 Q168 180 308 210 T552 186 V292 H8 Z" fill="#dcf1de"/>',
+        '<path d="M8 58 Q224 88 392 54 T552 78" fill="none" stroke="#bfdbfe" stroke-width="11" opacity=".75" stroke-linecap="round"/>',
+        '<ellipse cx="470" cy="84" rx="58" ry="32" fill="#e9f5ea"/>',
+        '<g opacity=".5">' + "".join(
+            f'<line x1="{gx}" y1="14" x2="{gx}" y2="286" stroke="#e3eee4" stroke-width="1"/>' for gx in range(60, 540, 60)
+        ) + "</g>",
+    ]
+    # Distancia de cada receptor a la turbina más cercana (línea discontinua + etiqueta)
+    dists = []
+    for rid, nombre, rx, ry in recs:
+        if not turb:
+            continue
+        tid, tx, ty = min(turb, key=lambda t: (t[1] - rx) ** 2 + (t[2] - ry) ** 2)
+        d = float(np.hypot(tx - rx, ty - ry))
+        dists.append((rid, nombre, tid, d))
+        (ax, ay), (bx, by) = P(rx, ry), P(tx, ty)
+        p.append(
+            f'<g><title>{_svg_t(f"{rid} → {tid}: {d:,.0f} m".replace(",", "."))}</title>'
+            f'<line x1="{ax:.1f}" y1="{ay:.1f}" x2="{bx:.1f}" y2="{by:.1f}" stroke="#f87171" stroke-width="1.6" stroke-dasharray="5 5" opacity=".8"/>'
+            f'<text x="{(ax + bx) / 2:.1f}" y="{(ay + by) / 2 - 5:.1f}" text-anchor="middle" font-size="9" font-weight="900" '
+            f'fill="#b91c1c" stroke="#fff" stroke-width="3" paint-order="stroke">{_svg_t(f"{d:,.0f} m".replace(",", "."))}</text></g>'
+        )
+    # Tamaño del aerogenerador según la separación real en pantalla (evita que se monten
+    # unos sobre otros cuando las turbinas están muy juntas o en fila).
+    s_tb = 1.0
+    if len(turb) > 1:
+        pts = [P(tx, ty) for _, tx, ty in turb]
+        dmin = min(
+            float(np.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]))
+            for i in range(len(pts)) for j in range(i + 1, len(pts))
+        )
+        s_tb = float(min(1.0, max(0.45, dmin / 58.0)))
+    for tid, tx, ty in turb:
+        px, py = P(tx, ty)
+        tip = f"{tid} · x = {tx:,.0f} m · y = {ty:,.0f} m".replace(",", ".")
+        p.append(_f6_turbina_svg(px, py, tid, tip, s_tb))
+    for rid, nombre, rx, ry in recs:
+        px, py = P(rx, ry)
+        near = next((f"\nTurbina más cercana: {t} a {d:,.0f} m".replace(",", ".") for r_, _, t, d in dists if r_ == rid), "")
+        tip = f"{rid} · {nombre}\nx = {rx:,.0f} m · y = {ry:,.0f} m".replace(",", ".") + near
+        p.append(
+            f'<g class="f6-rec"><title>{_svg_t(tip)}</title><g transform="translate({px:.1f},{py:.1f})">'
+            '<circle r="14" fill="none" stroke="#dc2626" stroke-width="1.6" opacity=".45"/>'
+            '<circle r="14" fill="none" stroke="#dc2626" stroke-width="1.6" class="f6-pulse"/>'
+            '<circle r="9" fill="#dc2626"/><circle r="3.4" fill="#fff"/>'
+            f'<text x="0" y="25" text-anchor="middle" font-size="9.5" font-weight="900" fill="#b91c1c">{_svg_t(rid)}</text></g></g>'
+        )
+    # Barra de escala + norte
+    lm = _f6_nice_floor((W - L - R) / esc / 4.0)
+    lpx = lm * esc
+    p.append(
+        f'<g><line x1="24" y1="276" x2="{24 + lpx:.1f}" y2="276" stroke="#334155" stroke-width="2.4"/>'
+        f'<line x1="24" y1="271" x2="24" y2="281" stroke="#334155" stroke-width="2"/>'
+        f'<line x1="{24 + lpx:.1f}" y1="271" x2="{24 + lpx:.1f}" y2="281" stroke="#334155" stroke-width="2"/>'
+        f'<text x="{24 + lpx / 2:.1f}" y="268" text-anchor="middle" font-size="9.5" font-weight="900" fill="#334155">{_svg_t(f"{lm:,.0f} m".replace(",", "."))}</text></g>'
+        '<g transform="translate(528,34)"><circle r="15" fill="#fff" stroke="#cbd5e1"/>'
+        '<path d="M0,-10 L5,4 L0,1 L-5,4 Z" fill="#0b2447"/>'
+        '<text y="12" text-anchor="middle" font-size="8.5" font-weight="900" fill="#0b2447">N</text></g>'
+        "</svg>"
+    )
+    return "".join(p), dists
+
+
+def _f6_mapa_ruido_svg(df_grid, df_layout, receptores, lim_dia: float, lim_noche: float) -> str:
+    """Mapa de ruido LpA (grid del módulo ISO 9613-2) como SVG con tooltip por celda."""
+    piv = df_grid.pivot_table(index="y_m", columns="x_m", values="lpA_db")
+    xs = piv.columns.to_numpy(dtype=float)
+    ys = piv.index.to_numpy(dtype=float)
+    Z = piv.to_numpy(dtype=float)
+    if len(xs) < 2 or len(ys) < 2 or not np.isfinite(Z).any():
+        return ""
+    X0, Y0, S = 16.0, 12.0, 400.0
+    dxm, dym = xs[1] - xs[0], ys[1] - ys[0]
+    x_lo, x_hi = xs[0] - dxm / 2, xs[-1] + dxm / 2
+    y_lo, y_hi = ys[0] - dym / 2, ys[-1] + dym / 2
+
+    def P(x, y):
+        return X0 + (x - x_lo) / (x_hi - x_lo) * S, Y0 + (y_hi - y) / (y_hi - y_lo) * S
+
+    zmin, zmax = float(np.nanmin(Z)), float(np.nanmax(Z))
+    rng = (zmax - zmin) or 1.0
+    cw, ch = S / len(xs), S / len(ys)
+    p = [
+        '<svg viewBox="0 0 520 424" xmlns="http://www.w3.org/2000/svg">',
+        '<defs><linearGradient id="f6ruidograd" x1="0" y1="1" x2="0" y2="0">'
+        + "".join(f'<stop offset="{k / (len(_F6_YLORRD) - 1):.3f}" stop-color="{c}"/>' for k, c in enumerate(_F6_YLORRD))
+        + "</linearGradient></defs>",
+        f'<rect x="{X0 - 1}" y="{Y0 - 1}" width="{S + 2}" height="{S + 2}" rx="10" fill="#fff" stroke="#d8e5f5"/>',
+    ]
+    for j, yv in enumerate(ys):
+        for i, xv in enumerate(xs):
+            z = Z[j, i]
+            if not np.isfinite(z):
+                continue
+            px, py = P(xv - dxm / 2, yv + dym / 2)
+            tip = _es_num(f"x = {xv:,.0f} m · y = {yv:,.0f} m\nLpA = {z:.1f} dB(A)")
+            p.append(
+                f'<rect x="{px:.1f}" y="{py:.1f}" width="{cw + 0.5:.1f}" height="{ch + 0.5:.1f}" '
+                f'fill="{_f6_color_escala((z - zmin) / rng)}"><title>{_svg_t(tip)}</title></rect>'
+            )
+    if df_layout is not None and len(df_layout):
+        for i, (_, r) in enumerate(df_layout.iterrows()):
+            try:
+                tx, ty = float(r["x_m"]), float(r["y_m"])
+            except (TypeError, ValueError, KeyError):
+                continue
+            px, py = P(tx, ty)
+            tid = str(r.get("turbina_id") or f"T{i + 1}")
+            p.append(
+                f'<g><title>{_svg_t(tid)}</title><path d="M{px - 5:.1f},{py - 5:.1f} L{px + 5:.1f},{py + 5:.1f} '
+                f'M{px + 5:.1f},{py - 5:.1f} L{px - 5:.1f},{py + 5:.1f}" stroke="#1e3a8a" stroke-width="2.6" stroke-linecap="round"/></g>'
+            )
+    for rc in receptores:
+        rx, ry = float(rc["x_m"]), float(rc["y_m"])
+        if not (x_lo <= rx <= x_hi and y_lo <= ry <= y_hi):
+            continue
+        px, py = P(rx, ry)
+        p.append(
+            f'<g><title>{_svg_t(rc["receptor_id"] + " · " + str(rc["nombre"]))}</title>'
+            f'<circle cx="{px:.1f}" cy="{py:.1f}" r="6" fill="#dc2626" stroke="#fff" stroke-width="2"/>'
+            f'<text x="{px:.1f}" y="{py - 9:.1f}" text-anchor="middle" font-size="9.5" font-weight="900" fill="#7f1d1d" '
+            f'stroke="#fff" stroke-width="3" paint-order="stroke">{_svg_t(rc["receptor_id"])}</text></g>'
+        )
+    # Escala de color con marcas de los límites
+    lx, ly, lh = 438.0, Y0, S
+    p.append(
+        f'<rect x="{lx}" y="{ly}" width="16" height="{lh}" rx="6" fill="url(#f6ruidograd)" stroke="#d8e5f5"/>'
+        f'<text x="{lx + 22}" y="{ly + 9}" font-size="10" font-weight="900" fill="#0b2447">{_svg_t(_es_num(f"{zmax:.0f}"))} dB</text>'
+        f'<text x="{lx + 22}" y="{ly + lh}" font-size="10" font-weight="900" fill="#0b2447">{_svg_t(_es_num(f"{zmin:.0f}"))} dB</text>'
+    )
+    for v, col, etq in ((lim_dia, "#d97706", "día"), (lim_noche, "#2563eb", "noche")):
+        if zmin <= v <= zmax:
+            yy = ly + lh - (v - zmin) / rng * lh
+            p.append(
+                f'<line x1="{lx - 4}" y1="{yy:.1f}" x2="{lx + 20}" y2="{yy:.1f}" stroke="{col}" stroke-width="2.4"/>'
+                f'<text x="{lx + 22}" y="{yy + 3.5:.1f}" font-size="9" font-weight="900" fill="{col}">{_svg_t(_es_num(f"{v:.0f}"))} {etq}</text>'
+            )
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_como_se_calcula(tipo: str) -> str:
+    """Esquema explicativo '¿Cómo se calcula?' de cada estudio ambiental."""
+    if tipo == "ruido":
+        ondas = "".join(
+            f'<path d="M{70 + r * 0.82:.1f},{79 - r * 0.57:.1f} A{r},{r} 0 0 1 {70 + r * 0.82:.1f},{79 + r * 0.57:.1f}" '
+            f'fill="none" stroke="#0d9488" stroke-width="2.6" stroke-linecap="round" class="f6-wave" style="animation-delay:{k * 0.45:.2f}s"/>'
+            for k, r in enumerate((40, 70, 100, 130))
+        )
+        svg = (
+            '<svg viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg">'
+            '<text x="300" y="20" text-anchor="middle" font-size="13" font-weight="900" fill="#0b2447">LpA = LwA − A<tspan font-size="9">div</tspan> − A<tspan font-size="9">atm</tspan> − A<tspan font-size="9">suelo</tspan></text>'
+            + ondas + _f6_turbina_svg(70, 118, "LwA", "Fuente: potencia sonora de la turbina", 1.5)
+            + _f6_casa_svg(482, 122, 1.25)
+            + '<text x="482" y="78" text-anchor="middle" font-size="10" font-weight="900" fill="#b91c1c">LpA</text>'
+            '<line x1="96" y1="138" x2="456" y2="138" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="6 5"/>'
+            '<text x="276" y="153" text-anchor="middle" font-size="9.5" font-weight="800" fill="#64748b">distancia turbina → vivienda</text>'
+            '<g font-size="9.5" font-weight="900">'
+            '<rect x="216" y="44" width="116" height="20" rx="10" fill="#f0fdfa" stroke="#99f6e4"/><text x="274" y="58" text-anchor="middle" fill="#0f766e">A div · distancia</text>'
+            '<rect x="216" y="70" width="116" height="20" rx="10" fill="#f0fdfa" stroke="#99f6e4"/><text x="274" y="84" text-anchor="middle" fill="#0f766e">A atm · aire</text>'
+            '<rect x="216" y="96" width="116" height="20" rx="10" fill="#f0fdfa" stroke="#99f6e4"/><text x="274" y="110" text-anchor="middle" fill="#0f766e">A suelo · terreno</text>'
+            "</g></svg>"
+        )
+        txt = ("El sonido de cada turbina (LwA) pierde energía al viajar: se reparte en una esfera cada vez mayor, "
+               "el aire lo absorbe y el terreno lo amortigua. Se suman todas las turbinas y se compara con los límites de día y de noche.")
+    elif tipo == "flicker":
+        rayos = "".join(
+            f'<line x1="{60 + 24 * np.cos(a):.1f}" y1="{46 + 24 * np.sin(a):.1f}" x2="{60 + 32 * np.cos(a):.1f}" y2="{46 + 32 * np.sin(a):.1f}" '
+            'stroke="#f59e0b" stroke-width="2.6" stroke-linecap="round"/>'
+            for a in np.linspace(0, 2 * np.pi, 9)[:-1]
+        )
+        svg = (
+            '<svg viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg">'
+            + rayos + '<circle cx="60" cy="46" r="18" fill="#fbbf24"/>'
+            '<line x1="78" y1="54" x2="470" y2="112" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4 5" opacity=".9"/>'
+            '<g class="f6-blink"><path d="M300,84 L470,112 L470,132 L300,100 Z" fill="#334155" opacity=".22"/></g>'
+            + _f6_turbina_svg(270, 136, "", "Rotor en movimiento", 1.9)
+            + _f6_casa_svg(482, 134, 1.25)
+            + '<text x="60" y="96" text-anchor="middle" font-size="10" font-weight="900" fill="#b45309">Sol bajo</text>'
+            '<text x="370" y="30" text-anchor="middle" font-size="11.5" font-weight="900" fill="#0b2447">Sombra intermitente sobre la vivienda</text>'
+            '<text x="370" y="46" text-anchor="middle" font-size="9.5" font-weight="800" fill="#64748b">límite habitual: 30 h/año</text>'
+            "</svg>"
+        )
+        txt = ("Cuando el sol está bajo y queda detrás del rotor girando, las palas proyectan una sombra que parpadea "
+               "sobre la vivienda. Se cuentan las horas del año en que ocurre (sol sobre el horizonte y turbina operando).")
+    elif tipo == "aves":
+        svg = (
+            '<svg viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg">'
+            '<circle cx="280" cy="82" r="50" fill="#f0fdf4" stroke="#86efac" stroke-width="2" stroke-dasharray="6 5"/>'
+            + _f6_turbina_svg(280, 158, "", "Área barrida por el rotor", 2.4)
+            + '<path d="M34,40 Q180,70 280,82 T530,56" fill="none" stroke="#d97706" stroke-width="2.4" stroke-dasharray="7 6" class="f6-flow"/>'
+            '<text x="34" y="36" font-size="22">🦅</text>'
+            '<text x="444" y="112" text-anchor="middle" font-size="10" font-weight="900" fill="#15803d">área barrida</text>'
+            '<text x="120" y="126" text-anchor="middle" font-size="10" font-weight="900" fill="#b45309">trayectoria de vuelo</text>'
+            '<text x="280" y="16" text-anchor="middle" font-size="11.5" font-weight="900" fill="#0b2447">colisiones = pasos/año × P(cruzar el rotor) × P(impacto) × (1 − evasión)</text>'
+            "</svg>"
+        )
+        txt = ("Modelo de Band (2007): de las aves que cruzan el parque, se estima cuántas pasan por el área barrida "
+               "a la altura del rotor y la probabilidad de impacto según su tamaño y velocidad; la evasión reduce el resultado.")
+    else:  # lca
+        etapas = [("🏭", "Fabricación"), ("🚚", "Transporte"), ("🏗️", "Instalación"), ("⚙️", "Operación"), ("♻️", "Desmantelar")]
+        g = []
+        for k, (ico, etq) in enumerate(etapas):
+            x = 64 + k * 108
+            if k:
+                g.append(f'<path d="M{x - 76},62 L{x - 34},62" stroke="#86efac" stroke-width="3" stroke-linecap="round" class="f6-flow"/>'
+                         f'<path d="M{x - 40},56 L{x - 32},62 L{x - 40},68" fill="none" stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>')
+            g.append(f'<circle cx="{x}" cy="62" r="27" fill="#f0fdf4" stroke="#86efac" stroke-width="2"/>'
+                     f'<text x="{x}" y="70" text-anchor="middle" font-size="22">{ico}</text>'
+                     f'<text x="{x}" y="108" text-anchor="middle" font-size="10" font-weight="900" fill="#15803d">{etq}</text>')
+        svg = (
+            '<svg viewBox="0 0 560 150" xmlns="http://www.w3.org/2000/svg">' + "".join(g)
+            + '<text x="280" y="138" text-anchor="middle" font-size="11" font-weight="900" fill="#0b2447">'
+            "huella (gCO₂eq/kWh) = emisiones de todo el ciclo ÷ energía generada en la vida útil</text></svg>"
+        )
+        txt = ("Análisis de ciclo de vida (ISO 14040): se suman las emisiones de fabricar, transportar, instalar, operar "
+               "y desmantelar el parque, y se reparten entre toda la energía que produce. Se compara con la red eléctrica.")
+    return f'<div class="f6-how"><div class="f6-how-t">💡 ¿Cómo se calcula?</div>{svg}<p>{_escape(txt)}</p></div>'
+
+
 def _render_card_receptores() -> pd.DataFrame:
     with st.container(border=True, key="f6_card_receptores"):
         _section_header(
             "Receptores sensibles",
-            "Viviendas/edificaciones cercanas en coordenadas (m) relativas al centro del parque. Los usan los estudios de ruido y shadow flicker.",
+            "Viviendas y edificaciones cercanas (coordenadas en m respecto al centro del parque) · las usan ruido y parpadeo de sombra",
             "map-pin",
         )
-        df_rec = st.data_editor(
-            _cargar_receptores_config(),
-            num_rows="dynamic",
-            hide_index=True,
-            use_container_width=True,
-            key="f6_receptores_editor",
-            column_config={
-                "receptor_id": st.column_config.TextColumn("ID"),
-                "nombre": st.column_config.TextColumn("Nombre"),
-                "x_m": st.column_config.NumberColumn("x (m)", format="%.0f"),
-                "y_m": st.column_config.NumberColumn("y (m)", format="%.0f"),
-            },
-        )
-        if st.button("Guardar receptores", key="f6_receptores_guardar"):
-            guardar_config_values({"f6_receptores_json": json.dumps(_receptores_desde_df(df_rec))})
-            st.success("Receptores guardados en el proyecto.")
+        col_tab, col_map = st.columns([1.0, 1.3], gap="medium")
+        with col_tab:
+            df_rec = st.data_editor(
+                _cargar_receptores_config(),
+                num_rows="dynamic",
+                hide_index=True,
+                use_container_width=True,
+                key="f6_receptores_editor",
+                column_config={
+                    "receptor_id": st.column_config.TextColumn("ID"),
+                    "nombre": st.column_config.TextColumn("Nombre"),
+                    "x_m": st.column_config.NumberColumn("x (m)", format="%.0f"),
+                    "y_m": st.column_config.NumberColumn("y (m)", format="%.0f"),
+                },
+            )
+            st.caption("Añada filas con el ＋ de la tabla y edite nombre y coordenadas directamente.")
+            if st.button("💾 Guardar receptores", key="f6_receptores_guardar"):
+                guardar_config_values({"f6_receptores_json": json.dumps(_receptores_desde_df(df_rec))})
+                st.success("Receptores guardados en el proyecto.")
 
-        # Mapa interactivo: turbinas del layout (Fase 4) + receptores editados.
+        # Vista en planta: turbinas del layout (Fase 4) + receptores editados.
         df_layout = cargar_layout_parque()
         receptores = _receptores_desde_df(df_rec)
-        if (df_layout is not None and len(df_layout)) or receptores:
-            import plotly.graph_objects as go
-
-            fig = go.Figure()
-            if df_layout is not None and len(df_layout):
-                fig.add_scatter(
-                    x=df_layout["x_m"], y=df_layout["y_m"], mode="markers+text",
-                    text=df_layout["turbina_id"], textposition="top center",
-                    marker={"symbol": "x", "size": 13, "color": _F6_TEAL,
-                            "line": {"width": 1, "color": _F6_TEAL2}},
-                    name="Turbinas",
+        with col_map:
+            svg, dists = _f6_parque_receptores_svg(df_layout, receptores)
+            if svg:
+                st.markdown(
+                    _f6_fig_html(
+                        "Parque y receptores · vista en planta",
+                        svg,
+                        [("Turbina", _F6_AZUL_T), ("Receptor", _F6_ROJO), ("Distancia a la turbina más cercana", "#f87171")],
+                    ),
+                    unsafe_allow_html=True,
                 )
-            if receptores:
-                fig.add_scatter(
-                    x=[r["x_m"] for r in receptores], y=[r["y_m"] for r in receptores],
-                    mode="markers+text",
-                    text=[r["receptor_id"] for r in receptores], textposition="bottom center",
-                    marker={"symbol": "circle", "size": 12, "color": _F6_ROJO,
-                            "line": {"width": 1.5, "color": "#7f1d1d"}},
-                    name="Receptores",
+                if dists:
+                    pills = "".join(
+                        f'<span class="f6-pill info">{_escape(rid)} · {_escape(_es_num(f"{d:,.0f}"))} m a {_escape(tid)}</span>'
+                        for rid, _, tid, d in dists
+                    )
+                    st.markdown(f'<div class="f6-pills">{pills}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    _badge_html("Sin turbinas ni receptores: defina el arreglo en la Fase 4 y añada receptores en la tabla.", "info"),
+                    unsafe_allow_html=True,
                 )
-            fig.update_layout(yaxis={"scaleanchor": "x", "title": "y (m)"}, xaxis={"title": "x (m)"})
-            st.plotly_chart(_f6_fig_layout(fig, "Parque y receptores (coordenadas relativas)", 420),
-                            use_container_width=True, key="f6_receptores_mapa")
         return df_rec
 
 
 def _render_card_ruido(df_receptores: pd.DataFrame) -> None:
     with st.container(border=True, key="f6_card_ruido"):
         _section_header(
-            "Ruido ISO 9613-2",
-            "Nivel de presión sonora LpA en cada receptor: divergencia esférica + absorción atmosférica + efecto suelo.",
+            "Ruido · ISO 9613-2",
+            "Nivel sonoro LpA en cada receptor frente a los límites de día y de noche",
             "activity",
         )
         c1, c2, c3 = st.columns(3)
         with c1:
             lwa = st.number_input(
-                "Potencia sonora LwA por turbina (dB(A))", min_value=80.0, max_value=120.0,
+                "LwA turbina dB(A)", min_value=80.0, max_value=120.0,
                 value=_cfg_float(config, "f6_ruido_lwa_db", 105.0), step=0.5, key="f6_ruido_lwa",
-                help="Típico turbina 2-4 MW: 104-108 dB(A). Dato del fabricante.",
+                help="Potencia sonora por turbina. Típico turbina 2-4 MW: 104-108 dB(A). Dato del fabricante.",
             )
         with c2:
             lim_dia = st.number_input(
-                "Límite diurno (dB(A))", min_value=30.0, max_value=80.0,
+                "Límite diurno dB(A)", min_value=30.0, max_value=80.0,
                 value=_cfg_float(config, "f6_ruido_lim_diurno", 50.0), step=1.0, key="f6_ruido_dia",
             )
         with c3:
             lim_noche = st.number_input(
-                "Límite nocturno (dB(A))", min_value=25.0, max_value=70.0,
+                "Límite nocturno dB(A)", min_value=25.0, max_value=70.0,
                 value=_cfg_float(config, "f6_ruido_lim_nocturno", 40.0), step=1.0, key="f6_ruido_noche",
             )
-        with st.expander("Condiciones atmosféricas"):
+        with st.expander("🌡️ Condiciones atmosféricas"):
             ca, cb = st.columns(2)
             with ca:
                 temp_c = st.number_input("Temperatura (°C)", -20.0, 50.0, _cfg_float(config, "f5_temperatura_media_c", 20.0), 1.0, key="f6_ruido_temp")
@@ -1095,10 +1554,10 @@ def _render_card_ruido(df_receptores: pd.DataFrame) -> None:
 
         col_b1, col_b2 = st.columns([1, 1])
         with col_b1:
-            calc_tabla = st.button("Calcular LpA en receptores", key="f6_ruido_btn", type="primary")
+            calc_tabla = st.button("🔊 Calcular LpA en receptores", key="f6_ruido_btn", type="primary", use_container_width=True)
         with col_b2:
-            calc_mapa = st.button("Generar mapa de ruido", key="f6_ruido_mapa_btn",
-                                  help="Grid de 900 receptores virtuales alrededor del parque (toma unos segundos).")
+            calc_mapa = st.button("🗺️ Generar mapa de ruido", key="f6_ruido_mapa_btn", use_container_width=True,
+                                  help="Malla de 900 receptores virtuales alrededor del parque (tarda unos segundos).")
 
         h_hub = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
         df_layout = cargar_layout_parque()
@@ -1128,7 +1587,7 @@ def _render_card_ruido(df_receptores: pd.DataFrame) -> None:
                         "f5_ruido_max_db": float(df_lpa["lpA_db"].max()) if len(df_lpa) else "",
                     })
                 if calc_mapa:
-                    with st.spinner("Generando mapa de ruido (grid 30×30)…"):
+                    with st.spinner("Generando mapa de ruido (malla 30×30)…"):
                         df_grid = ruido_iso9613.crear_mapa_ruido_grid(
                             df_layout, float(lwa), grid_extent_m=2000, grid_resolution=30,
                             altura_emisor=h_hub, temperatura_c=float(temp_c), humedad_pct=float(hum_pct),
@@ -1138,6 +1597,7 @@ def _render_card_ruido(df_receptores: pd.DataFrame) -> None:
 
         res = st.session_state.get("f6_ruido_result")
         if not res:
+            st.markdown(_f6_como_se_calcula("ruido"), unsafe_allow_html=True)
             return
         if res.get("error"):
             st.warning(res["error"])
@@ -1150,13 +1610,12 @@ def _render_card_ruido(df_receptores: pd.DataFrame) -> None:
             ok_noche = bool(df_lpa["cumple_nocturno"].all())
             st.markdown(
                 _kpi_html([
-                    ("activity", "LpA máximo", f"{lp_max:.1f} dB(A)",
-                     f"receptor más expuesto de {len(df_lpa)}"),
-                    ("info", "Límite diurno", f"{float(lim_dia):.0f} dB(A)", "CUMPLE" if ok_dia else "EXCEDE"),
-                    ("clock", "Límite nocturno", f"{float(lim_noche):.0f} dB(A)", "CUMPLE" if ok_noche else "EXCEDE"),
-                    ("map-pin", "Distancia mínima", f"{float(df_lpa['distancia_min_m'].min()):,.0f} m",
+                    ("🔊", "LpA máximo", f"{lp_max:.1f} dB(A)", f"receptor más expuesto de {len(df_lpa)}", _F6_ROJO if not (ok_dia and ok_noche) else _F6_VERDE),
+                    ("☀️", "Límite diurno", f"{float(lim_dia):.0f} dB(A)", "CUMPLE" if ok_dia else "EXCEDE", _F6_AMBAR),
+                    ("🌙", "Límite nocturno", f"{float(lim_noche):.0f} dB(A)", "CUMPLE" if ok_noche else "EXCEDE", _F6_AZUL),
+                    ("📍", "Distancia mínima", f"{float(df_lpa['distancia_min_m'].min()):,.0f} m",
                      "turbina más cercana a un receptor"),
-                ]),
+                ], n=2),
                 unsafe_allow_html=True,
             )
             st.markdown(
@@ -1167,26 +1626,27 @@ def _render_card_ruido(df_receptores: pd.DataFrame) -> None:
                 ),
                 unsafe_allow_html=True,
             )
-
-            import plotly.graph_objects as go
-
-            colores = [
-                _F6_VERDE if (cd and cn) else (_F6_AMBAR if cd else _F6_ROJO)
-                for cd, cn in zip(df_lpa["cumple_diurno"], df_lpa["cumple_nocturno"])
-            ]
-            fig_r = go.Figure(go.Bar(
-                x=df_lpa["lpA_db"], y=df_lpa["nombre"], orientation="h",
-                marker_color=colores, text=[f"{v:.1f}" for v in df_lpa["lpA_db"]],
-                textposition="outside", name="LpA",
-            ))
-            fig_r.add_vline(x=float(lim_dia), line_dash="dash", line_color=_F6_AMBAR,
-                            annotation_text=f"Diurno {float(lim_dia):.0f}", annotation_font_color=_F6_AMBAR)
-            fig_r.add_vline(x=float(lim_noche), line_dash="dot", line_color=_F6_AZUL,
-                            annotation_text=f"Nocturno {float(lim_noche):.0f}", annotation_font_color=_F6_AZUL)
-            fig_r.update_layout(xaxis_title="LpA dB(A)", showlegend=False)
-            st.plotly_chart(_f6_fig_layout(fig_r, "Nivel sonoro por receptor vs límites",
-                                           max(300, 90 + 46 * len(df_lpa))),
-                            use_container_width=True, key="f6_ruido_barras")
+            filas = []
+            for _, r in df_lpa.iterrows():
+                cd, cn = bool(r["cumple_diurno"]), bool(r["cumple_nocturno"])
+                col = _F6_VERDE if (cd and cn) else (_F6_AMBAR if cd else _F6_ROJO)
+                tip = _es_num(
+                    f"{r['receptor_id']} · {r['nombre']}\nLpA = {float(r['lpA_db']):.1f} dB(A)\n"
+                    f"Día: {'cumple' if cd else 'excede'} · Noche: {'cumple' if cn else 'excede'}\n"
+                    f"Turbina más cercana: {float(r['distancia_min_m']):,.0f} m"
+                )
+                filas.append((r["nombre"], float(r["lpA_db"]), col, tip))
+            svg = _f6_hbars_svg(
+                filas,
+                lineas=[(float(lim_dia), _F6_AMBAR, f"Día {float(lim_dia):.0f}", "8 6"),
+                        (float(lim_noche), _F6_AZUL, f"Noche {float(lim_noche):.0f}", "3 5")],
+                decimales=1,
+            )
+            st.markdown(
+                _f6_fig_html("LpA por receptor · dB(A)", svg,
+                             [("Cumple día y noche", _F6_VERDE), ("Solo cumple de día", _F6_AMBAR), ("Excede", _F6_ROJO)]),
+                unsafe_allow_html=True,
+            )
 
             df_show = df_lpa.rename(columns={
                 "receptor_id": "Receptor", "nombre": "Nombre", "x_m": "x (m)", "y_m": "y (m)",
@@ -1195,26 +1655,20 @@ def _render_card_ruido(df_receptores: pd.DataFrame) -> None:
             })
             df_show["Diurno"] = df_show["Diurno"].map({True: "✅ Cumple", False: "❌ Excede"})
             df_show["Nocturno"] = df_show["Nocturno"].map({True: "✅ Cumple", False: "❌ Excede"})
-            with st.expander("Tabla de detalle por receptor"):
+            with st.expander("📋 Tabla de detalle por receptor"):
                 st.dataframe(df_show, hide_index=True, use_container_width=True)
 
         df_grid = res.get("grid")
         if df_grid is not None and len(df_grid):
-            import plotly.graph_objects as go
-
-            piv = df_grid.pivot_table(index="y_m", columns="x_m", values="lpA_db")
-            fig = go.Figure(go.Heatmap(
-                z=piv.values, x=piv.columns, y=piv.index,
-                colorscale="YlOrRd", colorbar={"title": "dB(A)"},
-            ))
-            if df_layout is not None and len(df_layout):
-                fig.add_scatter(
-                    x=df_layout["x_m"], y=df_layout["y_m"], mode="markers",
-                    marker={"symbol": "x", "size": 10, "color": "#1e3a8a"}, name="Turbinas",
+            svg_mapa = _f6_mapa_ruido_svg(df_grid, df_layout, receptores, float(lim_dia), float(lim_noche))
+            if svg_mapa:
+                st.markdown(
+                    _f6_fig_html("Mapa de ruido LpA · pase el cursor para ver cada punto", svg_mapa,
+                                 [("Turbina", _F6_AZUL_OSC), ("Receptor", _F6_ROJO)]),
+                    unsafe_allow_html=True,
                 )
-            fig.update_layout(height=460, margin={"l": 10, "r": 10, "t": 30, "b": 10},
-                              title="Mapa de ruido LpA", yaxis={"scaleanchor": "x"})
-            st.plotly_chart(fig, use_container_width=True, key="f6_ruido_heatmap")
+        with st.expander("💡 ¿Cómo se calcula?"):
+            st.markdown(_f6_como_se_calcula("ruido"), unsafe_allow_html=True)
 
 
 def _render_card_flicker(df_receptores: pd.DataFrame) -> None:
@@ -1222,8 +1676,8 @@ def _render_card_flicker(df_receptores: pd.DataFrame) -> None:
 
     with st.container(border=True, key="f6_card_flicker"):
         _section_header(
-            "Shadow flicker",
-            "Horas anuales de parpadeo de sombra del rotor sobre cada receptor (límite habitual: 30 h/año).",
+            "Parpadeo de sombra (shadow flicker)",
+            "Horas al año de sombra intermitente del rotor sobre cada receptor",
             "clock",
         )
         pvlib_ok = importlib.util.find_spec("pvlib") is not None
@@ -1231,7 +1685,7 @@ def _render_card_flicker(df_receptores: pd.DataFrame) -> None:
             st.warning("Este estudio necesita la posición solar de `pvlib`, que no está instalado.")
             st.caption("Sugerencia: `pip install pvlib` y reinicie la aplicación.")
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
         with c1:
             lim_h = st.number_input(
                 "Límite anual (h/año)", min_value=1.0, max_value=200.0,
@@ -1239,12 +1693,16 @@ def _render_card_flicker(df_receptores: pd.DataFrame) -> None:
             )
         with c2:
             alt_rec = st.number_input("Altura del receptor (m)", 0.5, 30.0, 1.5, 0.5, key="f6_flicker_alt_rec")
-        with c3:
-            diametro = _cfg_float(config, "diametro", 100.0)
-            h_hub = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
-            st.metric("Rotor / buje (Fases 1 y 5)", f"Ø {diametro:.0f} m · {h_hub:.0f} m")
+        diametro = _cfg_float(config, "diametro", 100.0)
+        h_hub = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
+        st.markdown(
+            f'<div class="f6-pills"><span class="f6-pill info">🌀 Rotor Ø {_escape(_es_num(f"{diametro:.0f}"))} m (Fase 1)</span>'
+            f'<span class="f6-pill info">🗼 Buje a {_escape(_es_num(f"{h_hub:.0f}"))} m (Fase 5)</span></div>',
+            unsafe_allow_html=True,
+        )
 
-        if st.button("Calcular shadow flicker", key="f6_flicker_btn", type="primary", disabled=not pvlib_ok):
+        if st.button("🌗 Calcular parpadeo de sombra", key="f6_flicker_btn", type="primary", disabled=not pvlib_ok,
+                     use_container_width=True):
             import shadow_flicker
 
             receptores = _receptores_desde_df(df_receptores)
@@ -1281,6 +1739,7 @@ def _render_card_flicker(df_receptores: pd.DataFrame) -> None:
 
         res = st.session_state.get("f6_flicker_result")
         if not res:
+            st.markdown(_f6_como_se_calcula("flicker"), unsafe_allow_html=True)
             return
         if res.get("error"):
             st.warning(res["error"])
@@ -1292,38 +1751,37 @@ def _render_card_flicker(df_receptores: pd.DataFrame) -> None:
         ok_todos = bool((df_fl["horas_flicker_anuales"] <= lim_usado).all())
         st.markdown(
             _kpi_html([
-                ("clock", "Máximo anual", f"{int(peor['horas_flicker_anuales'])} h/año",
-                 f"receptor {peor['receptor_id']}"),
-                ("info", "Límite aplicado", f"{lim_usado:.0f} h/año",
-                 "CUMPLEN todos" if ok_todos else "HAY EXCEDENCIAS"),
-                ("layout", "Turbinas implicadas", str(int(peor["n_turbinas_contribuyen"])),
-                 "en el receptor más afectado"),
-                ("map-pin", "Receptores evaluados", str(len(df_fl)), ""),
-            ]),
+                ("🌗", "Máximo anual", f"{int(peor['horas_flicker_anuales'])} h/año",
+                 f"receptor {peor['receptor_id']}", _F6_VERDE if ok_todos else _F6_ROJO),
+                ("⏱️", "Límite aplicado", f"{lim_usado:.0f} h/año",
+                 "CUMPLEN todos" if ok_todos else "HAY EXCEDENCIAS", _F6_AMBAR),
+                ("🌀", "Turbinas implicadas", str(int(peor["n_turbinas_contribuyen"])),
+                 "en el receptor más afectado", _F6_AZUL),
+                ("📍", "Receptores evaluados", str(len(df_fl)), ""),
+            ], n=2),
             unsafe_allow_html=True,
         )
         st.markdown(
             _badge_html(
-                "Todos los receptores dentro del límite" if ok_todos
-                else "Excedencias de flicker — considere shutdown programado en horas críticas",
+                f"Todos los receptores dentro del límite de {lim_usado:.0f} h/año" if ok_todos
+                else "Excedencias de parpadeo — considere parada programada en las horas críticas",
                 "ok" if ok_todos else "bad",
             ),
             unsafe_allow_html=True,
         )
-
-        import plotly.graph_objects as go
-
-        fig_f = go.Figure(go.Bar(
-            x=df_fl["horas_flicker_anuales"], y=df_fl["nombre"], orientation="h",
-            marker_color=[_F6_VERDE if h <= lim_usado else _F6_ROJO for h in df_fl["horas_flicker_anuales"]],
-            text=[f"{int(h)} h" for h in df_fl["horas_flicker_anuales"]], textposition="outside",
-        ))
-        fig_f.add_vline(x=lim_usado, line_dash="dash", line_color=_F6_AMBAR,
-                        annotation_text=f"Límite {lim_usado:.0f} h/año", annotation_font_color=_F6_AMBAR)
-        fig_f.update_layout(xaxis_title="Horas de flicker al año", showlegend=False)
-        st.plotly_chart(_f6_fig_layout(fig_f, "Shadow flicker por receptor",
-                                       max(300, 90 + 46 * len(df_fl))),
-                        use_container_width=True, key="f6_flicker_barras")
+        filas = []
+        for _, r in df_fl.iterrows():
+            hh = float(r["horas_flicker_anuales"])
+            tip = _es_num(
+                f"{r['receptor_id']} · {r['nombre']}\n{hh:.0f} h/año ({float(r.get('porcentaje_anio', 0) or 0):.2f} % del año)\n"
+                f"Turbinas que la causan: {int(r['n_turbinas_contribuyen'])}"
+            )
+            filas.append((r["nombre"], hh, _F6_VERDE if hh <= lim_usado else _F6_ROJO, tip))
+        svg = _f6_hbars_svg(filas, lineas=[(float(lim_usado), _F6_AMBAR, f"Límite {lim_usado:.0f} h", "8 6")], unidad="h")
+        st.markdown(
+            _f6_fig_html("Parpadeo por receptor · h/año", svg, [("Dentro del límite", _F6_VERDE), ("Excede", _F6_ROJO)]),
+            unsafe_allow_html=True,
+        )
 
         df_show = df_fl.rename(columns={
             "receptor_id": "Receptor", "nombre": "Nombre", "x_m": "x (m)", "y_m": "y (m)",
@@ -1332,8 +1790,10 @@ def _render_card_flicker(df_receptores: pd.DataFrame) -> None:
             "cumple_limite_30h": "Cumple",
         })
         df_show["Cumple"] = df_show["Cumple"].map({True: "✅ Sí", False: "❌ No"})
-        with st.expander("Tabla de detalle por receptor"):
+        with st.expander("📋 Tabla de detalle por receptor"):
             st.dataframe(df_show, hide_index=True, use_container_width=True)
+        with st.expander("💡 ¿Cómo se calcula?"):
+            st.markdown(_f6_como_se_calcula("flicker"), unsafe_allow_html=True)
         st.caption("Geometría simplificada (peor caso, sin nubosidad). " + _F6_SERIE_CAPTION)
 
 
@@ -1342,8 +1802,8 @@ def _render_card_aves() -> None:
 
     with st.container(border=True, key="f6_card_aves"):
         _section_header(
-            "Colisión de avifauna (Band 2007)",
-            "Colisiones esperadas por especie según tasa de paso, geometría del rotor y probabilidad de evasión.",
+            "Colisión de avifauna · Band 2007",
+            "Colisiones esperadas por especie según su paso, el tamaño del rotor y la evasión",
             "wind",
         )
         raw = config.get("f6_aves_tabla_json") or ""
@@ -1382,11 +1842,12 @@ def _render_card_aves() -> None:
         with c1:
             horas_op = st.number_input("Horas de operación/año", 1000.0, 8760.0, 8000.0, 100.0, key="f6_aves_horas_op")
         with c2:
-            if st.button("Guardar tabla de especies", key="f6_aves_guardar"):
+            st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
+            if st.button("💾 Guardar tabla de especies", key="f6_aves_guardar", use_container_width=True):
                 guardar_config_values({"f6_aves_tabla_json": json.dumps(df_aves.to_dict("records"))})
                 st.success("Tabla de especies guardada.")
 
-        if st.button("Estimar colisiones anuales", key="f6_aves_btn", type="primary"):
+        if st.button("🦅 Estimar colisiones anuales", key="f6_aves_btn", type="primary", use_container_width=True):
             n_turbinas = max(1, int(_cfg_float(config, "f5_n_turbinas", _cfg_float(config, "f4_num_turbinas", 1.0))))
             diametro = _cfg_float(config, "diametro", 100.0)
             h_hub = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
@@ -1400,6 +1861,7 @@ def _render_card_aves() -> None:
 
         res = st.session_state.get("f6_aves_result")
         if not res:
+            st.markdown(_f6_como_se_calcula("aves"), unsafe_allow_html=True)
             return
         if res.get("error"):
             st.warning(res["error"])
@@ -1410,14 +1872,15 @@ def _render_card_aves() -> None:
         peor_cat = "ALTO" if (df_col["riesgo_categoria"] == "ALTO").any() else (
             "MEDIO" if (df_col["riesgo_categoria"] == "MEDIO").any() else "BAJO"
         )
+        _col_riesgo = {"BAJO": _F6_VERDE, "MEDIO": _F6_AMBAR, "ALTO": _F6_ROJO}
         st.markdown(
             _kpi_html([
-                ("wind", "Colisiones parque", f"{total:.2f} aves/año", f"{len(df_col)} especies evaluadas"),
-                ("info", "Riesgo máximo", peor_cat, "Band 2007, escala BAJO/MEDIO/ALTO"),
-                ("layout", "Peor especie", str(df_col.loc[df_col["colisiones_parque_anio"].idxmax(), "especie"])[:40],
-                 f"{float(df_col['colisiones_parque_anio'].max()):.2f} colisiones/año"),
-                ("clock", "Operación", f"{float(horas_op):,.0f} h/año", ""),
-            ]),
+                ("🦅", "Colisiones parque", f"{total:.2f} aves/año", f"{len(df_col)} especies evaluadas"),
+                ("⚠️", "Riesgo máximo", peor_cat, "escala BAJO / MEDIO / ALTO", _col_riesgo.get(peor_cat, _F6_GRIS)),
+                ("🪶", "Especie más expuesta", _f6_nombre_corto(df_col.loc[df_col["colisiones_parque_anio"].idxmax(), "especie"], 22),
+                 f"{float(df_col['colisiones_parque_anio'].max()):.2f} colisiones/año", _F6_AMBAR),
+                ("⏱️", "Operación", f"{float(horas_op):,.0f} h/año", "", _F6_AZUL),
+            ], n=2),
             unsafe_allow_html=True,
         )
         st.markdown(
@@ -1428,19 +1891,21 @@ def _render_card_aves() -> None:
             ),
             unsafe_allow_html=True,
         )
-
-        import plotly.graph_objects as go
-
-        _col_riesgo = {"BAJO": _F6_VERDE, "MEDIO": _F6_AMBAR, "ALTO": _F6_ROJO}
-        fig_a = go.Figure(go.Bar(
-            x=df_col["colisiones_parque_anio"], y=df_col["especie"], orientation="h",
-            marker_color=[_col_riesgo.get(r, _F6_GRIS) for r in df_col["riesgo_categoria"]],
-            text=[f"{v:.2f}" for v in df_col["colisiones_parque_anio"]], textposition="outside",
-        ))
-        fig_a.update_layout(xaxis_title="Colisiones esperadas en el parque (aves/año)", showlegend=False)
-        st.plotly_chart(_f6_fig_layout(fig_a, "Riesgo de colisión por especie (Band 2007)",
-                                       max(300, 90 + 44 * len(df_col))),
-                        use_container_width=True, key="f6_aves_barras")
+        filas = []
+        for _, r in df_col.iterrows():
+            v = float(r["colisiones_parque_anio"])
+            tip = _es_num(
+                f"{r['especie']}\nColisiones en el parque: {v:.2f} aves/año\n"
+                f"Por turbina: {float(r.get('colisiones_turbina_anio', 0) or 0):.3f} aves/año\n"
+                f"P. evasión: {float(r.get('p_evasion', 0) or 0):.2f} · Riesgo {r['riesgo_categoria']}"
+            )
+            filas.append((r["especie"], v, _col_riesgo.get(r["riesgo_categoria"], _F6_GRIS), tip))
+        svg = _f6_hbars_svg(filas, decimales=2)
+        st.markdown(
+            _f6_fig_html("Colisiones esperadas · aves/año", svg,
+                         [("Riesgo bajo", _F6_VERDE), ("Medio", _F6_AMBAR), ("Alto", _F6_ROJO)]),
+            unsafe_allow_html=True,
+        )
 
         df_show = df_col.rename(columns={
             "especie": "Especie", "n_aves_paso_anual": "Pasos/año", "p_evasion": "P. evasión",
@@ -1448,8 +1913,10 @@ def _render_card_aves() -> None:
             "p_geometrica": "P. geométrica", "p_paso_altura_rotor": "P. altura rotor",
             "riesgo_categoria": "Riesgo",
         })
-        with st.expander("Tabla de detalle por especie"):
+        with st.expander("📋 Tabla de detalle por especie"):
             st.dataframe(df_show, hide_index=True, use_container_width=True)
+        with st.expander("💡 ¿Cómo se calcula?"):
+            st.markdown(_f6_como_se_calcula("aves"), unsafe_allow_html=True)
 
 
 def _render_card_lca() -> None:
@@ -1457,17 +1924,18 @@ def _render_card_lca() -> None:
 
     with st.container(border=True, key="f6_card_lca"):
         _section_header(
-            "Huella de carbono (LCA, ISO 14040)",
-            "Emisiones de ciclo de vida del proyecto, CO₂ evitado frente a la red y payback de carbono.",
+            "Huella de carbono · ACV ISO 14040",
+            "Emisiones de todo el ciclo de vida, CO₂ evitado frente a la red y retorno de carbono",
             "globe",
         )
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2 = st.columns(2)
         with c1:
             cap_mw = st.number_input("Capacidad (MW)", 0.0, 5000.0,
                                      _cfg_float(config, "f5_potencia_instalada_mw", 0.0), 1.0, key="f6_lca_cap")
         with c2:
             aep = st.number_input("AEP neta (MWh/año)", 0.0, 10_000_000.0,
                                   _cfg_float(config, "f5_aep_neta_total_mwh", 0.0), 100.0, key="f6_lca_aep")
+        c3, c4 = st.columns(2)
         with c3:
             vida = st.number_input("Vida útil (años)", 5.0, 40.0,
                                    _cfg_float(config, "f5_vida_util_anios", 20.0), 1.0, key="f6_lca_vida")
@@ -1480,7 +1948,9 @@ def _render_card_lca() -> None:
         grid_factor = {"Colombia (210 g/kWh)": 210.0, "EE.UU. (380 g/kWh)": 380.0, "UE (230 g/kWh)": 230.0}[grid_opt]
 
         if cap_mw <= 0 or aep <= 0:
-            st.info("Complete la Fase 5 (capacidad instalada y AEP neta) o escriba los valores arriba.")
+            st.markdown(_badge_html("Complete la Fase 5 (capacidad instalada y AEP neta) o escriba los valores arriba.", "info"),
+                        unsafe_allow_html=True)
+            st.markdown(_f6_como_se_calcula("lca"), unsafe_allow_html=True)
             return
 
         res = lca_carbon.calcular_huella_carbono_proyecto(
@@ -1489,63 +1959,77 @@ def _render_card_lca() -> None:
         arboles = lca_carbon.calcular_co2_equivalente_arboles(res["co2_evitado_anual_tCO2eq"])
         st.markdown(
             _kpi_html([
-                ("globe", "Huella del proyecto", f"{res['huella_g_kwh']:.1f} gCO₂eq/kWh",
-                 "referencia eólica onshore: ~11"),
-                ("trending-down", "CO₂ evitado", f"{res['co2_evitado_anual_tCO2eq']:,.0f} t/año",
-                 f"{res['co2_evitado_lifetime_tCO2eq']:,.0f} t en {vida:.0f} años"),
-                ("clock", "Payback de carbono", f"{res['payback_co2_anios']:.2f} años",
-                 "tiempo en compensar el CO₂ de construcción"),
-                ("waves", "Equivalente en árboles", f"{arboles['n_arboles_equivalentes_anuales']:,}",
-                 f"≈ {arboles['hectareas_bosque_equivalentes']:,.0f} ha de bosque/año"),
-            ]),
+                ("🌱", "Huella del proyecto", f"{res['huella_g_kwh']:.1f} gCO₂eq/kWh",
+                 "referencia eólica terrestre: ~11", _F6_VERDE),
+                ("🌍", "CO₂ evitado", f"{res['co2_evitado_anual_tCO2eq']:,.0f} t/año",
+                 f"{res['co2_evitado_lifetime_tCO2eq']:,.0f} t en {vida:.0f} años", _F6_VERDE),
+                ("⏳", "Retorno de carbono", f"{res['payback_co2_anios']:.2f} años",
+                 "tiempo en compensar el CO₂ de construcción", _F6_AMBAR),
+                ("🌳", "Equivalente en árboles", f"{arboles['n_arboles_equivalentes_anuales']:,}",
+                 f"≈ {arboles['hectareas_bosque_equivalentes']:,.0f} ha de bosque/año", "#15803d"),
+            ], n=2),
             unsafe_allow_html=True,
         )
-        import plotly.graph_objects as go
 
         _comp_es = {
             "manufactura_turbina": "Manufactura turbinas", "transporte": "Transporte",
             "instalacion": "Instalación", "om_lifetime": "O&M (vida útil)",
             "transmision_local": "Transmisión local", "desmantelamiento": "Desmantelamiento",
         }
-        col_l1, col_l2 = st.columns(2)
-        with col_l1:
-            fig_d = go.Figure(go.Pie(
-                labels=[_comp_es.get(k, k) for k in res["desglose_componentes"]],
-                values=list(res["desglose_componentes"].values()),
-                hole=0.58, textinfo="label+percent",
-                marker={"colors": ["#0d9488", "#16a34a", "#5eead4", "#86efac", "#99f6e4", "#bbf7d0"]},
-            ))
-            st.plotly_chart(_f6_fig_layout(fig_d, "Desglose de la huella (gCO₂eq/kWh)", 360),
-                            use_container_width=True, key="f6_lca_dona")
-        with col_l2:
-            df_alt = lca_carbon.comparar_vs_alternativas(res["huella_g_kwh"])
-            es_proy = df_alt["Tecnología"].str.contains("referencia")
-            fig_c = go.Figure(go.Bar(
-                x=df_alt["gCO2eq/kWh"], y=df_alt["Tecnología"], orientation="h",
-                marker_color=[_F6_VERDE if p else _F6_GRIS for p in es_proy],
-                text=[f"{v:.0f}" for v in df_alt["gCO2eq/kWh"]], textposition="outside",
-            ))
-            fig_c.add_vline(x=res["huella_g_kwh"], line_dash="dash", line_color=_F6_VERDE,
-                            annotation_text=f"Este proyecto {res['huella_g_kwh']:.1f}",
-                            annotation_font_color=_F6_VERDE)
-            fig_c.update_layout(xaxis={"type": "log", "title": "gCO₂eq/kWh (escala log)"}, showlegend=False)
-            st.plotly_chart(_f6_fig_layout(fig_c, "Comparación con otras tecnologías", 360),
-                            use_container_width=True, key="f6_lca_comparativa")
+        _cols_d = ["#0d9488", "#16a34a", "#5eead4", "#86efac", "#2dd4bf", "#bbf7d0"]
+        segs = [
+            (_comp_es.get(k, k), float(v), _cols_d[i % len(_cols_d)])
+            for i, (k, v) in enumerate(res["desglose_componentes"].items())
+        ]
+        st.markdown(
+            _f6_fig_html(
+                "Desglose de la huella · gCO₂eq/kWh",
+                _f6_donut_svg(segs, _es_num(f"{res['huella_g_kwh']:.1f}"), "gCO₂eq/kWh"),
+                [(e, c) for e, _, c in segs],
+            ),
+            unsafe_allow_html=True,
+        )
 
-        with st.expander("Tablas de detalle"):
+        df_alt = lca_carbon.comparar_vs_alternativas(res["huella_g_kwh"])
+        filas = [("Este proyecto", float(res["huella_g_kwh"]), _F6_VERDE,
+                  _es_num(f"Este proyecto: {res['huella_g_kwh']:.1f} gCO₂eq/kWh"))]
+        for _, r in df_alt.sort_values("gCO2eq/kWh").iterrows():
+            ref = "referencia" in str(r["Tecnología"])
+            filas.append((
+                str(r["Tecnología"]).replace(" (referencia)", " (ref.)"),
+                float(r["gCO2eq/kWh"]),
+                "#5eead4" if ref else _F6_GRIS,
+                _es_num(f"{r['Tecnología']}: {float(r['gCO2eq/kWh']):.0f} gCO₂eq/kWh"),
+            ))
+        st.markdown(
+            _f6_fig_html("Comparación con otras tecnologías · gCO₂eq/kWh (escala log)",
+                         _f6_hbars_svg(filas, log=True),
+                         [("Este proyecto", _F6_VERDE), ("Eólica terrestre (ref.)", "#5eead4"), ("Otras tecnologías", _F6_GRIS)]),
+            unsafe_allow_html=True,
+        )
+
+        with st.expander("📋 Tablas de detalle"):
             st.dataframe(df_alt, hide_index=True, use_container_width=True)
             df_desglose = pd.DataFrame(
                 [{"Componente": _comp_es.get(k, k), "gCO₂eq/kWh": v} for k, v in res["desglose_componentes"].items()]
             )
             st.dataframe(df_desglose, hide_index=True, use_container_width=True)
+        with st.expander("💡 ¿Cómo se calcula?"):
+            st.markdown(_f6_como_se_calcula("lca"), unsafe_allow_html=True)
 
 
 def _render_ambiental() -> None:
     df_receptores = _render_card_receptores()
-    _render_card_ruido(df_receptores)
-    _render_card_flicker(df_receptores)
-    _render_card_aves()
-    _render_card_lca()
+    col_a, col_b = st.columns(2, gap="medium")
+    with col_a:
+        _render_card_ruido(df_receptores)
+    with col_b:
+        _render_card_flicker(df_receptores)
+    col_c, col_d = st.columns(2, gap="medium")
+    with col_c:
+        _render_card_aves()
+    with col_d:
+        _render_card_lca()
 
 
 def _n_years_serie(df_h: pd.DataFrame) -> float:
