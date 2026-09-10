@@ -2380,7 +2380,13 @@ st.markdown(
     .f5-wind path:nth-child(2){animation-duration:3.4s;opacity:.7}
     .f5-wind path:nth-child(3){animation-duration:4.2s;opacity:.5}
     @keyframes f5windmove{to{stroke-dashoffset:-54}}
-    .f5-hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2}
+    .f5-hero-row{display:flex;align-items:center;gap:18px;position:relative;z-index:2;min-height:87px}
+    /* mismo alto que F1-F4 (131px) y el hero NO va dentro de una card blanca (el st-key cae en el propio stVerticalBlock) */
+    #root .st-key-f5_card_header{background:transparent !important;border:none !important;box-shadow:none !important;
+      padding:0 !important;border-radius:0 !important;min-height:0 !important;height:auto !important;overflow:visible !important;
+      margin-bottom:14px !important;gap:0 !important}
+    #root .st-key-f5_card_header::before{display:none !important}
+    #root .st-key-f5_card_header .f5-hero{margin:0 !important}
     .f5-hero-icon{width:62px;height:62px;border-radius:19px;background:rgba(255,255,255,.17);
       border:1.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:31px;flex-shrink:0;
       box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 8px 18px rgba(0,0,0,.12)}
@@ -2452,6 +2458,14 @@ st.markdown(
       content:"" !important;position:absolute !important;left:0;right:0;top:0;height:4px !important;
       background:linear-gradient(90deg,#059669, color-mix(in srgb,#059669 25%,#fff) 70%, transparent) !important;
       z-index:3 !important;display:block !important}
+    /* Franja de acento: una banda de 4px de alto no se puede redondear (asomaba recta en las esquinas).
+       Patrón global: el ::before cubre todo el card, el color va solo en los 4px de arriba y el clip-path
+       lo recorta a la forma del card. Radio 27px = card 28px - 1px de borde. */
+    #root div[data-testid="stVerticalBlock"][class*="st-key-f5_"][class*="card"]:not(.st-key-f5_card_header)::before{
+      top:0 !important;right:0 !important;bottom:0 !important;left:0 !important;height:auto !important;width:auto !important;
+      background-size:100% 4px !important;background-repeat:no-repeat !important;background-position:top left !important;
+      -webkit-clip-path:inset(0 round 27px 27px 0 0) !important;clip-path:inset(0 round 27px 27px 0 0) !important;
+      border-radius:0 !important;pointer-events:none !important}
     .st-key-f5_card_config div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f5_card_losses div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-f5_card_ti_iec div[data-testid="stVerticalBlockBorderWrapper"],
@@ -3557,12 +3571,12 @@ with st.container(border=True, key="f5_card_econ_master"):
             )
             mc1, mc2, mc3, mc4 = st.columns([0.95, 0.95, 1.25, 1.45], gap="small")
             with mc1:
-                moneda_base = st.selectbox("Moneda base del modelo", options=MONEDA_OPTIONS, index=MONEDA_OPTIONS.index(moneda_base_default) if moneda_base_default in MONEDA_OPTIONS else 0)
+                moneda_base = st.selectbox("Moneda base del modelo", options=MONEDA_OPTIONS, index=MONEDA_OPTIONS.index(moneda_base_default) if moneda_base_default in MONEDA_OPTIONS else 0, key="f5_econ_moneda_base")
             with mc2:
-                moneda_visualizacion = st.selectbox("Moneda de visualización", options=MONEDA_OPTIONS, index=MONEDA_OPTIONS.index(moneda_visualizacion_default) if moneda_visualizacion_default in MONEDA_OPTIONS else 0)
+                moneda_visualizacion = st.selectbox("Moneda de visualización", options=MONEDA_OPTIONS, index=MONEDA_OPTIONS.index(moneda_visualizacion_default) if moneda_visualizacion_default in MONEDA_OPTIONS else 0, key="f5_econ_moneda_vis")
             with mc3:
                 fx_mode_options = list(FX_MODE_OPTIONS.keys())
-                fx_mode = st.selectbox("Modo de conversión", options=fx_mode_options, index=fx_mode_options.index(fx_mode_default) if fx_mode_default in fx_mode_options else 0, format_func=lambda key: FX_MODE_OPTIONS[key])
+                fx_mode = st.selectbox("Modo de conversión", options=fx_mode_options, index=fx_mode_options.index(fx_mode_default) if fx_mode_default in fx_mode_options else 0, format_func=lambda key: FX_MODE_OPTIONS[key], key="f5_econ_fx_mode")
 
             fx_rate_cop_per_usd = fx_rate_default
             fx_timestamp = fx_timestamp_default
@@ -3571,7 +3585,7 @@ with st.container(border=True, key="f5_card_econ_master"):
             update_fx = False
             if fx_mode == "manual":
                 with mc4:
-                    fx_rate_cop_per_usd = st.number_input("Tasa COP por USD", min_value=0.0, value=fx_rate_default, step=1.0, format="%.4f")
+                    fx_rate_cop_per_usd = st.number_input("Tasa COP por USD", min_value=0.0, value=fx_rate_default, step=1.0, format="%.4f", key="f5_econ_fx_rate")
                 fx_timestamp = fx_timestamp_default or "manual"
                 fx_source = "manual"
             else:
@@ -3607,10 +3621,10 @@ with st.container(border=True, key="f5_card_econ_master"):
         with st.container(border=True, key="f5_econ_capex_card"):
             st.markdown(f'<div class="f5-econ-col-title"><span class="f5-econ-col-title-icon blue">{_f5_icon_svg("money","#2563eb",20)}</span> CAPEX</div>', unsafe_allow_html=True)
             capex_mode_options = list(CAPEX_MODE_OPTIONS.keys())
-            capex_mode = st.selectbox("Modo de CAPEX", options=capex_mode_options, index=capex_mode_options.index(capex_mode_default) if capex_mode_default in capex_mode_options else capex_mode_options.index("semi_auto_mw"), format_func=lambda key: CAPEX_MODE_OPTIONS[key])
+            capex_mode = st.selectbox("Modo de CAPEX", options=capex_mode_options, index=capex_mode_options.index(capex_mode_default) if capex_mode_default in capex_mode_options else capex_mode_options.index("semi_auto_mw"), format_func=lambda key: CAPEX_MODE_OPTIONS[key], key="f5_econ_capex_mode")
             capex_componentes = dict(capex_componentes_default)
             if capex_mode == "manual_total":
-                capex_total_manual = st.number_input(f"CAPEX total ({moneda_base})", min_value=0.0, value=capex_total_default, step=1000.0, format="%.2f")
+                capex_total_manual = st.number_input(f"CAPEX total ({moneda_base})", min_value=0.0, value=capex_total_default, step=1000.0, format="%.2f", key="f5_econ_capex_total")
                 capex_result = calcular_capex(mode=capex_mode, potencia_instalada_mw=metricas_base_economicas["potencia_instalada_mw"], inputs={"capex_total": capex_total_manual})
             elif capex_mode == "detailed":
                 for ck in list(CAPEX_COMPONENT_DEFAULTS.keys()):
@@ -3619,12 +3633,12 @@ with st.container(border=True, key="f5_card_econ_master"):
             else:
                 _cx1, _cx2 = st.columns(2)
                 with _cx1:
-                    capex_turbina_por_mw = st.number_input(f"Costo turbina por MW ({moneda_base})", min_value=0.0, value=capex_turbina_por_mw_default, step=1000.0, format="%.0f")
-                    capex_bop_por_mw = st.number_input(f"Costo BOP por MW ({moneda_base})", min_value=0.0, value=capex_bop_por_mw_default, step=1000.0, format="%.0f")
-                    capex_pct_desarrollo = st.number_input("Porcentaje desarrollo (%)", min_value=0.0, value=capex_pct_desarrollo_default, step=0.1, format="%.2f")
+                    capex_turbina_por_mw = st.number_input(f"Costo turbina por MW ({moneda_base})", min_value=0.0, value=capex_turbina_por_mw_default, step=1000.0, format="%.0f", key="f5_econ_capex_turbina_mw")
+                    capex_bop_por_mw = st.number_input(f"Costo BOP por MW ({moneda_base})", min_value=0.0, value=capex_bop_por_mw_default, step=1000.0, format="%.0f", key="f5_econ_capex_bop_mw")
+                    capex_pct_desarrollo = st.number_input("Porcentaje desarrollo (%)", min_value=0.0, value=capex_pct_desarrollo_default, step=0.1, format="%.2f", key="f5_econ_capex_pct_desarrollo")
                 with _cx2:
-                    capex_red_por_mw = st.number_input(f"Costo mat. por MW ({moneda_base})", min_value=0.0, value=capex_red_por_mw_default, step=1000.0, format="%.0f")
-                    capex_pct_contingencia = st.number_input("Porcentaje contingencia (%)", min_value=0.0, value=capex_pct_contingencia_default, step=0.1, format="%.2f")
+                    capex_red_por_mw = st.number_input(f"Costo mat. por MW ({moneda_base})", min_value=0.0, value=capex_red_por_mw_default, step=1000.0, format="%.0f", key="f5_econ_capex_red_mw")
+                    capex_pct_contingencia = st.number_input("Porcentaje contingencia (%)", min_value=0.0, value=capex_pct_contingencia_default, step=0.1, format="%.2f", key="f5_econ_capex_pct_contingencia")
                 capex_result = calcular_capex(mode="semi_auto_mw", potencia_instalada_mw=metricas_base_economicas["potencia_instalada_mw"], inputs={"costo_turbina_por_mw": capex_turbina_por_mw, "costo_bop_por_mw": capex_bop_por_mw, "costo_red_por_mw": capex_red_por_mw, "porcentaje_desarrollo": capex_pct_desarrollo, "porcentaje_contingencia": capex_pct_contingencia})
             st.markdown(_build_econ_breakdown_html(capex_result["breakdown"], "Componentes de CAPEX", ["Concepto", f"{moneda_base}/MW", f"{moneda_base} Total"], moneda_base, potencia_mw=metricas_base_economicas["potencia_instalada_mw"]), unsafe_allow_html=True)
 
@@ -3632,10 +3646,10 @@ with st.container(border=True, key="f5_card_econ_master"):
         with st.container(border=True, key="f5_econ_opex_card"):
             st.markdown(f'<div class="f5-econ-col-title"><span class="f5-econ-col-title-icon green">{_f5_icon_svg("money","#16a34a",20)}</span> OPEX</div>', unsafe_allow_html=True)
             opex_mode_options = list(OPEX_MODE_OPTIONS.keys())
-            opex_mode = st.selectbox("Modo de OPEX", options=opex_mode_options, index=opex_mode_options.index(opex_mode_default) if opex_mode_default in opex_mode_options else opex_mode_options.index("fixed_variable"), format_func=lambda key: OPEX_MODE_OPTIONS[key])
+            opex_mode = st.selectbox("Modo de OPEX", options=opex_mode_options, index=opex_mode_options.index(opex_mode_default) if opex_mode_default in opex_mode_options else opex_mode_options.index("fixed_variable"), format_func=lambda key: OPEX_MODE_OPTIONS[key], key="f5_econ_opex_mode")
             opex_componentes = dict(opex_componentes_default)
             if opex_mode == "manual_total":
-                opex_total_manual = st.number_input(f"OPEX anual total ({moneda_base})", min_value=0.0, value=opex_total_anual_default, step=100.0, format="%.2f")
+                opex_total_manual = st.number_input(f"OPEX anual total ({moneda_base})", min_value=0.0, value=opex_total_anual_default, step=100.0, format="%.2f", key="f5_econ_opex_total")
                 opex_result = calcular_opex(mode=opex_mode, potencia_instalada_mw=metricas_base_economicas["potencia_instalada_mw"], energia_mwh_anio=metricas_base_economicas["aep_neta_mwh_anio"], inputs={"opex_total_anual": opex_total_manual})
             elif opex_mode == "detailed":
                 for ck in list(OPEX_COMPONENT_DEFAULTS.keys()):
@@ -3644,12 +3658,12 @@ with st.container(border=True, key="f5_card_econ_master"):
             else:
                 _ox1, _ox2 = st.columns(2)
                 with _ox1:
-                    opex_fijo_por_mw_anio = st.number_input(f"OPEX fijo por MW/año ({moneda_base})", min_value=0.0, value=opex_fijo_por_mw_anio_default, step=100.0, format="%.0f")
-                    administracion_anual = st.number_input(f"Administración anual ({moneda_base})", min_value=0.0, value=admin_anual_default, step=100.0, format="%.0f")
-                    opex_variable_por_mwh = st.number_input(f"OPEX variable por MWh ({moneda_base})", min_value=0.0, value=opex_variable_default, step=0.1, format="%.2f")
+                    opex_fijo_por_mw_anio = st.number_input(f"OPEX fijo por MW/año ({moneda_base})", min_value=0.0, value=opex_fijo_por_mw_anio_default, step=100.0, format="%.0f", key="f5_econ_opex_fijo_mw")
+                    administracion_anual = st.number_input(f"Administración anual ({moneda_base})", min_value=0.0, value=admin_anual_default, step=100.0, format="%.0f", key="f5_econ_admin_anual")
+                    opex_variable_por_mwh = st.number_input(f"OPEX variable por MWh ({moneda_base})", min_value=0.0, value=opex_variable_default, step=0.1, format="%.2f", key="f5_econ_opex_variable")
                 with _ox2:
-                    seguros_anuales = st.number_input(f"Seguros anuales ({moneda_base})", min_value=0.0, value=seguros_anuales_default, step=100.0, format="%.0f")
-                    terreno_anual = st.number_input(f"Terreno anual ({moneda_base})", min_value=0.0, value=terreno_anual_default, step=100.0, format="%.0f")
+                    seguros_anuales = st.number_input(f"Seguros anuales ({moneda_base})", min_value=0.0, value=seguros_anuales_default, step=100.0, format="%.0f", key="f5_econ_seguros")
+                    terreno_anual = st.number_input(f"Terreno anual ({moneda_base})", min_value=0.0, value=terreno_anual_default, step=100.0, format="%.0f", key="f5_econ_terreno")
                 opex_result = calcular_opex(mode="fixed_variable", potencia_instalada_mw=metricas_base_economicas["potencia_instalada_mw"], energia_mwh_anio=metricas_base_economicas["aep_neta_mwh_anio"], inputs={"opex_fijo_por_mw_anio": opex_fijo_por_mw_anio, "opex_variable_por_mwh": opex_variable_por_mwh, "seguros_anuales": seguros_anuales, "terreno_anual": terreno_anual, "administracion_anual": administracion_anual})
             st.markdown(_build_opex_breakdown_html(opex_result["breakdown"], "Distribución de OPEX anual", moneda_base, potencia_mw=metricas_base_economicas["potencia_instalada_mw"]), unsafe_allow_html=True)
 
@@ -3658,11 +3672,11 @@ with st.container(border=True, key="f5_card_econ_master"):
             st.markdown(f'<div class="f5-econ-col-title"><span class="f5-econ-col-title-icon purple">{_f5_icon_svg("chart","#7e22ce",18)}</span> LCOE</div>', unsafe_allow_html=True)
             _lc1, _lc2 = st.columns(2)
             with _lc1:
-                vida_util_anios = st.number_input("Vida útil (años)", min_value=1, value=vida_util_default, step=1)
-                degradacion_energia_pct = st.number_input("Degradación (%/año)", min_value=0.0, value=degradacion_default, step=0.1, format="%.2f")
+                vida_util_anios = st.number_input("Vida útil (años)", min_value=1, value=vida_util_default, step=1, key="f5_econ_vida_util")
+                degradacion_energia_pct = st.number_input("Degradación (%/año)", min_value=0.0, value=degradacion_default, step=0.1, format="%.2f", key="f5_econ_degradacion")
             with _lc2:
-                tasa_descuento_pct = st.number_input("Tasa de descuento (%)", min_value=0.0, value=tasa_descuento_default, step=0.1, format="%.2f")
-                valor_residual = st.number_input(f"Valor residual ({moneda_base})", min_value=0.0, value=valor_residual_default, step=100.0, format="%.2f")
+                tasa_descuento_pct = st.number_input("Tasa de descuento (%)", min_value=0.0, value=tasa_descuento_default, step=0.1, format="%.2f", key="f5_econ_tasa_descuento")
+                valor_residual = st.number_input(f"Valor residual ({moneda_base})", min_value=0.0, value=valor_residual_default, step=100.0, format="%.2f", key="f5_econ_valor_residual")
 
             _lc3, _lc4 = st.columns(2)
             with _lc3:
