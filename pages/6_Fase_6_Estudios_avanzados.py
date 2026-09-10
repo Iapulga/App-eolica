@@ -455,6 +455,26 @@ div[data-testid="stButton"]>button[kind="primary"]:hover{filter:brightness(1.05)
 .f6-how.amb .f6-how-t{color:#b45309}
 .f6-charge{animation:f6charge 2.4s ease-in-out infinite}
 @keyframes f6charge{0%,100%{opacity:.2}50%{opacity:1}}
+/* Optimización y fin de vida = acento violeta del mockup (franja + squircle del card-head) */
+.st-key-f6_card_optim,.st-key-f6_card_repower{--acl:#7c3aed}
+.st-key-f6_card_optim .aur-cicon,.st-key-f6_card_repower .aur-cicon{
+  background:linear-gradient(135deg, color-mix(in srgb,#7c3aed 16%,#fff), color-mix(in srgb,#7c3aed 7%,#fff)) !important;
+  border-color:color-mix(in srgb,#7c3aed 35%,#fff) !important;box-shadow:0 5px 12px color-mix(in srgb,#7c3aed 16%,transparent) !important}
+.f6-how.vio{border-color:color-mix(in srgb,#7c3aed 38%,#fff);background:linear-gradient(180deg, color-mix(in srgb,#7c3aed 5%,#fff), #fff)}
+.f6-how.vio .f6-how-t{color:#6d28d9}
+/* Fichas de escenario de fin de vida */
+.f6-escs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:8px 0 4px}
+.f6-esc{background:#fff;border:1.5px solid #e2e8f0;border-radius:16px;padding:12px 10px;text-align:center;
+  box-shadow:0 1px 2px rgba(11,36,71,.04),0 6px 16px rgba(11,36,71,.06)}
+.f6-esc.rec{border-color:#16a34a;background:linear-gradient(180deg,#f0fdf4,#fff);box-shadow:0 8px 18px rgba(22,163,74,.16)}
+.f6-esc-i{font-size:24px;line-height:1.1}
+.f6-esc b{display:block;font-size:12.5px;color:#0b2447;margin-top:4px;font-weight:900}
+.f6-esc-v{display:block;font-size:17px;font-weight:900;color:#0b2447;margin-top:4px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.f6-esc.rec .f6-esc-v{color:#15803d}
+.f6-esc small{font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em}
+.f6-esc i{display:block;font-style:normal;font-size:10px;color:#5a6b85;font-weight:600;margin-top:4px;line-height:1.3}
+.f6-esc.rec::after{content:"🏆 Recomendado";display:inline-block;margin-top:6px;font-size:9.5px;font-weight:900;color:#15803d;
+  background:#dcfce7;border-radius:999px;padding:2px 9px}
 </style>
 """,
     unsafe_allow_html=True,
@@ -2665,16 +2685,210 @@ def _render_operacion_red() -> None:
     _render_card_hibrido()
 
 
+# -----------------------------------------------------------------------------
+# Optimización y fin de vida · gráficos SVG Aurora (paridad mockup 06_fase6,
+# acento violeta). Mismo idioma que Ambiental / Operación: SVG inline + <title>.
+# -----------------------------------------------------------------------------
+_F6_VIOLETA = "#7c3aed"
+_F6_VIOLETA_OSC = "#4c1d95"
+
+
+def _f6_convergencia_svg(it, best) -> str:
+    """Mejor AEP por generación del Differential Evolution."""
+    it = np.asarray(it, dtype=float)
+    b = np.asarray(best, dtype=float)
+    if not len(it):
+        return ""
+    lo, hi = float(np.nanmin(b)), float(np.nanmax(b))
+    pad = (hi - lo) * 0.25 or max(abs(hi) * 0.01, 1.0)
+    x_lo, x_hi = (float(it.min()), float(it.max())) if len(it) > 1 else (0.0, float(it[0]) + 1.0)
+    p, sx, sy = _f6_frame(380, 260, 64, 16, 18, 40, x_lo, x_hi, lo - pad, hi + pad, "Generación", "Mejor AEP (MWh/año)")
+    pts = " L".join(f"{sx(a):.1f},{sy(v):.1f}" for a, v in zip(it, b))
+    if len(it) > 1:
+        p.append(
+            f'<path d="M{pts} L{sx(it[-1]):.1f},{sy(lo - pad):.1f} L{sx(it[0]):.1f},{sy(lo - pad):.1f} Z" fill="{_F6_VIOLETA}" opacity=".09"/>'
+            f'<path d="M{pts}" fill="none" stroke="{_F6_VIOLETA}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+    for a, v in zip(it, b):
+        tip = _es_num(f"Generación {a:.0f}\nMejor AEP {v:,.0f} MWh/año")
+        p.append(
+            f'<g class="f6-bar"><title>{_svg_t(tip)}</title>'
+            f'<circle cx="{sx(a):.1f}" cy="{sy(v):.1f}" r="4" fill="#fff" stroke="{_F6_VIOLETA}" stroke-width="2.6"/></g>'
+        )
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_layout_antes_despues_svg(df_orig, df_opt) -> str:
+    """Plano del layout actual (gris) y optimizado (violeta) con flecha de desplazamiento."""
+    def _pts(df):
+        out = []
+        for i, (_, r) in enumerate(df.iterrows()):
+            try:
+                out.append((str(r.get("turbina_id") or f"T{i + 1}"), float(r["x_m"]), float(r["y_m"])))
+            except (TypeError, ValueError, KeyError):
+                continue
+        return out
+
+    o, n = _pts(df_orig), _pts(df_opt)
+    xs = [t[1] for t in o + n]
+    ys = [t[2] for t in o + n]
+    if not xs:
+        return ""
+    W, H = 380.0, 310.0
+    L, R, T, B = 30.0, 30.0, 44.0, 40.0
+    dx, dy = max(max(xs) - min(xs), 1.0), max(max(ys) - min(ys), 1.0)
+    esc = min((W - L - R) / dx, (H - T - B) / dy)
+    xc, yc = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+
+    def P(x, y):
+        return L + (W - L - R) / 2 + (x - xc) * esc, T + (H - T - B) / 2 - (y - yc) * esc
+
+    p = [
+        '<svg viewBox="0 0 380 310" xmlns="http://www.w3.org/2000/svg">',
+        '<defs><marker id="f6arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">'
+        f'<path d="M0,0 L10,5 L0,10 z" fill="{_F6_VIOLETA}"/></marker></defs>',
+        '<rect x="6" y="6" width="368" height="298" rx="16" fill="#faf5ff" stroke="#ede9fe"/>',
+    ]
+    for k in range(min(len(o), len(n))):
+        (ax, ay), (bx, by) = P(o[k][1], o[k][2]), P(n[k][1], n[k][2])
+        d = float(np.hypot(n[k][1] - o[k][1], n[k][2] - o[k][2]))
+        if np.hypot(bx - ax, by - ay) > 10:
+            p.append(
+                f'<g><title>{_svg_t(_es_num(f"{o[k][0]} se movió {d:,.0f} m"))}</title>'
+                f'<line x1="{ax:.1f}" y1="{ay:.1f}" x2="{bx:.1f}" y2="{by:.1f}" stroke="#a78bfa" stroke-width="2" '
+                'stroke-dasharray="5 4" marker-end="url(#f6arrow)"/></g>'
+            )
+    for tid, x, y in o:
+        px, py = P(x, y)
+        tip = _es_num(f"{tid} · posición actual\nx = {x:,.0f} m · y = {y:,.0f} m")
+        p.append(
+            f'<g class="f6-rec"><title>{_svg_t(tip)}</title><circle cx="{px:.1f}" cy="{py:.1f}" r="7" fill="#fff" stroke="#94a3b8" stroke-width="2.2"/>'
+            f'<text x="{px:.1f}" y="{py - 11:.1f}" text-anchor="middle" font-size="9.5" font-weight="900" fill="#64748b">{_svg_t(tid)}</text></g>'
+        )
+    s_tb = 0.8
+    if len(n) > 1:
+        pts = [P(x, y) for _, x, y in n]
+        dmin = min(float(np.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]))
+                   for i in range(len(pts)) for j in range(i + 1, len(pts)))
+        s_tb = float(min(0.8, max(0.4, dmin / 60.0)))
+    for k, (tid, x, y) in enumerate(n):
+        px, py = P(x, y)
+        mov = ""
+        if k < len(o):
+            mov = _es_num(f"\nse movió {float(np.hypot(x - o[k][1], y - o[k][2])):,.0f} m")
+        tip = _es_num(f"{tid} · posición optimizada\nx = {x:,.0f} m · y = {y:,.0f} m") + mov
+        p.append(_f6_turbina_svg(px, py, tid, tip, s_tb, color=_F6_VIOLETA, oscuro=_F6_VIOLETA_OSC))
+    lm = _f6_nice_floor((W - L - R) / esc / 4.0)
+    lpx = lm * esc
+    p.append(
+        f'<g><line x1="18" y1="292" x2="{18 + lpx:.1f}" y2="292" stroke="#334155" stroke-width="2.4"/>'
+        f'<line x1="18" y1="287" x2="18" y2="297" stroke="#334155" stroke-width="2"/>'
+        f'<line x1="{18 + lpx:.1f}" y1="287" x2="{18 + lpx:.1f}" y2="297" stroke="#334155" stroke-width="2"/>'
+        f'<text x="{18 + lpx / 2:.1f}" y="284" text-anchor="middle" font-size="9.5" font-weight="900" fill="#334155">{_svg_t(_es_num(f"{lm:,.0f} m"))}</text></g>'
+        '<g transform="translate(352,30)"><circle r="14" fill="#fff" stroke="#ddd6fe"/>'
+        '<path d="M0,-9 L5,4 L0,1 L-5,4 Z" fill="#0b2447"/>'
+        '<text y="11" text-anchor="middle" font-size="8" font-weight="900" fill="#0b2447">N</text></g>'
+        "</svg>"
+    )
+    return "".join(p)
+
+
+def _f6_vbars_svg(filas, unidad: str = "MUSD", escala: float = 1e6) -> str:
+    """Barras verticales (admite negativos). filas=[(etiqueta, valor, color, tooltip)]."""
+    vals = [float(v) / escala for _, v, _, _ in filas]
+    if not vals:
+        return ""
+    lo, hi = min(0.0, min(vals)), max(0.0, max(vals))
+    pad = (hi - lo) * 0.2 or 1.0
+    lo_p, hi_p = lo - (pad if lo < 0 else 0.0), hi + pad
+    # Lienzo algo más ancho: la card de fin de vida es más ancha que las de Ambiental.
+    W, H, L, R, T, B = 520, 300, 60, 14, 18, 42
+    p, sx, sy = _f6_frame(W, H, L, R, T, B, 0, len(filas), lo_p, hi_p, "", unidad, x_ticks=False)
+    y0 = sy(0)
+    p.append(f'<line x1="{L}" y1="{y0:.1f}" x2="{W - R}" y2="{y0:.1f}" stroke="#94a3b8" stroke-width="1.6"/>')
+    w = (sx(1) - sx(0)) * 0.56
+    for i, ((etq, _, col, tip), vv) in enumerate(zip(filas, vals)):
+        xc = sx(i + 0.5)
+        y1, y2 = sy(max(vv, 0.0)), sy(min(vv, 0.0))
+        h = max(1.5, y2 - y1)
+        yv = y1 - 7 if vv >= 0 else y2 + 15
+        p.append(
+            f'<g class="f6-bar"><title>{_svg_t(tip)}</title>'
+            f'<rect x="{xc - w / 2:.1f}" y="{y1:.1f}" width="{w:.1f}" height="{h:.1f}" rx="8" fill="{col}"/>'
+            f'<rect x="{xc - w / 2:.1f}" y="{y1:.1f}" width="{w:.1f}" height="{min(9.0, h / 3):.1f}" rx="5" fill="#fff" opacity=".25"/>'
+            f'<text x="{xc:.1f}" y="{yv:.1f}" text-anchor="middle" font-size="11.5" font-weight="900" fill="#0b2447">{_svg_t(_es_num(f"{vv:,.2f}"))}</text>'
+            f'<text x="{xc:.1f}" y="{H - 12}" text-anchor="middle" font-size="11" font-weight="800" fill="#475569">{_svg_t(etq)}</text></g>'
+        )
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_esquema_optim(tipo: str) -> str:
+    """Esquemas '¿Cómo funciona? / ¿Cómo se decide?' (tono violeta)."""
+    if tipo == "optim":
+        pasos = [("🧬", "Población de layouts"), ("🔀", "Mezclar y mutar"), ("🌪️", "Evaluar AEP con estelas"), ("🏆", "Quedarse con el mejor")]
+        g = []
+        for k, (ico, etq) in enumerate(pasos):
+            x = 70 + k * 140
+            if k:
+                g.append(f'<path d="M{x - 104},60 L{x - 38},60" stroke="#c4b5fd" stroke-width="3" stroke-linecap="round" class="f6-flow" stroke-dasharray="7 6"/>'
+                         f'<path d="M{x - 44},54 L{x - 36},60 L{x - 44},66" fill="none" stroke="{_F6_VIOLETA}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>')
+            g.append(f'<circle cx="{x}" cy="60" r="28" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2"/>'
+                     f'<text x="{x}" y="69" text-anchor="middle" font-size="23">{ico}</text>'
+                     f'<text x="{x}" y="106" text-anchor="middle" font-size="10" font-weight="900" fill="#5b21b6">{etq}</text>')
+        svg = (
+            '<svg viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg">' + "".join(g)
+            + f'<path d="M490,118 Q280,168 70,118" fill="none" stroke="{_F6_VIOLETA}" stroke-width="2.4" stroke-dasharray="6 5" class="f6-flow"/>'
+            f'<path d="M78,126 L68,118 L80,112" fill="none" stroke="{_F6_VIOLETA}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'
+            '<text x="280" y="154" text-anchor="middle" font-size="10" font-weight="900" fill="#6d28d9">se repite en cada generación</text>'
+            "</svg>"
+        )
+        titulo = "💡 ¿Cómo funciona?"
+        txt = ("Differential Evolution prueba muchos layouts a la vez, los combina entre sí y se queda con los que "
+               "producen más energía, respetando la separación mínima entre turbinas. El layout activo de la Fase 4 "
+               "no se modifica: el resultado se puede guardar como escenario y compararlo allí.")
+    else:
+        ramas = [
+            (32, "🏚️", "Desmantelar", "retirar el parque y vender la chatarra", "#64748b"),
+            (82, "🔄", "Repotenciar", "turbinas nuevas: +30 % AEP, 25 años más", "#16a34a"),
+            (132, "⏳", "Extender vida", "reforzar las actuales: +10 años, −5 % AEP", "#2563eb"),
+        ]
+        g = []
+        for y, ico, etq, sub, col in ramas:
+            g.append(f'<path d="M236,82 C272,82 272,{y} 306,{y}" fill="none" stroke="{col}" stroke-width="2.6" stroke-dasharray="6 5" class="f6-flow"/>'
+                     f'<rect x="308" y="{y - 20}" width="244" height="40" rx="12" fill="#fff" stroke="{col}" stroke-opacity=".45" stroke-width="1.6"/>'
+                     f'<text x="324" y="{y + 7}" font-size="18">{ico}</text>'
+                     f'<text x="350" y="{y - 2}" font-size="11" font-weight="900" fill="{col}">{etq}</text>'
+                     f'<text x="350" y="{y + 12}" font-size="9.5" font-weight="700" fill="#64748b">{sub}</text>')
+        svg = (
+            '<svg viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg">'
+            '<line x1="24" y1="82" x2="226" y2="82" stroke="#c4b5fd" stroke-width="8" stroke-linecap="round"/>'
+            f'<line x1="24" y1="82" x2="226" y2="82" stroke="{_F6_VIOLETA}" stroke-width="3" stroke-dasharray="7 6" class="f6-flow"/>'
+            + _f6_turbina_svg(70, 70, "", "Parque en operación", 1.0, color=_F6_VIOLETA, oscuro=_F6_VIOLETA_OSC)
+            + '<text x="120" y="108" text-anchor="middle" font-size="10" font-weight="900" fill="#5b21b6">operación</text>'
+            f'<circle cx="232" cy="82" r="9" fill="{_F6_VIOLETA}"/><circle cx="232" cy="82" r="3.5" fill="#fff"/>'
+            '<text x="210" y="122" text-anchor="middle" font-size="10" font-weight="900" fill="#0b2447">fin de vida</text>'
+            '<text x="210" y="135" text-anchor="middle" font-size="9" font-weight="700" fill="#64748b">(≈ 20-25 años)</text>'
+            + "".join(g) + "</svg>"
+        )
+        titulo = "💡 ¿Cómo se decide?"
+        txt = ("Al final de la vida útil se comparan tres caminos con el mismo criterio financiero: el VPN (valor "
+               "presente de los flujos de caja, descontados con la tasa indicada). Se recomienda el que deja más valor.")
+    return f'<div class="f6-how vio"><div class="f6-how-t">{titulo}</div>{svg}<p>{_escape(txt)}</p></div>'
+
+
 def _render_card_optimizador() -> None:
     with st.container(border=True, key="f6_card_optim"):
         _section_header(
-            "Optimizador de layout (Differential Evolution)",
-            "Busca posiciones de turbinas que maximizan el AEP usando el motor de estelas de 16 sectores como función objetivo.",
-            "layout",
+            "Optimizador de layout · Differential Evolution",
+            "Mueve las turbinas buscando el mayor AEP con el motor de estelas de 16 sectores",
+            "🧬",
         )
         df_layout = cargar_layout_parque()
         if df_layout is None or len(df_layout) == 0:
-            st.info("Defina primero el arreglo de turbinas en Fase 4.")
+            st.markdown(_badge_html("Defina primero el arreglo de turbinas en Fase 4.", "info"), unsafe_allow_html=True)
+            st.markdown(_f6_esquema_optim("optim"), unsafe_allow_html=True)
             return
 
         n_turb = len(df_layout)
@@ -2687,22 +2901,31 @@ def _render_card_optimizador() -> None:
 
         c1, c2, c3 = st.columns(3)
         with c1:
-            maxiter = st.slider("Iteraciones (maxiter)", 1, 30,
-                                int(_cfg_float(config, "f6_opt_maxiter", 5.0)), 1, key="f6_opt_maxiter_w")
+            maxiter = st.slider("Iteraciones", 1, 30,
+                                int(_cfg_float(config, "f6_opt_maxiter", 5.0)), 1, key="f6_opt_maxiter_w",
+                                help="Generaciones del algoritmo (maxiter).")
         with c2:
-            popsize = st.slider("Población (popsize)", 4, 20, 6, 1, key="f6_opt_popsize")
+            popsize = st.slider("Población", 4, 20, 6, 1, key="f6_opt_popsize",
+                                help="Layouts que se prueban por generación (popsize).")
         with c3:
-            min_sp = st.slider("Separación mínima (D)", 2.0, 8.0, 3.0, 0.5, key="f6_opt_minsp")
+            min_sp = st.slider("Separación mín. (D)", 2.0, 8.0, 3.0, 0.5, key="f6_opt_minsp",
+                               help="Distancia mínima entre turbinas, en diámetros de rotor.")
 
         evals_est = popsize * 2 * n_turb * (maxiter + 1)
-        st.warning(
-            f"⏱️ Cada evaluación corre el motor de estelas completo (5-15 s). Con esta configuración son "
-            f"~{evals_est:,} evaluaciones → puede tardar **muchos minutos u horas**. Empiece con valores bajos "
-            f"y deje la ventana abierta. Área de búsqueda: x∈[{bounds_xy[0][0]:,.0f}, {bounds_xy[0][1]:,.0f}] m, "
-            f"y∈[{bounds_xy[1][0]:,.0f}, {bounds_xy[1][1]:,.0f}] m ({n_turb} turbinas)."
+        st.markdown(
+            _badge_html(
+                _es_num(f"Cada evaluación corre el motor de estelas completo (5-15 s): ~{evals_est:,} evaluaciones, "
+                        "puede tardar muchos minutos. Empiece con valores bajos y deje la ventana abierta."),
+                "warn",
+            ),
+            unsafe_allow_html=True,
         )
+        st.caption(_es_num(
+            f"Área de búsqueda: x ∈ [{bounds_xy[0][0]:,.0f}, {bounds_xy[0][1]:,.0f}] m · "
+            f"y ∈ [{bounds_xy[1][0]:,.0f}, {bounds_xy[1][1]:,.0f}] m · {n_turb} turbinas"
+        ))
 
-        if st.button("Optimizar layout", key="f6_opt_btn", type="primary"):
+        if st.button("🧬 Optimizar layout", key="f6_opt_btn", type="primary", use_container_width=True):
             import time as _time
 
             import layout_optimizer as lopt
@@ -2728,13 +2951,13 @@ def _render_card_optimizador() -> None:
                             ambient_ti=ambient_ti, h_hub=h_hub,
                         )
                         t_eval = _time.perf_counter() - t0
-                        status.write(
+                        status.write(_es_num(
                             f"AEP del layout actual: {aep_orig:,.0f} MWh/año · "
                             f"1 evaluación = {t_eval:.1f} s → estimado total ≈ {evals_est * t_eval / 60.0:,.0f} min"
-                        )
+                        ))
 
                         def _cb(it, aep_it):
-                            status.write(f"Generación {it}/{maxiter}: mejor AEP = {aep_it:,.0f} MWh/año")
+                            status.write(_es_num(f"Generación {it}/{maxiter}: mejor AEP = {aep_it:,.0f} MWh/año"))
 
                         df_opt, aep_opt, history = lopt.optimizar_layout_scipy(
                             n_turb, df_curva, df_nasa, diametro, ct, kw,
@@ -2753,6 +2976,7 @@ def _render_card_optimizador() -> None:
 
         res = st.session_state.get("f6_opt_result")
         if not res:
+            st.markdown(_f6_esquema_optim("optim"), unsafe_allow_html=True)
             return
         if res.get("error"):
             st.error(res["error"])
@@ -2762,41 +2986,37 @@ def _render_card_optimizador() -> None:
         delta_pct = (aep_n - aep_o) / aep_o * 100.0 if aep_o > 0 else 0.0
         st.markdown(
             _kpi_html([
-                ("layout", "AEP layout actual", f"{aep_o:,.0f} MWh/año", "según motor de estelas 16 sectores"),
-                ("activity", "AEP optimizado", f"{aep_n:,.0f} MWh/año", ""),
-                ("arrow", "Mejora", f"{delta_pct:+.2f}%", f"{aep_n - aep_o:+,.0f} MWh/año"),
-                ("target", "Turbinas", str(len(res["df_opt"])), "mismo número que Fase 4"),
-            ]),
+                ("⚡", "AEP layout actual", f"{aep_o:,.0f} MWh/año", "motor de estelas 16 sectores", _F6_GRIS),
+                ("🚀", "AEP optimizado", f"{aep_n:,.0f} MWh/año", f"{delta_pct:+.2f} % vs actual", _F6_VERDE),
+                ("📈", "Mejora", f"{delta_pct:+.2f} %", f"{aep_n - aep_o:+,.0f} MWh/año", _F6_VIOLETA),
+                ("🌀", "Turbinas", str(len(res["df_opt"])), "mismo número que Fase 4", _F6_AZUL),
+            ], n=2),
             unsafe_allow_html=True,
         )
-
-        import plotly.graph_objects as go
-
+        st.markdown(
+            _badge_html(
+                _es_num(f"El layout optimizado produce {delta_pct:+.2f} % de energía") if delta_pct > 0.01
+                else "El layout actual ya es muy bueno: la optimización no encontró una mejora apreciable",
+                "ok" if delta_pct > 0.01 else "info",
+            ),
+            unsafe_allow_html=True,
+        )
         hist = res.get("history") or {}
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if hist.get("iter"):
-                fig_h = go.Figure(go.Scatter(x=hist["iter"], y=hist["best_aep"],
-                                             mode="lines+markers", line={"color": "#0d9488"}))
-                fig_h.update_layout(height=360, margin={"l": 10, "r": 10, "t": 30, "b": 10},
-                                    title="Convergencia", xaxis_title="Generación",
-                                    yaxis_title="Mejor AEP (MWh/año)")
-                st.plotly_chart(fig_h, use_container_width=True, key="f6_opt_conv")
-        with col_b:
-            fig_m = go.Figure()
-            fig_m.add_scatter(x=res["df_orig"]["x_m"], y=res["df_orig"]["y_m"], mode="markers+text",
-                              text=res["df_orig"]["turbina_id"], textposition="top center",
-                              marker={"size": 12, "color": "#94a3b8", "symbol": "circle"}, name="Actual")
-            fig_m.add_scatter(x=res["df_opt"]["x_m"], y=res["df_opt"]["y_m"], mode="markers+text",
-                              text=res["df_opt"]["turbina_id"], textposition="bottom center",
-                              marker={"size": 12, "color": "#0d9488", "symbol": "x"}, name="Optimizado")
-            fig_m.update_layout(height=360, margin={"l": 10, "r": 10, "t": 30, "b": 10},
-                                title="Layout antes vs después", yaxis={"scaleanchor": "x"})
-            st.plotly_chart(fig_m, use_container_width=True, key="f6_opt_map")
-
-        st.dataframe(res["df_opt"], hide_index=True, use_container_width=True)
+        if hist.get("iter"):
+            st.markdown(
+                _f6_fig_html("Convergencia · mejor AEP por generación", _f6_convergencia_svg(hist["iter"], hist["best_aep"])),
+                unsafe_allow_html=True,
+            )
+        st.markdown(
+            _f6_fig_html("Layout antes → después · pase el cursor por cada turbina",
+                         _f6_layout_antes_despues_svg(res["df_orig"], res["df_opt"]),
+                         [("Posición actual", _F6_GRIS), ("Posición optimizada", _F6_VIOLETA), ("Desplazamiento", "#a78bfa")]),
+            unsafe_allow_html=True,
+        )
+        with st.expander("📋 Coordenadas del layout optimizado"):
+            st.dataframe(res["df_opt"], hide_index=True, use_container_width=True)
         nombre_esc = st.text_input("Nombre del escenario", value="Layout optimizado (DE)", key="f6_opt_nombre")
-        if st.button("Guardar como escenario de Fase 4", key="f6_opt_guardar"):
+        if st.button("💾 Guardar como escenario de Fase 4", key="f6_opt_guardar", use_container_width=True):
             from db import guardar_escenario_parque
 
             guardar_escenario_parque(
@@ -2806,6 +3026,8 @@ def _render_card_optimizador() -> None:
                 {"aep_optimizado_mwh": aep_n, "aep_original_mwh": aep_o, "delta_pct": delta_pct},
             )
             st.success("Escenario guardado — compárelo en Fase 4 (el layout activo NO se modifica).")
+        with st.expander("💡 ¿Cómo funciona?"):
+            st.markdown(_f6_esquema_optim("optim"), unsafe_allow_html=True)
 
 
 def _render_card_repowering() -> None:
@@ -2813,67 +3035,99 @@ def _render_card_repowering() -> None:
 
     with st.container(border=True, key="f6_card_repower"):
         _section_header(
-            "Fin de vida: decommission · repowering · life extension",
-            "Comparación de NPV de los tres caminos al final de la vida útil del parque.",
-            "trending-down",
+            "Fin de vida · repotenciación",
+            "Desmantelar, repotenciar o extender la vida: cuál deja más valor (VPN)",
+            "♻️",
         )
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2 = st.columns(2)
         with c1:
             cap_mw = st.number_input("Capacidad (MW)", 0.0, 5000.0,
                                      _cfg_float(config, "f5_potencia_instalada_mw", 0.0), 1.0, key="f6_rep_cap")
         with c2:
             aep = st.number_input("AEP actual (MWh/año)", 0.0, 10_000_000.0,
                                   _cfg_float(config, "f5_aep_neta_total_mwh", 0.0), 100.0, key="f6_rep_aep")
+        c3, c4 = st.columns(2)
         with c3:
             tasa = st.number_input("Tasa de descuento (%)", 1.0, 25.0,
                                    _cfg_float(config, "f5_tasa_descuento_pct", 8.0), 0.5, key="f6_rep_tasa")
         with c4:
             ppa = st.number_input("Precio PPA (USD/MWh)", 10.0, 300.0,
-                                  _cfg_float(config, "f5_precio_energia_mwh", 60.0), 1.0, key="f6_rep_ppa")
+                                  _cfg_float(config, "f5_precio_energia_mwh", 60.0), 1.0, key="f6_rep_ppa",
+                                  help="Precio de venta de la energía en el contrato (PPA).")
 
         if cap_mw <= 0 or aep <= 0:
-            st.info("Complete la Fase 5 (capacidad y AEP) o escriba los valores arriba.")
+            st.markdown(_badge_html("Complete la Fase 5 (capacidad y AEP) o escriba los valores arriba.", "info"),
+                        unsafe_allow_html=True)
+            st.markdown(_f6_esquema_optim("repower"), unsafe_allow_html=True)
             return
 
         df_esc, recomendado = repo.comparar_escenarios_fin_vida(cap_mw, aep, tasa, ppa)
         etiquetas = {"decommission": "Desmantelar", "repowering": "Repotenciar", "life_extension": "Extender vida"}
+        iconos = {"decommission": "🏚️", "repowering": "🔄", "life_extension": "⏳"}
+        colores = {"decommission": _F6_GRIS, "repowering": _F6_AZUL, "life_extension": _F6_AZUL}
         st.markdown(
-            _badge_html(f"Escenario recomendado por NPV: {etiquetas.get(recomendado, recomendado)}", "ok"),
+            _badge_html(f"Recomendado por VPN: {etiquetas.get(recomendado, recomendado).upper()}", "ok"),
             unsafe_allow_html=True,
         )
+
+        def _musd(v) -> str:
+            return _es_num(f"{float(v) / 1e6:,.2f}") + " MUSD"
+
+        tiles, filas = [], []
+        for _, r in df_esc.iterrows():
+            e = r["Escenario"]
+            etq = etiquetas.get(e, str(e))
+            rec = e == recomendado
+            vida = float(r.get("Vida adicional (años)", 0) or 0)
+            tiles.append(
+                f'<div class="f6-esc{" rec" if rec else ""}"><div class="f6-esc-i">{iconos.get(e, "•")}</div>'
+                f"<b>{_escape(etq)}</b><span class=\"f6-esc-v\">{_escape(_musd(r['NPV (USD)']))}</span><small>VPN</small>"
+                f"<i>CAPEX {_escape(_musd(r['CAPEX (USD)']))}"
+                + (f" · +{_escape(_es_num(f'{vida:.0f}'))} años" if vida > 0 else "")
+                + "</i></div>"
+            )
+            tip = _es_num(
+                f"{etq}\nVPN: {float(r['NPV (USD)']) / 1e6:,.2f} MUSD\nCAPEX: {float(r['CAPEX (USD)']) / 1e6:,.2f} MUSD\n"
+                f"AEP posterior: {float(r.get('AEP post (MWh/año)', 0) or 0):,.0f} MWh/año\n"
+                f"Flujo de caja anual: {float(r.get('FCF anual (USD)', 0) or 0) / 1e6:,.2f} MUSD\nVida adicional: {vida:.0f} años"
+            )
+            filas.append((etq, float(r["NPV (USD)"]), _F6_VERDE if rec else colores.get(e, _F6_GRIS), tip))
+        st.markdown(f'<div class="f6-escs">{"".join(tiles)}</div>', unsafe_allow_html=True)
+        st.markdown(
+            _f6_fig_html("VPN por escenario · MUSD", _f6_vbars_svg(filas),
+                         [("Recomendado", _F6_VERDE), ("Otras opciones", _F6_AZUL), ("Desmantelar", _F6_GRIS)]),
+            unsafe_allow_html=True,
+        )
+
         df_show = df_esc.copy()
         df_show["Escenario"] = df_show["Escenario"].map(etiquetas).fillna(df_show["Escenario"])
-        st.dataframe(
-            df_show,
-            hide_index=True,
-            use_container_width=True,
-            column_config={
-                "CAPEX (USD)": st.column_config.NumberColumn(format="%.0f"),
-                "AEP post (MWh/año)": st.column_config.NumberColumn(format="%.0f"),
-                "FCF anual (USD)": st.column_config.NumberColumn(format="%.0f"),
-                "NPV (USD)": st.column_config.NumberColumn(format="%.0f"),
-            },
-        )
-
-        import plotly.graph_objects as go
-
-        fig = go.Figure(go.Bar(
-            x=[etiquetas.get(e, e) for e in df_esc["Escenario"]],
-            y=df_esc["NPV (USD)"],
-            marker_color=["#16a34a" if e == recomendado else "#94a3b8" for e in df_esc["Escenario"]],
-        ))
-        fig.update_layout(height=340, margin={"l": 10, "r": 10, "t": 30, "b": 10},
-                          title="NPV por escenario (USD)")
-        st.plotly_chart(fig, use_container_width=True, key="f6_rep_bar")
+        df_show = df_show.rename(columns={"NPV (USD)": "VPN (USD)", "FCF anual (USD)": "Flujo de caja anual (USD)"})
+        with st.expander("📋 Tabla de escenarios"):
+            st.dataframe(
+                df_show,
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "CAPEX (USD)": st.column_config.NumberColumn(format="%.0f"),
+                    "AEP post (MWh/año)": st.column_config.NumberColumn(format="%.0f"),
+                    "Flujo de caja anual (USD)": st.column_config.NumberColumn(format="%.0f"),
+                    "VPN (USD)": st.column_config.NumberColumn(format="%.0f"),
+                },
+            )
         st.caption(
-            "Supuestos por defecto: decommission 40k USD/MW (scrap 15k), repowering 900k USD/MW con +30% AEP y 25 años, "
-            "life extension 200k USD/MW con −5% AEP y 10 años."
+            "Supuestos por defecto: desmantelar 40k USD/MW (chatarra 15k), repotenciar 900k USD/MW con +30 % AEP "
+            "y 25 años, extender vida 200k USD/MW con −5 % AEP y 10 años."
         )
+        with st.expander("💡 ¿Cómo se decide?"):
+            st.markdown(_f6_esquema_optim("repower"), unsafe_allow_html=True)
 
 
 def _render_optimizacion() -> None:
-    _render_card_optimizador()
-    _render_card_repowering()
+    col_a, col_b = st.columns(2, gap="medium")
+    with col_a:
+        _render_card_optimizador()
+    with col_b:
+        _render_card_repowering()
 
 
 def _render_auditoria() -> None:
