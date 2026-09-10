@@ -486,6 +486,51 @@ div[data-testid="stButton"]>button[kind="primary"]:hover{filter:brightness(1.05)
   font-weight:900;color:#0f766e;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:8px 12px}
 .f6-audit-tbl td.id{font-family:ui-monospace,Consolas,monospace;font-weight:800;color:#475569;white-space:nowrap}
 .f6-audit-tbl td:nth-child(3){white-space:nowrap}
+/* ════════ Simetría y espacios (F6) ════════ */
+/* Parejas de cards en columnas: misma altura (la más corta se estira hasta la otra).
+   stColumn es display:block por defecto → sin flex su bloque interior no puede crecer. */
+#root div[data-testid="stColumn"]:has(> div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"] > [class*="st-key-f6_card_"]){
+  display:flex !important;flex-direction:column !important}
+#root div[data-testid="stColumn"]:has(> div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"] > [class*="st-key-f6_card_"]) > div[data-testid="stVerticalBlock"]{
+  flex:1 1 auto !important}
+#root div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"]:has(> [class*="st-key-f6_card_"]){
+  flex:1 1 auto !important;display:flex !important;flex-direction:column !important}
+#root div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"] > [class*="st-key-f6_card_"]{
+  flex:1 1 auto !important;height:auto !important;margin-bottom:0 !important}
+#root div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"] > [class*="st-key-f6_card_"]){
+  margin-bottom:16px !important;align-items:stretch !important}
+/* Figuras de proporción fija: tope de tamaño para que no se agiganten en pantallas anchas */
+.f6-fig svg{margin:0 auto}
+.f6-fig svg[viewBox="0 0 300 244"]{max-width:330px}
+.f6-fig svg[viewBox="0 0 300 222"]{max-width:400px}
+.f6-fig svg[viewBox="0 0 340 340"]{max-width:400px}
+.f6-fig svg[viewBox^="0 0 380 "]{max-width:580px}
+.f6-fig svg[viewBox^="0 0 520 "]{max-width:700px}
+.f6-fig svg[viewBox="0 0 520 424"]{max-width:560px}
+.f6-fig svg[viewBox^="0 0 516 "]{max-width:620px}
+.f6-how svg{max-width:720px;margin:0 auto}
+/* Barras horizontales HTML (texto de tamaño fijo a cualquier ancho) */
+.f6-hb{--lw:clamp(92px,34%,190px);position:relative;display:flex;flex-direction:column;gap:9px;padding:4px 2px 4px}
+.f6-hb.has-lims{padding-top:34px}
+.f6-hb-row{display:grid;grid-template-columns:var(--lw) minmax(0,1fr);gap:10px;align-items:center;cursor:help}
+.f6-hb-l{text-align:right;font-size:12px;font-weight:800;color:#475569;line-height:1.15;overflow-wrap:anywhere}
+.f6-hb-t{position:relative;display:block;height:24px;margin-right:78px}
+.f6-hb-b{position:absolute;left:0;top:0;bottom:0;width:var(--w);border-radius:8px;
+  box-shadow:inset 0 7px 0 rgba(255,255,255,.22);transition:filter .15s}
+.f6-hb-row:hover .f6-hb-b{filter:brightness(1.1) saturate(1.1)}
+.f6-hb-v{position:absolute;top:50%;left:calc(var(--w) + 7px);transform:translateY(-50%);white-space:nowrap;
+  font-size:12px;font-weight:900;color:#0b2447;font-variant-numeric:tabular-nums}
+.f6-hb-lims{position:absolute;left:calc(var(--lw) + 12px);right:80px;top:2px;bottom:4px;pointer-events:none;z-index:2}
+.f6-hb-lim{position:absolute;top:0;bottom:0;width:0;border-left:2.4px var(--ld,dashed) var(--lc)}
+.f6-hb-lim em{position:absolute;top:0;left:0;transform:translateX(-50%);font-style:normal;font-size:10.5px;font-weight:900;
+  color:var(--lc);white-space:nowrap;background:#fff;padding:0 4px;border-radius:6px}
+.f6-hb-lim:nth-child(2) em{top:15px}
+/* Sitio: dropzone teal y tono del '¿Cómo se calcula?' */
+.st-key-f6_card_flow [data-testid="stFileUploaderDropzone"]{
+  border:2px dashed color-mix(in srgb,#0d9488 45%,#fff) !important;border-radius:18px !important;
+  background:linear-gradient(180deg, color-mix(in srgb,#0d9488 6%,#fff), #fff) !important}
+.f6-how.teal{border-color:color-mix(in srgb,#0d9488 38%,#fff);background:linear-gradient(180deg, color-mix(in srgb,#0d9488 5%,#fff), #fff)}
+.f6-how.teal .f6-how-t{color:#0f766e}
 </style>
 """,
     unsafe_allow_html=True,
@@ -698,32 +743,217 @@ def _badge_html(texto: str, tono: str = "ok") -> str:
     )
 
 
+# -----------------------------------------------------------------------------
+# Sitio y cumplimiento · gráficos SVG Aurora (paridad mockup 06_fase6, teal).
+# Las funciones de dibujo usan helpers definidos más abajo (_f6_frame, _svg_t,
+# _f6_fig_html…); solo se invocan al renderizar, cuando ya existen.
+# -----------------------------------------------------------------------------
+_F6_SECT16 = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+
+
+def _f6_iec_limites_svg(limits: dict, v_ave: float, v_ref: float) -> str:
+    """Límites V_ave / V_ref de cada clase IEC (barras) vs velocidades del sitio (líneas)."""
+    clases = list(limits.keys())
+    if not clases:
+        return ""
+    vals = [float(limits[c].get("V_ave", 0) or 0) for c in clases] + [float(limits[c].get("V_ref", 0) or 0) for c in clases]
+    vals += [v for v in (v_ave, v_ref) if np.isfinite(v)]
+    hi = max(vals + [1.0]) * 1.14
+    W, H, L, R, T, B = 520, 300, 48, 104, 18, 36
+    p, sx, sy = _f6_frame(W, H, L, R, T, B, 0, len(clases), 0, hi, "", "m/s", x_ticks=False)
+    w = (sx(1) - sx(0)) * 0.28
+    for i, c in enumerate(clases):
+        xc = sx(i + 0.5)
+        for dx, key, col, nombre in ((-w / 2 - 2, "V_ave", "#99f6e4", "V_ave"), (w / 2 + 2, "V_ref", "#2dd4bf", "V_ref")):
+            v = float(limits[c].get(key, 0) or 0)
+            y = sy(v)
+            tip = _es_num(f"Clase {c} · límite {nombre}: {v:.1f} m/s")
+            p.append(
+                f'<g class="f6-bar"><title>{_svg_t(tip)}</title>'
+                f'<rect x="{xc + dx - w / 2:.1f}" y="{y:.1f}" width="{w:.1f}" height="{sy(0) - y:.1f}" rx="7" fill="{col}" stroke="#0d9488" stroke-opacity=".35"/>'
+                f'<text x="{xc + dx:.1f}" y="{y - 5:.1f}" text-anchor="middle" font-size="10" font-weight="900" fill="#0f766e">{_svg_t(_es_num(f"{v:.1f}"))}</text></g>'
+            )
+        p.append(f'<text x="{xc:.1f}" y="{H - 12}" text-anchor="middle" font-size="12" font-weight="900" fill="#475569">Clase {_svg_t(c)}</text>')
+    for v, col, etq in ((v_ave, _F6_VERDE, "V_ave sitio"), (v_ref, _F6_ROJO, "V_ref sitio")):
+        if not np.isfinite(v):
+            continue
+        y = sy(v)
+        p.append(
+            f'<g><title>{_svg_t(_es_num(f"{etq}: {v:.2f} m/s"))}</title>'
+            f'<line x1="{L}" y1="{y:.1f}" x2="{W - R + 6}" y2="{y:.1f}" stroke="{col}" stroke-width="2.4" stroke-dasharray="7 5"/>'
+            f'<text x="{W - R + 10}" y="{y - 2:.1f}" font-size="10.5" font-weight="900" fill="{col}">{_svg_t(etq)}</text>'
+            f'<text x="{W - R + 10}" y="{y + 11:.1f}" font-size="10.5" font-weight="900" fill="{col}">{_svg_t(_es_num(f"{v:.1f} m/s"))}</text></g>'
+        )
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_rosa_ti_svg(ti_dict: dict, fr_sector: dict) -> str:
+    """Rosa polar de turbulencia: TI observada (cuñas teal) y TI efectiva Frandsen (contorno)."""
+    sectores = [s for s in ti_dict if ti_dict.get(s) is not None and np.isfinite(float(ti_dict.get(s)))]
+    if not sectores:
+        return ""
+    obs = {s: float(ti_dict[s]) for s in sectores}
+    fr = {s: float(fr_sector[s]) for s in sectores if fr_sector.get(s) is not None and np.isfinite(float(fr_sector[s]))}
+    rmax_v = max(list(obs.values()) + list(fr.values()) + [1e-6]) * 1.08
+    CX, CY, RM = 170.0, 170.0, 128.0
+
+    def ang(s, i):
+        return _F6_SECT16.index(s) * 22.5 if s in _F6_SECT16 else i * 360.0 / len(sectores)
+
+    def xy(r, b):
+        a = np.radians(b - 90.0)
+        return CX + r * np.cos(a), CY + r * np.sin(a)
+
+    p = ['<svg viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg">']
+    for t in [v for v in _f6_ticks(0, rmax_v, 3) if v > 0]:
+        rr = t / rmax_v * RM
+        p.append(f'<circle cx="{CX}" cy="{CY}" r="{rr:.1f}" fill="none" stroke="#e3ecf8" stroke-width="1.2"/>'
+                 f'<text x="{CX + 4}" y="{CY - rr + 11:.1f}" font-size="9.5" font-weight="800" fill="#94a3b8">{_svg_t(_es_num(f"{t * 100:.0f}"))} %</text>')
+    for lbl, b in (("N", 0), ("NE", 45), ("E", 90), ("SE", 135), ("S", 180), ("SW", 225), ("W", 270), ("NW", 315)):
+        x2, y2 = xy(RM, b)
+        lx, ly = xy(RM + 20, b)
+        p.append(f'<line x1="{CX}" y1="{CY}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="#eef1fa" stroke-width="1"/>'
+                 f'<text x="{lx:.1f}" y="{ly + 4.5:.1f}" text-anchor="middle" font-size="13" font-weight="900" fill="#475569">{lbl}</text>')
+    half = 360.0 / max(16, len(sectores)) / 2.0 * 0.84
+    for i, s in enumerate(sectores):
+        b = ang(s, i)
+        r = obs[s] / rmax_v * RM
+        (x0, y0), (x1, y1) = xy(r, b - half), xy(r, b + half)
+        tip = _es_num(f"Sector {s}\nTI observada {obs[s] * 100:.1f} %" + (f"\nTI efectiva (Frandsen) {fr[s] * 100:.1f} %" if s in fr else ""))
+        g = [f'<g class="f6-seg"><title>{_svg_t(tip)}</title>'
+             f'<path d="M{CX},{CY} L{x0:.1f},{y0:.1f} A{r:.1f},{r:.1f} 0 0 1 {x1:.1f},{y1:.1f} Z" fill="#14b8a6" fill-opacity=".78" stroke="#fff" stroke-width="1.1"/>']
+        if s in fr:
+            rf = fr[s] / rmax_v * RM
+            (a0, b0), (a1, b1) = xy(rf, b - half), xy(rf, b + half)
+            g.append(f'<path d="M{a0:.1f},{b0:.1f} A{rf:.1f},{rf:.1f} 0 0 1 {a1:.1f},{b1:.1f}" fill="none" stroke="#115e59" stroke-width="2.6"/>')
+        g.append("</g>")
+        p.append("".join(g))
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _f6_color_div(t: float) -> str:
+    """Escala divergente centrada en 1,0: <1 azul claro, 1 blanco, >1 teal."""
+    t = max(-1.0, min(1.0, float(t)))
+    a = (248, 250, 252)
+    b = (59, 130, 246) if t < 0 else (13, 148, 136)
+    f = abs(t)
+    return "#%02x%02x%02x" % tuple(round(a[j] + (b[j] - a[j]) * f) for j in range(3))
+
+
+def _f6_speedup_svg(field) -> str:
+    """Campo de speedup orográfico (malla reducida a ≤ 48 celdas por lado) con tooltip por celda."""
+    f = np.asarray(field, dtype=float)
+    if f.ndim != 2 or not np.isfinite(f).any():
+        return ""
+    step = int(np.ceil(max(f.shape) / 48.0)) or 1
+    sub = f[::step, ::step]
+    ny, nx = sub.shape
+    W = 420.0
+    H = float(min(420.0, max(180.0, W * ny / nx)))
+    cw, ch = W / nx, H / ny
+    dev = float(np.nanmax(np.abs(sub - 1.0))) or 1e-6
+    p = [f'<svg viewBox="0 0 {W + 96:.0f} {H + 16:.0f}" xmlns="http://www.w3.org/2000/svg">',
+         '<defs><linearGradient id="f6spgrad" x1="0" y1="1" x2="0" y2="0">'
+         '<stop offset="0" stop-color="#3b82f6"/><stop offset=".5" stop-color="#f8fafc"/><stop offset="1" stop-color="#0d9488"/>'
+         "</linearGradient></defs>"]
+    for j in range(ny):
+        for i in range(nx):
+            v = sub[j, i]
+            if not np.isfinite(v):
+                continue
+            tip = _es_num(f"celda ({j * step}, {i * step})\nspeedup {v:.3f}")
+            p.append(f'<rect x="{8 + i * cw:.1f}" y="{8 + j * ch:.1f}" width="{cw + 0.4:.1f}" height="{ch + 0.4:.1f}" '
+                     f'fill="{_f6_color_div((v - 1.0) / dev)}"><title>{_svg_t(tip)}</title></rect>')
+    lx = W + 28
+    p.append(
+        f'<rect x="{lx}" y="8" width="16" height="{H:.0f}" rx="6" fill="url(#f6spgrad)" stroke="#d8e5f5"/>'
+        f'<text x="{lx + 22}" y="18" font-size="10" font-weight="900" fill="#0f766e">{_svg_t(_es_num(f"{1 + dev:.2f}"))}</text>'
+        f'<text x="{lx + 22}" y="{8 + H / 2 + 4:.1f}" font-size="10" font-weight="900" fill="#475569">1,00</text>'
+        f'<text x="{lx + 22}" y="{8 + H:.0f}" font-size="10" font-weight="900" fill="#1d4ed8">{_svg_t(_es_num(f"{1 - dev:.2f}"))}</text>'
+        "</svg>"
+    )
+    return "".join(p)
+
+
+def _f6_esquema_sitio(tipo: str) -> str:
+    """Esquemas '¿Cómo se calcula?' de terreno y clima frío (tono teal)."""
+    if tipo == "flow":
+        flechas = "".join(
+            f'<path d="M{x0},{y} L{x0 + ln},{y}" stroke="#0d9488" stroke-width="{sw}" stroke-linecap="round" class="f6-flow" stroke-dasharray="9 6"/>'
+            f'<path d="M{x0 + ln - 7},{y - 5} L{x0 + ln},{y} L{x0 + ln - 7},{y + 5}" fill="none" stroke="#0d9488" stroke-width="{sw}" stroke-linecap="round"/>'
+            for x0, y, ln, sw in ((40, 96, 60, 2.2), (228, 42, 110, 3.4), (430, 104, 46, 2))
+        )
+        svg = (
+            '<svg viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg">'
+            '<path d="M0,150 C120,148 180,70 280,62 C380,70 440,148 560,150 L560,160 L0,160 Z" fill="#ccfbf1" stroke="#5eead4" stroke-width="2"/>'
+            + flechas + _f6_turbina_svg(280, 64, "", "Turbina en la cresta", 1.2, color="#0d9488", oscuro="#115e59")
+            + '<text x="283" y="22" text-anchor="middle" font-size="11" font-weight="900" fill="#0f766e">cresta: el viento acelera (speedup &gt; 1)</text>'
+            '<text x="70" y="126" text-anchor="middle" font-size="10" font-weight="800" fill="#1d4ed8">llano/valle: &lt; 1</text>'
+            '<text x="470" y="128" text-anchor="middle" font-size="10" font-weight="800" fill="#1d4ed8">sotavento: se frena</text>'
+            "</svg>"
+        )
+        titulo = "💡 ¿Cómo se calcula?"
+        txt = ("El modelo lineal de Jackson-Hunt estima cuánto se acelera el viento al pasar sobre colinas suaves a partir "
+               "del mapa de elevación (DEM). Solo es válido con pendientes menores de 15°; en terreno complejo use CFD/WindNinja.")
+    else:
+        copo = "".join(
+            f'<line x1="{430 + 16 * np.cos(a):.1f}" y1="{70 + 16 * np.sin(a):.1f}" x2="{430 - 16 * np.cos(a):.1f}" y2="{70 - 16 * np.sin(a):.1f}" '
+            'stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+            for a in (0, np.pi / 3, 2 * np.pi / 3)
+        )
+        svg = (
+            '<svg viewBox="0 0 560 150" xmlns="http://www.w3.org/2000/svg">'
+            '<rect x="52" y="24" width="18" height="84" rx="9" fill="#fff" stroke="#94a3b8" stroke-width="2"/>'
+            '<rect x="56" y="70" width="10" height="36" rx="5" fill="#38bdf8"/><circle cx="61" cy="114" r="13" fill="#38bdf8"/>'
+            '<text x="61" y="146" text-anchor="middle" font-size="10" font-weight="900" fill="#0369a1">T &lt; 0 °C</text>'
+            '<g font-size="10" font-weight="900">'
+            '<rect x="102" y="30" width="150" height="26" rx="13" fill="#f0f9ff" stroke="#bae6fd"/><text x="177" y="47" text-anchor="middle" fill="#0369a1">🌡️ temperatura bajo cero</text>'
+            '<rect x="102" y="64" width="150" height="26" rx="13" fill="#f0f9ff" stroke="#bae6fd"/><text x="177" y="81" text-anchor="middle" fill="#0369a1">💧 humedad alta / niebla</text>'
+            '<rect x="102" y="98" width="150" height="26" rx="13" fill="#f0f9ff" stroke="#bae6fd"/><text x="177" y="115" text-anchor="middle" fill="#0369a1">⏱️ = horas de hielo al año</text>'
+            "</g>"
+            '<path d="M262,77 L352,77" stroke="#38bdf8" stroke-width="3" stroke-dasharray="7 6" class="f6-flow"/>'
+            + copo + _f6_turbina_svg(510, 128, "", "Hielo en las palas", 1.6, color="#7dd3fc", oscuro="#0369a1")
+            + '<text x="430" y="112" text-anchor="middle" font-size="10" font-weight="900" fill="#0369a1">pérdida de AEP</text>'
+            "</svg>"
+        )
+        titulo = "💡 ¿Cómo se calcula?"
+        txt = ("Con la serie de temperatura (y humedad, si existe) se cuentan las horas en que se puede formar hielo "
+               "en las palas (IEA Wind Task 19). Según la severidad se aplica un derate al AEP neto. En sitios bajos y "
+               "cálidos normalmente no aplica.")
+    return f'<div class="f6-how teal"><div class="f6-how-t">{titulo}</div>{svg}<p>{_escape(txt)}</p></div>'
+
+
 def _render_card_iec() -> None:
     import calculos_iec_site as iec
 
     with st.container(border=True, key="f6_card_iec"):
         _section_header(
-            "Idoneidad del sitio (IEC 61400-1 Ed.4)",
-            "V_ref, V_50, V_e1/V_e50 desde Weibull del sitio + turbulencia efectiva Frandsen por sector.",
+            "Idoneidad del sitio · IEC 61400-1 Ed.4",
+            "V_ref, V_50, extremos del viento y turbulencia efectiva Frandsen por sector",
             "target",
         )
         clase_decl = str(config.get("f5_iec_clase_declarada") or "II")
         turb_decl = str(config.get("f5_iec_turb_declarada") or "B")
-        st.caption(
-            f"Clase declarada en Fase 5: **{clase_decl}** · subclase TI **{turb_decl}**. "
-            "Este estudio amplía la validación rápida de Fase 5 con velocidades extremas y Frandsen sectorial."
+        st.markdown(
+            f'<div class="f6-pills"><span class="f6-pill info">🏷️ Clase declarada en Fase 5: {_escape(clase_decl)} · TI {_escape(turb_decl)}</span>'
+            '<span class="f6-pill info">🌪️ V_ref 50 años (Gumbel)</span>'
+            '<span class="f6-pill info">σ TI efectiva por sector (Frandsen)</span></div>',
+            unsafe_allow_html=True,
         )
         c1, c2, c3 = st.columns(3)
         with c1:
             n_vecinos = st.number_input(
-                "Turbinas vecinas por sector", min_value=0, max_value=10,
+                "Vecinas por sector", min_value=0, max_value=10,
                 value=2, step=1, key="f6_iec_n_vecinos",
-                help="N de turbinas que generan turbulencia de estela en el sector (Frandsen).",
+                help="Nº de turbinas que generan turbulencia de estela en el sector (Frandsen).",
             )
         with c2:
             dist_d = st.number_input(
-                "Distancia entre turbinas (D)", min_value=1.0, max_value=20.0,
+                "Distancia (D)", min_value=1.0, max_value=20.0,
                 value=_cfg_float(config, "f4_dx_D", 5.0), step=0.5, key="f6_iec_dist_d",
+                help="Distancia entre turbinas en diámetros de rotor.",
             )
         with c3:
             ct_iec = st.number_input(
@@ -731,7 +961,7 @@ def _render_card_iec() -> None:
                 value=_cfg_float(config, "f4_ct", 0.8), step=0.05, key="f6_iec_ct",
             )
 
-        if st.button("Evaluar idoneidad IEC", key="f6_iec_btn", type="primary"):
+        if st.button("▶️ Evaluar idoneidad IEC", key="f6_iec_btn", type="primary"):
             with st.spinner("Calculando Weibull del sitio y TI sectorial…"):
                 serie = _get_serie_horaria_parque()
                 if serie is None:
@@ -758,10 +988,10 @@ def _render_card_iec() -> None:
                         "c": c_site,
                         "clase_decl": clase_decl,
                     }
-            st.caption(_F6_SERIE_CAPTION)
 
         res = st.session_state.get("f6_iec_result")
         if not res:
+            st.caption(_F6_SERIE_CAPTION)
             return
         if res.get("error"):
             st.warning(res["error"])
@@ -775,7 +1005,7 @@ def _render_card_iec() -> None:
                 ("σ", "Subclase TI", str(summary.get("Subclase TI", "—")),
                  f"TI_eff(15) = {summary.get('TI_eff(15)', float('nan')):.3f}", "#d97706"),
                 ("💨", "V_ave del sitio", f"{summary.get('V_ave (m/s)', float('nan')):.2f} m/s",
-                 f"Weibull k={res.get('k', float('nan')):.2f}, c={res.get('c', float('nan')):.2f}", "#2563eb"),
+                 f"Weibull k = {res.get('k', float('nan')):.2f} · c = {res.get('c', float('nan')):.2f}", "#2563eb"),
                 ("🌪️", "V_ref (50 años)", f"{summary.get('V_ref (m/s)', float('nan')):.2f} m/s",
                  f"V_50 = {summary.get('V_50 (m/s)', float('nan')):.2f} m/s", "#0d9488"),
             ]),
@@ -791,7 +1021,8 @@ def _render_card_iec() -> None:
             ok_decl = all(v == "OK" for v in checks)
             st.markdown(
                 _badge_html(
-                    f"El sitio {'CUMPLE' if ok_decl else 'EXCEDE'} los límites de la clase declarada {decl}",
+                    f"El sitio {'CUMPLE' if ok_decl else 'EXCEDE'} los límites de la clase declarada {decl}"
+                    + ("" if ok_decl else " — considere clase S o una turbina de clase superior"),
                     "ok" if ok_decl else "bad",
                 ),
                 unsafe_allow_html=True,
@@ -799,51 +1030,26 @@ def _render_card_iec() -> None:
         else:
             st.markdown(_badge_html("Clase declarada S: requiere diseño específico del fabricante", "warn"), unsafe_allow_html=True)
 
-        import plotly.graph_objects as go
-
-        # Velocidades del sitio vs límites de cada clase IEC (visual de cumplimiento).
-        col_g1, col_g2 = st.columns(2)
+        ti_dict = res.get("ti_dict") or {}
+        fr_sector = (res.get("frandsen") or {}).get("ti_eff_por_sector") or {}
+        col_g1, col_g2 = st.columns([1.15, 1], gap="medium")
         with col_g1:
-            clases = list(iec.IEC_CLASS_LIMITS.keys())
-            fig_lim = go.Figure()
-            fig_lim.add_bar(
-                x=clases, y=[iec.IEC_CLASS_LIMITS[c]["V_ave"] for c in clases],
-                name="Límite V_ave", marker_color="#99f6e4",
-            )
-            fig_lim.add_bar(
-                x=clases, y=[iec.IEC_CLASS_LIMITS[c]["V_ref"] for c in clases],
-                name="Límite V_ref", marker_color="#5eead4",
-            )
             v_ave_sitio = float(summary.get("V_ave (m/s)", float("nan")))
             v_ref_sitio = float(summary.get("V_ref (m/s)", float("nan")))
-            fig_lim.add_hline(y=v_ave_sitio, line_dash="dash", line_color=_F6_VERDE,
-                              annotation_text=f"V_ave sitio {v_ave_sitio:.1f}",
-                              annotation_font_color=_F6_VERDE)
-            fig_lim.add_hline(y=v_ref_sitio, line_dash="dash", line_color=_F6_ROJO,
-                              annotation_text=f"V_ref sitio {v_ref_sitio:.1f}",
-                              annotation_font_color=_F6_ROJO)
-            fig_lim.update_layout(barmode="group", yaxis_title="m/s")
-            st.plotly_chart(_f6_fig_layout(fig_lim, "Sitio vs límites de clase IEC", 380),
-                            use_container_width=True, key="f6_iec_limites")
+            st.markdown(
+                _f6_fig_html("Sitio vs límites de clase · m/s",
+                             _f6_iec_limites_svg(iec.IEC_CLASS_LIMITS, v_ave_sitio, v_ref_sitio),
+                             [("Límite V_ave", "#99f6e4"), ("Límite V_ref", "#2dd4bf"), ("V_ave sitio", _F6_VERDE), ("V_ref sitio", _F6_ROJO)]),
+                unsafe_allow_html=True,
+            )
         with col_g2:
-            ti_dict = res.get("ti_dict") or {}
-            fr_sector = (res.get("frandsen") or {}).get("ti_eff_por_sector") or {}
-            sectores = [s for s in ti_dict if ti_dict.get(s) == ti_dict.get(s)]
-            if sectores:
-                fig_ti = go.Figure()
-                fig_ti.add_trace(go.Barpolar(
-                    r=[ti_dict[s] for s in sectores], theta=sectores,
-                    name="TI observada", marker_color=_F6_TEAL, opacity=0.78,
-                ))
-                fr_vals = [fr_sector.get(s) for s in sectores]
-                if any(v == v for v in fr_vals if v is not None):
-                    fig_ti.add_trace(go.Barpolar(
-                        r=fr_vals, theta=sectores,
-                        name="TI efectiva (Frandsen)", marker_color=_F6_TEAL2, opacity=0.5,
-                    ))
-                fig_ti.update_layout(polar={"radialaxis": {"tickfont": {"size": 9}}})
-                st.plotly_chart(_f6_fig_layout(fig_ti, "Rosa de turbulencia por sector", 380),
-                                use_container_width=True, key="f6_iec_rosa_ti")
+            svg_ti = _f6_rosa_ti_svg(ti_dict, fr_sector)
+            if svg_ti:
+                st.markdown(
+                    _f6_fig_html("Rosa de turbulencia por sector", svg_ti,
+                                 [("TI observada", "#14b8a6"), ("TI efectiva (Frandsen)", "#115e59")]),
+                    unsafe_allow_html=True,
+                )
 
         filas_lim = []
         for clase_id, limits in iec.IEC_CLASS_LIMITS.items():
@@ -852,7 +1058,7 @@ def _render_card_iec() -> None:
                 fila[f"{param} límite (m/s)"] = lim
                 fila[f"{param} estado"] = summary.get(f"Clase {clase_id} — {param} (limite={lim})", "—")
             filas_lim.append(fila)
-        with st.expander("Tablas de detalle (límites por clase y TI por sector)"):
+        with st.expander("📋 Tablas de detalle (límites por clase y TI por sector)"):
             st.dataframe(pd.DataFrame(filas_lim), hide_index=True, use_container_width=True)
             df_ti = pd.DataFrame({
                 "Sector": list(ti_dict.keys()),
@@ -861,39 +1067,44 @@ def _render_card_iec() -> None:
             })
             st.dataframe(df_ti, hide_index=True, use_container_width=True)
         st.caption(
-            "Estimadores rápidos (Tubino 2014, Frandsen). No sustituyen un site assessment certificado."
+            "Estimadores rápidos (Tubino 2014, Frandsen). No sustituyen una evaluación de sitio certificada. " + _F6_SERIE_CAPTION
         )
 
 
 def _render_card_flow() -> None:
     with st.container(border=True, key="f6_card_flow"):
         _section_header(
-            "Flujo sobre terreno (modelo lineal Jackson-Hunt)",
-            "Speedup orográfico aproximado sobre colinas suaves (pendientes < 15°). No sustituye WAsP/CFD.",
+            "Flujo sobre terreno · Jackson-Hunt",
+            "Aceleración del viento por la orografía a partir de su mapa de elevación",
             "waves",
         )
-        st.caption(
-            "Suba la elevación del terreno como grid 2-D numérico: `.npy` o `.csv` sin encabezados "
-            "(exportable desde QGIS como ASCII/CSV). El pipeline GeoTIFF/rasterio no está instalado."
+        st.markdown(
+            '<div class="f6-pills"><span class="f6-pill info">🗻 Grid de elevación .csv / .npy</span>'
+            '<span class="f6-pill info">exportable desde QGIS (ASCII/CSV)</span></div>',
+            unsafe_allow_html=True,
         )
         dem_file = st.file_uploader("Grid de elevación (.csv / .npy)", type=["csv", "npy"], key="f6_flow_dem")
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
         with c1:
             pixel_m = st.number_input(
-                "Tamaño de celda (m)", min_value=1.0, max_value=1000.0,
+                "Celda (m)", min_value=1.0, max_value=1000.0,
                 value=_cfg_float(config, "f6_flow_pixel_m", 30.0), step=1.0, key="f6_flow_pixel",
+                help="Tamaño de cada celda del grid de elevación.",
             )
         with c2:
             l_hill_in = st.number_input(
-                "L_hill (m) — 0 = automático", min_value=0.0, max_value=10000.0,
+                "L_hill (m) · 0 = auto", min_value=0.0, max_value=10000.0,
                 value=_cfg_float(config, "f6_flow_l_hill_m", 0.0), step=50.0, key="f6_flow_lhill",
-                help="Longitud característica de las colinas. 0 lo estima desde el tamaño del grid.",
+                help="Longitud característica de las colinas. 0 la estima desde el tamaño del grid.",
             )
-        with c3:
-            h_hub_flow = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
-            st.metric("Altura de buje (Fase 5)", f"{h_hub_flow:.0f} m")
+        h_hub_flow = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
+        st.markdown(
+            f'<div class="f6-pills"><span class="f6-pill info">🗼 Altura de buje (Fase 5): {_escape(_es_num(f"{h_hub_flow:.0f}"))} m</span></div>',
+            unsafe_allow_html=True,
+        )
 
-        if st.button("Calcular speedup orográfico", key="f6_flow_btn", type="primary", disabled=dem_file is None):
+        if st.button("⛰️ Calcular speedup orográfico", key="f6_flow_btn", type="primary", disabled=dem_file is None,
+                     use_container_width=True):
             import io
 
             import linear_flow_model as lfm
@@ -932,6 +1143,7 @@ def _render_card_flow() -> None:
 
         res = st.session_state.get("f6_flow_result")
         if not res:
+            st.markdown(_f6_esquema_sitio("flow"), unsafe_allow_html=True)
             return
         if res.get("error"):
             st.warning(res["error"])
@@ -940,15 +1152,15 @@ def _render_card_flow() -> None:
         stats = res["stats"]
         st.markdown(
             _kpi_html([
-                ("arrow", "Speedup medio", f"{stats.get('speedup_media', float('nan')):.3f}",
-                 f"σ = {stats.get('speedup_std', float('nan')):.3f}"),
-                ("activity", "Speedup máximo", f"{stats.get('speedup_max', float('nan')):.3f}",
-                 f"mínimo = {stats.get('speedup_min', float('nan')):.3f}"),
-                ("waves", "Pendiente p95", f"{stats.get('slope_p95_deg', float('nan')):.1f}°",
-                 f"máxima = {stats.get('slope_max_deg', float('nan')):.1f}°"),
-                ("target-height", "L_hill usado", f"{stats.get('L_hill_usado_m', float('nan')):,.0f} m",
-                 f"buje = {stats.get('h_hub_usado_m', float('nan')):.0f} m"),
-            ]),
+                ("↗️", "Speedup medio", f"{stats.get('speedup_media', float('nan')):.3f}",
+                 f"σ = {stats.get('speedup_std', float('nan')):.3f}", "#0d9488"),
+                ("🚀", "Speedup máximo", f"{stats.get('speedup_max', float('nan')):.3f}",
+                 f"mínimo = {stats.get('speedup_min', float('nan')):.3f}", _F6_VERDE),
+                ("⛰️", "Pendiente p95", f"{stats.get('slope_p95_deg', float('nan')):.1f}°",
+                 f"máxima = {stats.get('slope_max_deg', float('nan')):.1f}°", _F6_AMBAR),
+                ("📏", "L_hill usado", f"{stats.get('L_hill_usado_m', float('nan')):,.0f} m",
+                 f"buje = {stats.get('h_hub_usado_m', float('nan')):.0f} m", _F6_AZUL),
+            ], n=2),
             unsafe_allow_html=True,
         )
         if stats.get("slope_p95_deg", 0.0) > 15.0:
@@ -956,53 +1168,47 @@ def _render_card_flow() -> None:
                 _badge_html("Pendiente p95 > 15°: el modelo lineal NO es válido en este terreno — use CFD/WindNinja", "bad"),
                 unsafe_allow_html=True,
             )
-
-        import plotly.graph_objects as go
-
-        field = res["speedup_field"]
-        step = max(1, int(max(field.shape) / 400))
-        fig = go.Figure(go.Heatmap(
-            z=field[::step, ::step], zmid=1.0,
-            colorscale=[[0, "#eff6ff"], [0.5, "#5eead4"], [1.0, "#0d9488"]],
-            colorbar={"title": "Speedup"},
-        ))
-        fig.update_layout(
-            height=420, margin={"l": 10, "r": 10, "t": 30, "b": 10},
-            title={"text": "Campo de speedup orográfico", "font": {"size": 15, "color": "#0a2444"}},
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            yaxis={"scaleanchor": "x", "autorange": "reversed"},
-        )
-        st.plotly_chart(fig, use_container_width=True, key="f6_flow_heatmap")
-
+        svg_sp = _f6_speedup_svg(res["speedup_field"])
+        if svg_sp:
+            st.markdown(
+                _f6_fig_html("Campo de speedup · pase el cursor por cada celda", svg_sp,
+                             [("Se frena (< 1)", "#3b82f6"), ("Sin cambio (1)", "#e2e8f0"), ("Acelera (> 1)", "#0d9488")]),
+                unsafe_allow_html=True,
+            )
         if res.get("df_turb") is not None:
-            st.markdown("**Speedup por turbina** (layout de Fase 4, centrado en el grid):")
-            st.dataframe(res["df_turb"], hide_index=True, use_container_width=True)
+            with st.expander("🌀 Speedup por turbina (layout de Fase 4, centrado en el grid)"):
+                st.dataframe(res["df_turb"], hide_index=True, use_container_width=True)
+        with st.expander("💡 ¿Cómo se calcula?"):
+            st.markdown(_f6_esquema_sitio("flow"), unsafe_allow_html=True)
 
 
 def _render_card_cold() -> None:
     with st.container(border=True, key="f6_card_cold"):
         _section_header(
-            "Clima frío / icing (IEA Wind Task 19)",
-            "Horas anuales con formación de hielo y derate del AEP neto.",
+            "Clima frío / icing · IEA Task 19",
+            "Horas de hielo al año y su efecto sobre el AEP neto",
             "calendar",
         )
         c1, c2, c3 = st.columns(3)
         with c1:
             altitud = st.number_input(
-                "Altitud del sitio (m)", min_value=0.0, max_value=6000.0,
+                "Altitud (m)", min_value=0.0, max_value=6000.0,
                 value=_cfg_float(config, "f5_altitud_sitio_m", 0.0), step=50.0, key="f6_cold_altitud",
+                help="Altitud del sitio sobre el nivel del mar.",
             )
         with c2:
             severidad = st.selectbox(
-                "Severidad del icing", ["ligera", "moderada", "severa"], index=1, key="f6_cold_severidad",
+                "Severidad", ["ligera", "moderada", "severa"], index=1, key="f6_cold_severidad",
+                help="Severidad esperada del icing.",
             )
         with c3:
             aep_base = st.number_input(
-                "AEP neta base (MWh/año)", min_value=0.0,
+                "AEP base (MWh/año)", min_value=0.0,
                 value=_cfg_float(config, "f5_aep_neta_total_mwh", 0.0), step=100.0, key="f6_cold_aep",
+                help="AEP neta de referencia (Fase 5).",
             )
 
-        if st.button("Analizar clima frío", key="f6_cold_btn", type="primary"):
+        if st.button("🧊 Analizar clima frío", key="f6_cold_btn", type="primary", use_container_width=True):
             import cold_climate
 
             with st.spinner("Analizando serie de temperatura…"):
@@ -1013,9 +1219,11 @@ def _render_card_cold() -> None:
 
         res = st.session_state.get("f6_cold_result")
         if not res:
+            st.markdown(_f6_esquema_sitio("cold"), unsafe_allow_html=True)
             return
         if not res.get("aplica"):
-            st.info(res.get("razon", "No aplica para este sitio."))
+            st.markdown(_badge_html(res.get("razon", "No aplica para este sitio."), "info"), unsafe_allow_html=True)
+            st.markdown(_f6_esquema_sitio("cold"), unsafe_allow_html=True)
             return
 
         icing = res.get("icing", {})
@@ -1027,35 +1235,40 @@ def _render_card_cold() -> None:
             "sin_datos": "sin datos",
         }
         criterio_txt = _criterios_es.get(str(icing.get("criterio_principal", "")), str(icing.get("criterio_principal", "")))
+        perdida_pct = float(derate.get("perdida_aep_pct", 0.0) or 0.0)
         st.markdown(
             _kpi_html([
-                ("clock", "Horas de icing/año", f"{icing.get('horas_icing_anuales', 0):,}",
-                 f"{icing.get('fraccion_anio_pct', 0.0):.1f}% del año"),
-                ("trending-down", "Pérdida de AEP", f"{derate.get('perdida_aep_pct', 0.0):.2f}%",
-                 f"{derate.get('aep_perdida_mwh', 0.0):,.0f} MWh/año"),
-                ("bolt", "AEP corregida", f"{derate.get('aep_corregida_mwh', 0.0):,.0f} MWh/año",
-                 f"severidad: {derate.get('severidad', '—')}"),
-                ("info", "Criterio de detección", criterio_txt, derate.get("descripcion", "")),
-            ]),
+                ("🧊", "Horas de icing/año", f"{icing.get('horas_icing_anuales', 0):,}",
+                 f"{icing.get('fraccion_anio_pct', 0.0):.1f} % del año", "#0ea5e9"),
+                ("📉", "Pérdida de AEP", f"{perdida_pct:.2f} %",
+                 f"{derate.get('aep_perdida_mwh', 0.0):,.0f} MWh/año", _F6_AMBAR),
+                ("🔋", "AEP corregida", f"{derate.get('aep_corregida_mwh', 0.0):,.0f} MWh/año",
+                 f"severidad: {derate.get('severidad', '—')}", _F6_VERDE),
+                ("🔎", "Criterio de detección", criterio_txt, derate.get("descripcion", ""), _F6_GRIS),
+            ], n=2),
             unsafe_allow_html=True,
         )
-
-        import plotly.graph_objects as go
-
-        fig = go.Figure(go.Pie(
-            labels=["AEP corregida", "Pérdida por icing"],
-            values=[max(0.0, derate.get("aep_corregida_mwh", 0.0)), max(0.0, derate.get("aep_perdida_mwh", 0.0))],
-            hole=0.62, marker={"colors": [_F6_VERDE, "#fbbf24"]},
-            textinfo="label+percent",
-        ))
-        st.plotly_chart(_f6_fig_layout(fig, "Impacto del icing sobre el AEP neto", 330),
-                        use_container_width=True, key="f6_cold_dona")
+        segs = [
+            ("AEP corregida", max(0.0, float(derate.get("aep_corregida_mwh", 0.0) or 0.0)), _F6_VERDE),
+            ("Pérdida por icing", max(0.0, float(derate.get("aep_perdida_mwh", 0.0) or 0.0)), "#fbbf24"),
+        ]
+        st.markdown(
+            _f6_fig_html("Impacto del icing sobre el AEP neto",
+                         _f6_donut_svg(segs, _es_num(f"{perdida_pct:.1f} %"), "pérdida"),
+                         [(e, c) for e, _, c in segs]),
+            unsafe_allow_html=True,
+        )
+        with st.expander("💡 ¿Cómo se calcula?"):
+            st.markdown(_f6_esquema_sitio("cold"), unsafe_allow_html=True)
 
 
 def _render_sitio_cumplimiento() -> None:
     _render_card_iec()
-    _render_card_flow()
-    _render_card_cold()
+    col_a, col_b = st.columns(2, gap="medium")
+    with col_a:
+        _render_card_flow()
+    with col_b:
+        _render_card_cold()
 
 
 _RECEPTORES_DEFAULT = [
@@ -1150,16 +1363,12 @@ def _f6_color_escala(t: float, stops=_F6_YLORRD) -> str:
 
 
 def _f6_hbars_svg(filas, lineas=(), unidad: str = "", log: bool = False, decimales: int = 0,
-                  ancho: float = 380.0) -> str:
-    """Barras horizontales del mockup. filas=[(etiqueta, valor, color, tooltip)],
-    lineas=[(valor, color, etiqueta, dasharray)] = límites verticales.
-    ancho = ancho del lienzo SVG: 380 encaja en media columna con texto legible."""
-    n = max(1, len(filas))
-    fila_h = max(30.0, min(64.0, 170.0 / n))
-    bar_h = round(fila_h * 0.62, 1)
-    top = 32.0 if lineas else 12.0
-    alto = int(top + n * fila_h + 10)
-    x0, x1 = 112.0, ancho - 58.0
+                  ancho: float = 380.0, corto: bool = True) -> str:
+    """Barras horizontales del mockup en HTML/CSS (no SVG): el texto conserva su tamaño en
+    cualquier ancho de tarjeta. filas=[(etiqueta, valor, color, tooltip)],
+    lineas=[(valor, color, etiqueta, dasharray)] = límites verticales superpuestos.
+    corto=True reduce 'Latín (Común)' al nombre común (especies); 'ancho' se conserva por
+    compatibilidad con llamadas antiguas."""
     vals = [float(v) for _, v, _, _ in filas if np.isfinite(float(v))]
     vals += [float(v) for v, *_ in lineas]
     vmax = max(vals + [1e-9])
@@ -1169,37 +1378,32 @@ def _f6_hbars_svg(filas, lineas=(), unidad: str = "", log: bool = False, decimal
         hi = float(np.ceil(np.log10(vmax * 1.05)))
         hi = hi if hi > lo else lo + 1.0
 
-        def sx(v):
+        def frac(v):
             v = max(float(v), 10 ** lo)
-            return x0 + (np.log10(v) - lo) / (hi - lo) * (x1 - x0)
+            return (np.log10(v) - lo) / (hi - lo)
     else:
-        tope = vmax * 1.12
+        tope = vmax * 1.08
 
-        def sx(v):
-            return x0 + max(0.0, float(v)) / tope * (x1 - x0)
+        def frac(v):
+            return max(0.0, float(v)) / tope
 
-    p = [f'<svg viewBox="0 0 {ancho:.0f} {alto}" xmlns="http://www.w3.org/2000/svg">']
-    for i, (etq, val, col, tip) in enumerate(filas):
-        yc = top + i * fila_h + fila_h / 2
-        y = yc - bar_h / 2
-        w = max(3.0, sx(val) - x0)
+    filas_html = []
+    for etq, val, col, tip in filas:
+        f = min(1.0, max(0.012, frac(val)))
         txt = _es_num(f"{float(val):,.{decimales}f}") + (f" {unidad}" if unidad else "")
-        p.append(
-            f'<g class="f6-bar"><title>{_svg_t(tip)}</title>'
-            f'<text x="{x0 - 8:.0f}" y="{yc + 4:.1f}" text-anchor="end" font-size="12" font-weight="800" fill="#475569">{_svg_t(_f6_nombre_corto(etq, 15))}</text>'
-            f'<rect x="{x0}" y="{y:.1f}" width="{w:.1f}" height="{bar_h}" rx="8" fill="{col}"/>'
-            f'<rect x="{x0}" y="{y:.1f}" width="{w:.1f}" height="{min(8.0, bar_h / 3):.1f}" rx="4" fill="#fff" opacity=".25"/>'
-            f'<text x="{x0 + w + 6:.1f}" y="{yc + 4:.1f}" font-size="11.5" font-weight="900" fill="#0b2447">{_svg_t(txt)}</text></g>'
+        lab = _f6_nombre_corto(etq, 22) if corto else str(etq)
+        filas_html.append(
+            f'<div class="f6-hb-row" title="{_svg_t(tip)}"><span class="f6-hb-l">{_escape(lab)}</span>'
+            f'<span class="f6-hb-t" style="--w:{f * 100:.2f}%"><i class="f6-hb-b" style="background:{col}"></i>'
+            f'<b class="f6-hb-v">{_escape(txt)}</b></span></div>'
         )
-    for k, (v, col, etq, dash) in enumerate(lineas):
-        x = sx(v)
-        p.append(
-            f'<g><title>{_svg_t(etq)}</title>'
-            f'<line x1="{x:.1f}" y1="{top - 4:.1f}" x2="{x:.1f}" y2="{alto - 4}" stroke="{col}" stroke-width="2.4" stroke-dasharray="{dash}"/>'
-            f'<text x="{x:.1f}" y="{12 + 12 * (k % 2)}" text-anchor="middle" font-size="10" font-weight="900" fill="{col}">{_svg_t(etq)}</text></g>'
-        )
-    p.append("</svg>")
-    return "".join(p)
+    marcas = "".join(
+        f'<span class="f6-hb-lim" style="left:{min(1.0, frac(v)) * 100:.2f}%;--lc:{col};'
+        f'--ld:{"dotted" if str(dash).startswith("3") else "dashed"}" title="{_svg_t(etq)}"><em>{_escape(etq)}</em></span>'
+        for v, col, etq, dash in lineas
+    )
+    capa = f'<div class="f6-hb-lims">{marcas}</div>' if lineas else ""
+    return f'<div class="f6-hb{" has-lims" if lineas else ""}">{capa}{"".join(filas_html)}</div>'
 
 
 def _f6_donut_svg(segmentos, centro_valor: str, centro_etq: str) -> str:
@@ -1550,17 +1754,27 @@ def _render_card_receptores() -> pd.DataFrame:
                     ),
                     unsafe_allow_html=True,
                 )
-                if dists:
-                    pills = "".join(
-                        f'<span class="f6-pill info">{_escape(rid)} · {_escape(_es_num(f"{d:,.0f}"))} m a {_escape(tid)}</span>'
-                        for rid, _, tid, d in dists
-                    )
-                    st.markdown(f'<div class="f6-pills">{pills}</div>', unsafe_allow_html=True)
             else:
                 st.markdown(
                     _badge_html("Sin turbinas ni receptores: defina el arreglo en la Fase 4 y añada receptores en la tabla.", "info"),
                     unsafe_allow_html=True,
                 )
+        # Columna izquierda (más corta que el plano): distancias + para qué se usan → columnas parejas.
+        with col_tab:
+            if svg and dists:
+                pills = "".join(
+                    f'<span class="f6-pill info">{_escape(rid)} · {_escape(_es_num(f"{d:,.0f}"))} m a {_escape(tid)}</span>'
+                    for rid, _, tid, d in dists
+                )
+                st.markdown(
+                    f'<div class="f6-gtitle" style="margin-top:6px">📏 Distancia a la turbina más cercana</div>'
+                    f'<div class="f6-pills">{pills}</div>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown(
+                _badge_html("Cada receptor se evalúa en Ruido (dB(A) día/noche) y Parpadeo de sombra (h/año) más abajo.", "info"),
+                unsafe_allow_html=True,
+            )
         return df_rec
 
 
@@ -1864,102 +2078,107 @@ def _render_card_aves() -> None:
         cols = ["especie", "n_aves_paso_anual", "longitud_m", "envergadura_m", "velocidad_vuelo_ms", "p_evasion"]
         df_aves_base = df_aves_base[[c for c in cols if c in df_aves_base.columns]]
 
-        df_aves = st.data_editor(
-            df_aves_base,
-            num_rows="dynamic",
-            hide_index=True,
-            use_container_width=True,
-            key="f6_aves_editor",
-            column_config={
-                "especie": st.column_config.TextColumn("Especie"),
-                "n_aves_paso_anual": st.column_config.NumberColumn("Pasos/año", format="%.0f",
-                                                                   help="Aves observadas cruzando el parque por año"),
-                "longitud_m": st.column_config.NumberColumn("Longitud (m)", format="%.2f"),
-                "envergadura_m": st.column_config.NumberColumn("Envergadura (m)", format="%.2f"),
-                "velocidad_vuelo_ms": st.column_config.NumberColumn("Vel. vuelo (m/s)", format="%.0f"),
-                "p_evasion": st.column_config.NumberColumn("P. evasión", format="%.2f",
-                                                           help="0.90-0.99 según especie (SNH)"),
-            },
-        )
-        c1, c2 = st.columns(2)
-        with c1:
+        # Entrada (izquierda) | resultados (derecha): card a todo el ancho sin huecos.
+        col_in, col_out = st.columns([1.05, 1], gap="medium")
+        with col_in:
+            df_aves = st.data_editor(
+                df_aves_base,
+                num_rows="dynamic",
+                hide_index=True,
+                use_container_width=True,
+                key="f6_aves_editor",
+                column_config={
+                    "especie": st.column_config.TextColumn("Especie"),
+                    "n_aves_paso_anual": st.column_config.NumberColumn("Pasos/año", format="%.0f",
+                                                                       help="Aves observadas cruzando el parque por año"),
+                    "longitud_m": st.column_config.NumberColumn("Longitud (m)", format="%.2f"),
+                    "envergadura_m": st.column_config.NumberColumn("Envergadura (m)", format="%.2f"),
+                    "velocidad_vuelo_ms": st.column_config.NumberColumn("Vel. vuelo (m/s)", format="%.0f"),
+                    "p_evasion": st.column_config.NumberColumn("P. evasión", format="%.2f",
+                                                               help="0.90-0.99 según especie (SNH)"),
+                },
+            )
             horas_op = st.number_input("Horas de operación/año", 1000.0, 8760.0, 8000.0, 100.0, key="f6_aves_horas_op")
-        with c2:
-            st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
+            if st.button("🦅 Estimar colisiones anuales", key="f6_aves_btn", type="primary", use_container_width=True):
+                n_turbinas = max(1, int(_cfg_float(config, "f5_n_turbinas", _cfg_float(config, "f4_num_turbinas", 1.0))))
+                diametro = _cfg_float(config, "diametro", 100.0)
+                h_hub = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
+                df_col = bird.estimar_colisiones_anuales_parque(
+                    df_aves, n_turbinas, diametro, h_hub, tiempo_operacion_h=float(horas_op),
+                )
+                if df_col is None or len(df_col) == 0:
+                    st.session_state["f6_aves_result"] = {"error": "Sin especies con pasos/año > 0."}
+                else:
+                    st.session_state["f6_aves_result"] = {"df": df_col}
             if st.button("💾 Guardar tabla de especies", key="f6_aves_guardar", use_container_width=True):
                 guardar_config_values({"f6_aves_tabla_json": json.dumps(df_aves.to_dict("records"))})
                 st.success("Tabla de especies guardada.")
 
-        if st.button("🦅 Estimar colisiones anuales", key="f6_aves_btn", type="primary", use_container_width=True):
-            n_turbinas = max(1, int(_cfg_float(config, "f5_n_turbinas", _cfg_float(config, "f4_num_turbinas", 1.0))))
-            diametro = _cfg_float(config, "diametro", 100.0)
-            h_hub = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
-            df_col = bird.estimar_colisiones_anuales_parque(
-                df_aves, n_turbinas, diametro, h_hub, tiempo_operacion_h=float(horas_op),
+        with col_out:
+            res = st.session_state.get("f6_aves_result")
+            if not res:
+                st.markdown(_f6_como_se_calcula("aves"), unsafe_allow_html=True)
+                return
+            if res.get("error"):
+                st.warning(res["error"])
+                return
+
+            df_col = res["df"]
+            total = float(df_col["colisiones_parque_anio"].sum())
+            peor_cat = "ALTO" if (df_col["riesgo_categoria"] == "ALTO").any() else (
+                "MEDIO" if (df_col["riesgo_categoria"] == "MEDIO").any() else "BAJO"
             )
-            if df_col is None or len(df_col) == 0:
-                st.session_state["f6_aves_result"] = {"error": "Sin especies con pasos/año > 0."}
-            else:
-                st.session_state["f6_aves_result"] = {"df": df_col}
-
-        res = st.session_state.get("f6_aves_result")
-        if not res:
-            st.markdown(_f6_como_se_calcula("aves"), unsafe_allow_html=True)
-            return
-        if res.get("error"):
-            st.warning(res["error"])
-            return
-
-        df_col = res["df"]
-        total = float(df_col["colisiones_parque_anio"].sum())
-        peor_cat = "ALTO" if (df_col["riesgo_categoria"] == "ALTO").any() else (
-            "MEDIO" if (df_col["riesgo_categoria"] == "MEDIO").any() else "BAJO"
-        )
-        _col_riesgo = {"BAJO": _F6_VERDE, "MEDIO": _F6_AMBAR, "ALTO": _F6_ROJO}
-        st.markdown(
-            _kpi_html([
-                ("🦅", "Colisiones parque", f"{total:.2f} aves/año", f"{len(df_col)} especies evaluadas"),
-                ("⚠️", "Riesgo máximo", peor_cat, "escala BAJO / MEDIO / ALTO", _col_riesgo.get(peor_cat, _F6_GRIS)),
-                ("🪶", "Especie más expuesta", _f6_nombre_corto(df_col.loc[df_col["colisiones_parque_anio"].idxmax(), "especie"], 22),
-                 f"{float(df_col['colisiones_parque_anio'].max()):.2f} colisiones/año", _F6_AMBAR),
-                ("⏱️", "Operación", f"{float(horas_op):,.0f} h/año", "", _F6_AZUL),
-            ], n=2),
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            _badge_html(
-                {"BAJO": "Riesgo de colisión BAJO", "MEDIO": "Riesgo MEDIO — considerar monitoreo",
-                 "ALTO": "Riesgo ALTO — requiere plan de mitigación"}[peor_cat],
-                {"BAJO": "ok", "MEDIO": "warn", "ALTO": "bad"}[peor_cat],
-            ),
-            unsafe_allow_html=True,
-        )
-        filas = []
-        for _, r in df_col.iterrows():
-            v = float(r["colisiones_parque_anio"])
-            tip = _es_num(
-                f"{r['especie']}\nColisiones en el parque: {v:.2f} aves/año\n"
-                f"Por turbina: {float(r.get('colisiones_turbina_anio', 0) or 0):.3f} aves/año\n"
-                f"P. evasión: {float(r.get('p_evasion', 0) or 0):.2f} · Riesgo {r['riesgo_categoria']}"
+            _col_riesgo = {"BAJO": _F6_VERDE, "MEDIO": _F6_AMBAR, "ALTO": _F6_ROJO}
+            st.markdown(
+                _kpi_html([
+                    ("🦅", "Colisiones parque", f"{total:.2f} aves/año", f"{len(df_col)} especies evaluadas"),
+                    ("⚠️", "Riesgo máximo", peor_cat, "escala BAJO / MEDIO / ALTO", _col_riesgo.get(peor_cat, _F6_GRIS)),
+                    ("🪶", "Especie más expuesta", _f6_nombre_corto(df_col.loc[df_col["colisiones_parque_anio"].idxmax(), "especie"], 22),
+                     f"{float(df_col['colisiones_parque_anio'].max()):.2f} colisiones/año", _F6_AMBAR),
+                    ("⏱️", "Operación", f"{float(horas_op):,.0f} h/año", "", _F6_AZUL),
+                ], n=2),
+                unsafe_allow_html=True,
             )
-            filas.append((r["especie"], v, _col_riesgo.get(r["riesgo_categoria"], _F6_GRIS), tip))
-        svg = _f6_hbars_svg(filas, decimales=2)
-        st.markdown(
-            _f6_fig_html("Colisiones esperadas · aves/año", svg,
-                         [("Riesgo bajo", _F6_VERDE), ("Medio", _F6_AMBAR), ("Alto", _F6_ROJO)]),
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                _badge_html(
+                    {"BAJO": "Riesgo de colisión BAJO", "MEDIO": "Riesgo MEDIO — considerar monitoreo",
+                     "ALTO": "Riesgo ALTO — requiere plan de mitigación"}[peor_cat],
+                    {"BAJO": "ok", "MEDIO": "warn", "ALTO": "bad"}[peor_cat],
+                ),
+                unsafe_allow_html=True,
+            )
+            filas = []
+            for _, r in df_col.iterrows():
+                v = float(r["colisiones_parque_anio"])
+                tip = _es_num(
+                    f"{r['especie']}\nColisiones en el parque: {v:.2f} aves/año\n"
+                    f"Por turbina: {float(r.get('colisiones_turbina_anio', 0) or 0):.3f} aves/año\n"
+                    f"P. evasión: {float(r.get('p_evasion', 0) or 0):.2f} · Riesgo {r['riesgo_categoria']}"
+                )
+                filas.append((r["especie"], v, _col_riesgo.get(r["riesgo_categoria"], _F6_GRIS), tip))
+            st.markdown(
+                _f6_fig_html("Colisiones esperadas · aves/año", _f6_hbars_svg(filas, decimales=2),
+                             [("Riesgo bajo", _F6_VERDE), ("Medio", _F6_AMBAR), ("Alto", _F6_ROJO)]),
+                unsafe_allow_html=True,
+            )
+            df_show = df_col.rename(columns={
+                "especie": "Especie", "n_aves_paso_anual": "Pasos/año", "p_evasion": "P. evasión",
+                "colisiones_turbina_anio": "Colisiones/turbina·año", "colisiones_parque_anio": "Colisiones/parque·año",
+                "p_geometrica": "P. geométrica", "p_paso_altura_rotor": "P. altura rotor",
+                "riesgo_categoria": "Riesgo",
+            })
+            with st.expander("📋 Tabla de detalle por especie"):
+                st.dataframe(df_show, hide_index=True, use_container_width=True)
+            with st.expander("💡 ¿Cómo se calcula?"):
+                st.markdown(_f6_como_se_calcula("aves"), unsafe_allow_html=True)
 
-        df_show = df_col.rename(columns={
-            "especie": "Especie", "n_aves_paso_anual": "Pasos/año", "p_evasion": "P. evasión",
-            "colisiones_turbina_anio": "Colisiones/turbina·año", "colisiones_parque_anio": "Colisiones/parque·año",
-            "p_geometrica": "P. geométrica", "p_paso_altura_rotor": "P. altura rotor",
-            "riesgo_categoria": "Riesgo",
-        })
-        with st.expander("📋 Tabla de detalle por especie"):
-            st.dataframe(df_show, hide_index=True, use_container_width=True)
-        with st.expander("💡 ¿Cómo se calcula?"):
-            st.markdown(_f6_como_se_calcula("aves"), unsafe_allow_html=True)
+
+_F6_TEC_ES = {
+    "Eólica onshore (referencia)": "Eólica terrestre (ref.)",
+    "Eólica offshore": "Eólica marina",
+    "Hidroeléctrica filo agua": "Hidroeléctrica de filo de agua",
+    "Hidroeléctrica embalse": "Hidroeléctrica de embalse",
+}
 
 
 def _render_card_lca() -> None:
@@ -1971,14 +2190,13 @@ def _render_card_lca() -> None:
             "Emisiones de todo el ciclo de vida, CO₂ evitado frente a la red y retorno de carbono",
             "globe",
         )
-        c1, c2 = st.columns(2)
+        c1, c2, c3, c4 = st.columns(4)
         with c1:
             cap_mw = st.number_input("Capacidad (MW)", 0.0, 5000.0,
                                      _cfg_float(config, "f5_potencia_instalada_mw", 0.0), 1.0, key="f6_lca_cap")
         with c2:
             aep = st.number_input("AEP neta (MWh/año)", 0.0, 10_000_000.0,
                                   _cfg_float(config, "f5_aep_neta_total_mwh", 0.0), 100.0, key="f6_lca_aep")
-        c3, c4 = st.columns(2)
         with c3:
             vida = st.number_input("Vida útil (años)", 5.0, 40.0,
                                    _cfg_float(config, "f5_vida_util_anios", 20.0), 1.0, key="f6_lca_vida")
@@ -2010,7 +2228,7 @@ def _render_card_lca() -> None:
                  "tiempo en compensar el CO₂ de construcción", _F6_AMBAR),
                 ("🌳", "Equivalente en árboles", f"{arboles['n_arboles_equivalentes_anuales']:,}",
                  f"≈ {arboles['hectareas_bosque_equivalentes']:,.0f} ha de bosque/año", "#15803d"),
-            ], n=2),
+            ]),
             unsafe_allow_html=True,
         )
 
@@ -2024,32 +2242,37 @@ def _render_card_lca() -> None:
             (_comp_es.get(k, k), float(v), _cols_d[i % len(_cols_d)])
             for i, (k, v) in enumerate(res["desglose_componentes"].items())
         ]
-        st.markdown(
-            _f6_fig_html(
-                "Desglose de la huella · gCO₂eq/kWh",
-                _f6_donut_svg(segs, _es_num(f"{res['huella_g_kwh']:.1f}"), "gCO₂eq/kWh"),
-                [(e, c) for e, _, c in segs],
-            ),
-            unsafe_allow_html=True,
-        )
-
         df_alt = lca_carbon.comparar_vs_alternativas(res["huella_g_kwh"])
         filas = [("Este proyecto", float(res["huella_g_kwh"]), _F6_VERDE,
                   _es_num(f"Este proyecto: {res['huella_g_kwh']:.1f} gCO₂eq/kWh"))]
         for _, r in df_alt.sort_values("gCO2eq/kWh").iterrows():
-            ref = "referencia" in str(r["Tecnología"])
+            nombre = str(r["Tecnología"])
+            ref = "referencia" in nombre
             filas.append((
-                str(r["Tecnología"]).replace(" (referencia)", " (ref.)"),
+                _F6_TEC_ES.get(nombre, nombre),
                 float(r["gCO2eq/kWh"]),
                 "#5eead4" if ref else _F6_GRIS,
-                _es_num(f"{r['Tecnología']}: {float(r['gCO2eq/kWh']):.0f} gCO₂eq/kWh"),
+                _es_num(f"{_F6_TEC_ES.get(nombre, nombre)}: {float(r['gCO2eq/kWh']):.0f} gCO₂eq/kWh"),
             ))
-        st.markdown(
-            _f6_fig_html("Comparación con otras tecnologías · gCO₂eq/kWh (escala log)",
-                         _f6_hbars_svg(filas, log=True),
-                         [("Este proyecto", _F6_VERDE), ("Eólica terrestre (ref.)", "#5eead4"), ("Otras tecnologías", _F6_GRIS)]),
-            unsafe_allow_html=True,
-        )
+
+        # Dona (izquierda) | comparación (derecha): misma altura, sin hueco.
+        col_d, col_c = st.columns([1, 1.25], gap="medium")
+        with col_d:
+            st.markdown(
+                _f6_fig_html(
+                    "Desglose de la huella · gCO₂eq/kWh",
+                    _f6_donut_svg(segs, _es_num(f"{res['huella_g_kwh']:.1f}"), "gCO₂eq/kWh"),
+                    [(e, c) for e, _, c in segs],
+                ),
+                unsafe_allow_html=True,
+            )
+        with col_c:
+            st.markdown(
+                _f6_fig_html("Comparación con otras tecnologías · gCO₂eq/kWh (escala log)",
+                             _f6_hbars_svg(filas, log=True, corto=False),
+                             [("Este proyecto", _F6_VERDE), ("Eólica terrestre (ref.)", "#5eead4"), ("Otras tecnologías", _F6_GRIS)]),
+                unsafe_allow_html=True,
+            )
 
         with st.expander("📋 Tablas de detalle"):
             st.dataframe(df_alt, hide_index=True, use_container_width=True)
@@ -2068,11 +2291,8 @@ def _render_ambiental() -> None:
         _render_card_ruido(df_receptores)
     with col_b:
         _render_card_flicker(df_receptores)
-    col_c, col_d = st.columns(2, gap="medium")
-    with col_c:
-        _render_card_aves()
-    with col_d:
-        _render_card_lca()
+    _render_card_aves()
+    _render_card_lca()
 
 
 def _n_years_serie(df_h: pd.DataFrame) -> float:
@@ -2399,87 +2619,93 @@ def _render_card_scada() -> None:
             "Producción modelada frente a la real del parque, hora a hora",
             "🗄️",
         )
-        st.markdown(
-            '<div class="f6-pills"><span class="f6-pill warn">📑 CSV o Excel</span>'
-            '<span class="f6-pill warn">columnas timestamp + P_kW (o P_MW)</span>'
-            '<span class="f6-pill info">turbine_id opcional</span></div>',
-            unsafe_allow_html=True,
-        )
-        scada_file = st.file_uploader("Archivo SCADA (.csv / .xlsx)", type=["csv", "xlsx", "xls"], key="f6_scada_file")
+        # Subida (izquierda) | explicación o veredicto (derecha); gráficos a todo el ancho debajo.
+        col_in, col_out = st.columns([1, 1.3], gap="medium")
+        with col_in:
+            st.markdown(
+                '<div class="f6-pills"><span class="f6-pill warn">📑 CSV o Excel</span>'
+                '<span class="f6-pill warn">columnas timestamp + P_kW (o P_MW)</span>'
+                '<span class="f6-pill info">turbine_id opcional</span></div>',
+                unsafe_allow_html=True,
+            )
+            scada_file = st.file_uploader("Archivo SCADA (.csv / .xlsx)", type=["csv", "xlsx", "xls"], key="f6_scada_file")
 
-        df_scada = None
-        if scada_file is not None:
-            import validacion_scada
+            df_scada = None
+            if scada_file is not None:
+                import validacion_scada
 
-            try:
-                df_scada = validacion_scada.importar_scada_csv(scada_file.getvalue(), scada_file.name)
-                st.caption(
-                    _es_num(f"SCADA leído: {len(df_scada):,} filas · {df_scada['turbine_id'].nunique()} turbina(s) · ")
-                    + f"{df_scada['timestamp'].min()} → {df_scada['timestamp'].max()}"
-                )
-            except ValueError as exc:
-                st.error(str(exc))
+                try:
+                    df_scada = validacion_scada.importar_scada_csv(scada_file.getvalue(), scada_file.name)
+                    st.caption(
+                        _es_num(f"SCADA leído: {len(df_scada):,} filas · {df_scada['turbine_id'].nunique()} turbina(s) · ")
+                        + f"{df_scada['timestamp'].min()} → {df_scada['timestamp'].max()}"
+                    )
+                except ValueError as exc:
+                    st.error(str(exc))
 
-        if st.button("📊 Comparar contra el modelo", key="f6_scada_btn", type="primary", disabled=df_scada is None,
-                     use_container_width=True):
-            import validacion_scada
+            if st.button("📊 Comparar contra el modelo", key="f6_scada_btn", type="primary", disabled=df_scada is None,
+                         use_container_width=True):
+                import validacion_scada
 
-            serie = _get_serie_horaria_parque()
-            if serie is None:
-                st.session_state["f6_scada_result"] = {"error": "Sin serie modelada. Cargue datos NASA en Fase 2."}
-            else:
-                with st.spinner("Alineando series y calculando métricas…"):
-                    df_parque_real = validacion_scada.agregar_scada_a_parque_horario(df_scada)
-                    res = validacion_scada.comparar_modelado_vs_real(serie["df_horario"], df_parque_real)
-                st.session_state["f6_scada_result"] = res
+                serie = _get_serie_horaria_parque()
+                if serie is None:
+                    st.session_state["f6_scada_result"] = {"error": "Sin serie modelada. Cargue datos NASA en Fase 2."}
+                else:
+                    with st.spinner("Alineando series y calculando métricas…"):
+                        df_parque_real = validacion_scada.agregar_scada_a_parque_horario(df_scada)
+                        res = validacion_scada.comparar_modelado_vs_real(serie["df_horario"], df_parque_real)
+                    st.session_state["f6_scada_result"] = res
+            st.caption(_F6_SERIE_CAPTION)
 
         res = st.session_state.get("f6_scada_result")
-        if not res:
-            st.markdown(_f6_esquema_operacion("scada"), unsafe_allow_html=True)
-            return
-        if res.get("error"):
-            st.warning(res["error"])
-            return
-        if not res.get("ok"):
-            st.warning(f"{res.get('msg', 'Solapamiento insuficiente')} (n={res.get('n_samples', 0)}). "
-                       "Verifique que las fechas del SCADA coincidan con la serie NASA.")
-            return
+        ok_res = bool(res) and not res.get("error") and bool(res.get("ok"))
+        with col_out:
+            if not res:
+                st.markdown(_f6_esquema_operacion("scada"), unsafe_allow_html=True)
+            elif res.get("error"):
+                st.warning(res["error"])
+            elif not res.get("ok"):
+                st.warning(f"{res.get('msg', 'Solapamiento insuficiente')} (n={res.get('n_samples', 0)}). "
+                           "Verifique que las fechas del SCADA coincidan con la serie NASA.")
+            else:
+                r2 = float(res["r2"])
+                st.markdown(
+                    _kpi_html([
+                        ("R²", "R²", f"{r2:.3f}", f"{res['n_samples']:,} horas comparadas",
+                         _F6_VERDE if r2 >= 0.8 else (_F6_AMBAR if r2 >= 0.6 else _F6_ROJO)),
+                        ("Δ", "Sesgo", f"{res['bias_MW']:+.2f} MW", "real − modelo (negativo = modelo optimista)", _F6_AMBAR),
+                        ("σ", "RMSE", f"{res['rmse_MW']:.2f} MW", f"MAE = {res['mae_MW']:.2f} MW", _F6_AZUL),
+                        ("⚖️", "Ratio de eficiencia", f"{res['efficiency_ratio']:.3f}",
+                         f"energía real/modelo = {res['energia_real_MWh']:,.0f}/{res['energia_modelo_MWh']:,.0f} MWh", "#0d9488"),
+                    ], n=2),
+                    unsafe_allow_html=True,
+                )
+                tono = "ok" if 0.95 <= res["efficiency_ratio"] <= 1.05 else ("warn" if 0.90 <= res["efficiency_ratio"] <= 1.10 else "bad")
+                st.markdown(
+                    _badge_html(_es_num(f"Desviación modelo vs real: {(res['efficiency_ratio'] - 1) * 100:+.1f} %"), tono),
+                    unsafe_allow_html=True,
+                )
 
-        r2 = float(res["r2"])
-        st.markdown(
-            _kpi_html([
-                ("R²", "R²", f"{r2:.3f}", f"{res['n_samples']:,} horas comparadas",
-                 _F6_VERDE if r2 >= 0.8 else (_F6_AMBAR if r2 >= 0.6 else _F6_ROJO)),
-                ("Δ", "Sesgo", f"{res['bias_MW']:+.2f} MW", "real − modelo (negativo = modelo optimista)", _F6_AMBAR),
-                ("σ", "RMSE", f"{res['rmse_MW']:.2f} MW", f"MAE = {res['mae_MW']:.2f} MW", _F6_AZUL),
-                ("⚖️", "Ratio de eficiencia", f"{res['efficiency_ratio']:.3f}",
-                 f"energía real/modelo = {res['energia_real_MWh']:,.0f}/{res['energia_modelo_MWh']:,.0f} MWh", "#0d9488"),
-            ], n=2),
-            unsafe_allow_html=True,
-        )
-        tono = "ok" if 0.95 <= res["efficiency_ratio"] <= 1.05 else ("warn" if 0.90 <= res["efficiency_ratio"] <= 1.10 else "bad")
-        st.markdown(
-            _badge_html(_es_num(f"Desviación modelo vs real: {(res['efficiency_ratio'] - 1) * 100:+.1f} %"), tono),
-            unsafe_allow_html=True,
-        )
-
-        dfc = res["df_compare"]
-        muestras = dfc.sample(min(len(dfc), 1500), random_state=7) if len(dfc) > 1500 else dfc
-        st.markdown(
-            _f6_fig_html("Potencia modelo vs real · cada punto es una hora",
-                         _f6_scatter_svg(muestras["P_modelo_MW"], muestras["P_real_MW"]),
-                         [("Horas comparadas", _F6_AMBAR), ("1:1 = modelo perfecto", _F6_ROJO)]),
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            _f6_fig_html("Distribución de residuales · pase el cursor por cada barra",
-                         _f6_hist_svg(dfc["residual_MW"], float(res["bias_MW"])),
-                         [("Horas por intervalo de error", "#fcd34d"), ("Sesgo medio", _F6_ROJO)]),
-            unsafe_allow_html=True,
-        )
-        with st.expander("💡 ¿Cómo se valida?"):
-            st.markdown(_f6_esquema_operacion("scada"), unsafe_allow_html=True)
-        st.caption(_F6_SERIE_CAPTION)
+        if ok_res:
+            dfc = res["df_compare"]
+            muestras = dfc.sample(min(len(dfc), 1500), random_state=7) if len(dfc) > 1500 else dfc
+            g1, g2 = st.columns(2, gap="medium")
+            with g1:
+                st.markdown(
+                    _f6_fig_html("Potencia modelo vs real · cada punto es una hora",
+                                 _f6_scatter_svg(muestras["P_modelo_MW"], muestras["P_real_MW"]),
+                                 [("Horas comparadas", _F6_AMBAR), ("1:1 = modelo perfecto", _F6_ROJO)]),
+                    unsafe_allow_html=True,
+                )
+            with g2:
+                st.markdown(
+                    _f6_fig_html("Distribución de residuales · pase el cursor por cada barra",
+                                 _f6_hist_svg(dfc["residual_MW"], float(res["bias_MW"])),
+                                 [("Horas por intervalo de error", "#fcd34d"), ("Sesgo medio", _F6_ROJO)]),
+                    unsafe_allow_html=True,
+                )
+            with st.expander("💡 ¿Cómo se valida?"):
+                st.markdown(_f6_esquema_operacion("scada"), unsafe_allow_html=True)
 
 
 def _render_card_curtailment() -> None:
@@ -2490,7 +2716,7 @@ def _render_card_curtailment() -> None:
             "🔌",
         )
         pot_inst = _cfg_float(config, "f5_potencia_instalada_mw", 0.0)
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 1.1], gap="small")
         with c1:
             cap_iny = st.number_input(
                 "Cap. inyección (MW)", min_value=0.1, max_value=5000.0,
@@ -2509,8 +2735,11 @@ def _render_card_curtailment() -> None:
                 "Costo variable (USD/MWh)", min_value=0.0, max_value=100.0, value=5.0, step=1.0,
                 key="f6_curt_cv", help="Si el precio de bolsa simulado cae por debajo, no se inyecta.",
             )
+        with c4:
+            st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
+            simular = st.button("🔌 Simular curtailment", key="f6_curt_btn", type="primary", use_container_width=True)
 
-        if st.button("🔌 Simular curtailment", key="f6_curt_btn", type="primary", use_container_width=True):
+        if simular:
             import grid_curtailment
 
             serie = _get_serie_horaria_parque()
@@ -2552,19 +2781,6 @@ def _render_card_curtailment() -> None:
 
         kpis = res["kpis"]
         ny = res.get("n_years", 1.0)
-        st.markdown(
-            _kpi_html([
-                ("⚡", "Energía inyectada", f"{kpis['energia_final_inyectada_MWh'] / ny:,.0f} MWh/año",
-                 f"de {kpis['energia_bruta_MWh'] / ny:,.0f} MWh/año generables", _F6_VERDE),
-                ("✂️", "Recorte total", f"{kpis['pct_recorte_total']:.2f} %",
-                 f"{kpis['energia_recortada_total_MWh'] / ny:,.0f} MWh/año perdidos", _F6_ROJO),
-                ("🔌", "Por capacidad", f"{kpis['pct_recorte_capacity']:.2f} %",
-                 f"{int(kpis['horas_curtailed_capacity'] / ny):,} h/año limitadas", _F6_AZUL),
-                ("💲", "Económico + red", f"{kpis['pct_recorte_economico']:.2f} % + {kpis['pct_recorte_downtime']:.2f} %",
-                 f"{int(kpis['horas_curtailed_economico'] / ny):,} h/año bajo costo variable", _F6_AMBAR),
-            ], n=2),
-            unsafe_allow_html=True,
-        )
         e_cap = kpis["pct_recorte_capacity"]
         e_eco = kpis["pct_recorte_economico"]
         e_red = kpis["pct_recorte_downtime"]
@@ -2574,24 +2790,42 @@ def _render_card_curtailment() -> None:
             ("Recorte económico", e_eco, _F6_AMBAR),
             ("Red no disponible", e_red, _F6_ROJO),
         ]
-        st.markdown(
-            _f6_fig_html("Reparto de la energía generable",
-                         _f6_donut_svg(segs, _es_num(f"{kpis['pct_recorte_total']:.1f} %"), "recorte total"),
-                         [(e, c) for e, _, c in segs]),
-            unsafe_allow_html=True,
-        )
-        if res.get("df_mes") is not None and len(res["df_mes"]):
-            series = [
-                ("energia_recortada_capacity_MWh", "Capacidad", _F6_AZUL),
-                ("energia_recortada_economica_MWh", "Económico", _F6_AMBAR),
-                ("energia_recortada_downtime_MWh", "Red caída", _F6_ROJO),
-            ]
+        # KPIs | dona | barras por mes: tres columnas parejas en una sola fila.
+        k1, k2, k3 = st.columns([1.1, 0.85, 1.25], gap="medium")
+        with k1:
             st.markdown(
-                _f6_fig_html("Energía recortada por mes · MWh/año", _f6_barras_mes_svg(res["df_mes"], series),
-                             [(n, c) for _, n, c in series]),
+                _kpi_html([
+                    ("⚡", "Energía inyectada", f"{kpis['energia_final_inyectada_MWh'] / ny:,.0f} MWh/año",
+                     f"de {kpis['energia_bruta_MWh'] / ny:,.0f} MWh/año generables", _F6_VERDE),
+                    ("✂️", "Recorte total", f"{kpis['pct_recorte_total']:.2f} %",
+                     f"{kpis['energia_recortada_total_MWh'] / ny:,.0f} MWh/año perdidos", _F6_ROJO),
+                    ("🔌", "Por capacidad", f"{kpis['pct_recorte_capacity']:.2f} %",
+                     f"{int(kpis['horas_curtailed_capacity'] / ny):,} h/año limitadas", _F6_AZUL),
+                    ("💲", "Económico + red", f"{kpis['pct_recorte_economico']:.2f} % + {kpis['pct_recorte_downtime']:.2f} %",
+                     f"{int(kpis['horas_curtailed_economico'] / ny):,} h/año bajo costo variable", _F6_AMBAR),
+                ], n=2),
                 unsafe_allow_html=True,
             )
-        st.caption("Precio de bolsa simulado (lognormal ~45 USD/MWh) — conecte datos XM reales para un análisis fino.")
+            st.caption("Precio de bolsa simulado (lognormal ~45 USD/MWh) — conecte datos XM reales para un análisis fino.")
+        with k2:
+            st.markdown(
+                _f6_fig_html("Reparto de la energía generable",
+                             _f6_donut_svg(segs, _es_num(f"{kpis['pct_recorte_total']:.1f} %"), "recorte total"),
+                             [(e, c) for e, _, c in segs]),
+                unsafe_allow_html=True,
+            )
+        with k3:
+            if res.get("df_mes") is not None and len(res["df_mes"]):
+                series = [
+                    ("energia_recortada_capacity_MWh", "Capacidad", _F6_AZUL),
+                    ("energia_recortada_economica_MWh", "Económico", _F6_AMBAR),
+                    ("energia_recortada_downtime_MWh", "Red caída", _F6_ROJO),
+                ]
+                st.markdown(
+                    _f6_fig_html("Energía recortada por mes · MWh/año", _f6_barras_mes_svg(res["df_mes"], series),
+                                 [(n, c) for _, n, c in series]),
+                    unsafe_allow_html=True,
+                )
         with st.expander("💡 ¿Cómo se calcula?"):
             st.markdown(_f6_esquema_operacion("curtail"), unsafe_allow_html=True)
 
@@ -2688,11 +2922,8 @@ def _render_card_hibrido() -> None:
 
 
 def _render_operacion_red() -> None:
-    col_a, col_b = st.columns(2, gap="medium")
-    with col_a:
-        _render_card_scada()
-    with col_b:
-        _render_card_curtailment()
+    _render_card_scada()
+    _render_card_curtailment()
     _render_card_hibrido()
 
 
@@ -2910,135 +3141,139 @@ def _render_card_optimizador() -> None:
         bounds_xy = ((float(xs.min() - margen_x), float(xs.max() + margen_x)),
                      (float(ys.min() - margen_y), float(ys.max() + margen_y)))
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
+        # Controles (izquierda) | explicación o resultados (derecha): card a todo el ancho.
+        col_in, col_out = st.columns([1, 1.2], gap="medium")
+        with col_in:
             maxiter = st.slider("Iteraciones", 1, 30,
                                 int(_cfg_float(config, "f6_opt_maxiter", 5.0)), 1, key="f6_opt_maxiter_w",
                                 help="Generaciones del algoritmo (maxiter).")
-        with c2:
             popsize = st.slider("Población", 4, 20, 6, 1, key="f6_opt_popsize",
                                 help="Layouts que se prueban por generación (popsize).")
-        with c3:
             min_sp = st.slider("Separación mín. (D)", 2.0, 8.0, 3.0, 0.5, key="f6_opt_minsp",
                                help="Distancia mínima entre turbinas, en diámetros de rotor.")
 
-        evals_est = popsize * 2 * n_turb * (maxiter + 1)
-        st.markdown(
-            _badge_html(
-                _es_num(f"Cada evaluación corre el motor de estelas completo (5-15 s): ~{evals_est:,} evaluaciones, "
-                        "puede tardar muchos minutos. Empiece con valores bajos y deje la ventana abierta."),
-                "warn",
-            ),
-            unsafe_allow_html=True,
-        )
-        st.caption(_es_num(
-            f"Área de búsqueda: x ∈ [{bounds_xy[0][0]:,.0f}, {bounds_xy[0][1]:,.0f}] m · "
-            f"y ∈ [{bounds_xy[1][0]:,.0f}, {bounds_xy[1][1]:,.0f}] m · {n_turb} turbinas"
-        ))
-
-        if st.button("🧬 Optimizar layout", key="f6_opt_btn", type="primary", use_container_width=True):
-            import time as _time
-
-            import layout_optimizer as lopt
-
-            df_nasa = cargar_nasa_hourly()
-            if df_nasa is None or len(df_nasa) == 0:
-                st.session_state["f6_opt_result"] = {"error": "Sin datos NASA. Cargue la serie en Fase 2."}
-            else:
-                from calculos import preparar_datos_curva
-
-                df_curva = preparar_datos_curva(cargar_tabla_curva())
-                diametro = _cfg_float(config, "diametro", 100.0)
-                ct = _cfg_float(config, "f4_ct", 0.8)
-                kw = _cfg_float(config, "f4_kw", 0.075)
-                ambient_ti = _cfg_float(config, "f5_ambient_ti", 0.10)
-                h_hub = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
-                try:
-                    with st.status("Optimizando layout…", expanded=True) as status:
-                        t0 = _time.perf_counter()
-                        arr_orig = df_layout[["x_m", "y_m"]].to_numpy(dtype=float).flatten()
-                        aep_orig = lopt.evaluar_aep_layout(
-                            arr_orig, n_turb, df_curva, df_nasa, diametro, ct, kw,
-                            ambient_ti=ambient_ti, h_hub=h_hub,
-                        )
-                        t_eval = _time.perf_counter() - t0
-                        status.write(_es_num(
-                            f"AEP del layout actual: {aep_orig:,.0f} MWh/año · "
-                            f"1 evaluación = {t_eval:.1f} s → estimado total ≈ {evals_est * t_eval / 60.0:,.0f} min"
-                        ))
-
-                        def _cb(it, aep_it):
-                            status.write(_es_num(f"Generación {it}/{maxiter}: mejor AEP = {aep_it:,.0f} MWh/año"))
-
-                        df_opt, aep_opt, history = lopt.optimizar_layout_scipy(
-                            n_turb, df_curva, df_nasa, diametro, ct, kw,
-                            bounds_xy, min_spacing_D=float(min_sp), max_iter=int(maxiter),
-                            ambient_ti=ambient_ti, h_hub=h_hub, popsize=int(popsize),
-                            callback=_cb,
-                        )
-                        status.update(label="Optimización terminada", state="complete")
-                    st.session_state["f6_opt_result"] = {
-                        "df_opt": df_opt, "aep_opt": float(aep_opt), "aep_orig": float(aep_orig),
-                        "history": history, "df_orig": df_layout.copy(),
-                    }
-                    guardar_config_values({"f6_opt_maxiter": int(maxiter)})
-                except RuntimeError as exc:
-                    st.session_state["f6_opt_result"] = {"error": f"{exc} — el optimizador requiere scipy."}
-
-        res = st.session_state.get("f6_opt_result")
-        if not res:
-            st.markdown(_f6_esquema_optim("optim"), unsafe_allow_html=True)
-            return
-        if res.get("error"):
-            st.error(res["error"])
-            return
-
-        aep_o, aep_n = res["aep_orig"], res["aep_opt"]
-        delta_pct = (aep_n - aep_o) / aep_o * 100.0 if aep_o > 0 else 0.0
-        st.markdown(
-            _kpi_html([
-                ("⚡", "AEP layout actual", f"{aep_o:,.0f} MWh/año", "motor de estelas 16 sectores", _F6_GRIS),
-                ("🚀", "AEP optimizado", f"{aep_n:,.0f} MWh/año", f"{delta_pct:+.2f} % vs actual", _F6_VERDE),
-                ("📈", "Mejora", f"{delta_pct:+.2f} %", f"{aep_n - aep_o:+,.0f} MWh/año", _F6_VIOLETA),
-                ("🌀", "Turbinas", str(len(res["df_opt"])), "mismo número que Fase 4", _F6_AZUL),
-            ], n=2),
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            _badge_html(
-                _es_num(f"El layout optimizado produce {delta_pct:+.2f} % de energía") if delta_pct > 0.01
-                else "El layout actual ya es muy bueno: la optimización no encontró una mejora apreciable",
-                "ok" if delta_pct > 0.01 else "info",
-            ),
-            unsafe_allow_html=True,
-        )
-        hist = res.get("history") or {}
-        if hist.get("iter"):
+            evals_est = popsize * 2 * n_turb * (maxiter + 1)
             st.markdown(
-                _f6_fig_html("Convergencia · mejor AEP por generación", _f6_convergencia_svg(hist["iter"], hist["best_aep"])),
+                _badge_html(
+                    _es_num(f"Cada evaluación corre el motor de estelas completo (5-15 s): ~{evals_est:,} evaluaciones, "
+                            "puede tardar muchos minutos. Empiece con valores bajos y deje la ventana abierta."),
+                    "warn",
+                ),
                 unsafe_allow_html=True,
             )
-        st.markdown(
-            _f6_fig_html("Layout antes → después · pase el cursor por cada turbina",
-                         _f6_layout_antes_despues_svg(res["df_orig"], res["df_opt"]),
-                         [("Posición actual", _F6_GRIS), ("Posición optimizada", _F6_VIOLETA), ("Desplazamiento", "#a78bfa")]),
-            unsafe_allow_html=True,
-        )
-        with st.expander("📋 Coordenadas del layout optimizado"):
-            st.dataframe(res["df_opt"], hide_index=True, use_container_width=True)
-        nombre_esc = st.text_input("Nombre del escenario", value="Layout optimizado (DE)", key="f6_opt_nombre")
-        if st.button("💾 Guardar como escenario de Fase 4", key="f6_opt_guardar", use_container_width=True):
-            from db import guardar_escenario_parque
+            st.caption(_es_num(
+                f"Área de búsqueda: x ∈ [{bounds_xy[0][0]:,.0f}, {bounds_xy[0][1]:,.0f}] m · "
+                f"y ∈ [{bounds_xy[1][0]:,.0f}, {bounds_xy[1][1]:,.0f}] m · {n_turb} turbinas"
+            ))
 
-            guardar_escenario_parque(
-                str(nombre_esc).strip() or "Layout optimizado (DE)",
-                res["df_opt"],
-                {"origen": "f6_optimizador", "maxiter": int(_cfg_float(config, "f6_opt_maxiter", 5.0))},
-                {"aep_optimizado_mwh": aep_n, "aep_original_mwh": aep_o, "delta_pct": delta_pct},
+            if st.button("🧬 Optimizar layout", key="f6_opt_btn", type="primary", use_container_width=True):
+                import time as _time
+
+                import layout_optimizer as lopt
+
+                df_nasa = cargar_nasa_hourly()
+                if df_nasa is None or len(df_nasa) == 0:
+                    st.session_state["f6_opt_result"] = {"error": "Sin datos NASA. Cargue la serie en Fase 2."}
+                else:
+                    from calculos import preparar_datos_curva
+
+                    df_curva = preparar_datos_curva(cargar_tabla_curva())
+                    diametro = _cfg_float(config, "diametro", 100.0)
+                    ct = _cfg_float(config, "f4_ct", 0.8)
+                    kw = _cfg_float(config, "f4_kw", 0.075)
+                    ambient_ti = _cfg_float(config, "f5_ambient_ti", 0.10)
+                    h_hub = _cfg_float(config, "f5_altura_deseada", _cfg_float(config, "perfil_hhub", 80.0))
+                    try:
+                        with st.status("Optimizando layout…", expanded=True) as status:
+                            t0 = _time.perf_counter()
+                            arr_orig = df_layout[["x_m", "y_m"]].to_numpy(dtype=float).flatten()
+                            aep_orig = lopt.evaluar_aep_layout(
+                                arr_orig, n_turb, df_curva, df_nasa, diametro, ct, kw,
+                                ambient_ti=ambient_ti, h_hub=h_hub,
+                            )
+                            t_eval = _time.perf_counter() - t0
+                            status.write(_es_num(
+                                f"AEP del layout actual: {aep_orig:,.0f} MWh/año · "
+                                f"1 evaluación = {t_eval:.1f} s → estimado total ≈ {evals_est * t_eval / 60.0:,.0f} min"
+                            ))
+
+                            def _cb(it, aep_it):
+                                status.write(_es_num(f"Generación {it}/{maxiter}: mejor AEP = {aep_it:,.0f} MWh/año"))
+
+                            df_opt, aep_opt, history = lopt.optimizar_layout_scipy(
+                                n_turb, df_curva, df_nasa, diametro, ct, kw,
+                                bounds_xy, min_spacing_D=float(min_sp), max_iter=int(maxiter),
+                                ambient_ti=ambient_ti, h_hub=h_hub, popsize=int(popsize),
+                                callback=_cb,
+                            )
+                            status.update(label="Optimización terminada", state="complete")
+                        st.session_state["f6_opt_result"] = {
+                            "df_opt": df_opt, "aep_opt": float(aep_opt), "aep_orig": float(aep_orig),
+                            "history": history, "df_orig": df_layout.copy(),
+                        }
+                        guardar_config_values({"f6_opt_maxiter": int(maxiter)})
+                    except RuntimeError as exc:
+                        st.session_state["f6_opt_result"] = {"error": f"{exc} — el optimizador requiere scipy."}
+
+            res = st.session_state.get("f6_opt_result")
+            if res and not res.get("error"):
+                aep_o, aep_n = res["aep_orig"], res["aep_opt"]
+                delta_pct = (aep_n - aep_o) / aep_o * 100.0 if aep_o > 0 else 0.0
+                st.markdown(
+                    _kpi_html([
+                        ("⚡", "AEP layout actual", f"{aep_o:,.0f} MWh/año", "motor de estelas 16 sectores", _F6_GRIS),
+                        ("🚀", "AEP optimizado", f"{aep_n:,.0f} MWh/año", f"{delta_pct:+.2f} % vs actual", _F6_VERDE),
+                        ("📈", "Mejora", f"{delta_pct:+.2f} %", f"{aep_n - aep_o:+,.0f} MWh/año", _F6_VIOLETA),
+                        ("🌀", "Turbinas", str(len(res["df_opt"])), "mismo número que Fase 4", _F6_AZUL),
+                    ], n=2),
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    _badge_html(
+                        _es_num(f"El layout optimizado produce {delta_pct:+.2f} % de energía") if delta_pct > 0.01
+                        else "El layout actual ya es muy bueno: la optimización no encontró una mejora apreciable",
+                        "ok" if delta_pct > 0.01 else "info",
+                    ),
+                    unsafe_allow_html=True,
+                )
+
+        with col_out:
+            res = st.session_state.get("f6_opt_result")
+            if not res:
+                st.markdown(_f6_esquema_optim("optim"), unsafe_allow_html=True)
+                return
+            if res.get("error"):
+                st.error(res["error"])
+                return
+            aep_o, aep_n = res["aep_orig"], res["aep_opt"]
+            delta_pct = (aep_n - aep_o) / aep_o * 100.0 if aep_o > 0 else 0.0
+            st.markdown(
+                _f6_fig_html("Layout antes → después · pase el cursor por cada turbina",
+                             _f6_layout_antes_despues_svg(res["df_orig"], res["df_opt"]),
+                             [("Posición actual", _F6_GRIS), ("Posición optimizada", _F6_VIOLETA), ("Desplazamiento", "#a78bfa")]),
+                unsafe_allow_html=True,
             )
-            st.success("Escenario guardado — compárelo en Fase 4 (el layout activo NO se modifica).")
-        with st.expander("💡 ¿Cómo funciona?"):
-            st.markdown(_f6_esquema_optim("optim"), unsafe_allow_html=True)
+            hist = res.get("history") or {}
+            if hist.get("iter"):
+                st.markdown(
+                    _f6_fig_html("Convergencia · mejor AEP por generación", _f6_convergencia_svg(hist["iter"], hist["best_aep"])),
+                    unsafe_allow_html=True,
+                )
+            with st.expander("📋 Coordenadas del layout optimizado"):
+                st.dataframe(res["df_opt"], hide_index=True, use_container_width=True)
+            nombre_esc = st.text_input("Nombre del escenario", value="Layout optimizado (DE)", key="f6_opt_nombre")
+            if st.button("💾 Guardar como escenario de Fase 4", key="f6_opt_guardar", use_container_width=True):
+                from db import guardar_escenario_parque
+
+                guardar_escenario_parque(
+                    str(nombre_esc).strip() or "Layout optimizado (DE)",
+                    res["df_opt"],
+                    {"origen": "f6_optimizador", "maxiter": int(_cfg_float(config, "f6_opt_maxiter", 5.0))},
+                    {"aep_optimizado_mwh": aep_n, "aep_original_mwh": aep_o, "delta_pct": delta_pct},
+                )
+                st.success("Escenario guardado — compárelo en Fase 4 (el layout activo NO se modifica).")
+            with st.expander("💡 ¿Cómo funciona?"):
+                st.markdown(_f6_esquema_optim("optim"), unsafe_allow_html=True)
 
 
 def _render_card_repowering() -> None:
@@ -3050,14 +3285,13 @@ def _render_card_repowering() -> None:
             "Desmantelar, repotenciar o extender la vida: cuál deja más valor (VPN)",
             "♻️",
         )
-        c1, c2 = st.columns(2)
+        c1, c2, c3, c4 = st.columns(4)
         with c1:
             cap_mw = st.number_input("Capacidad (MW)", 0.0, 5000.0,
                                      _cfg_float(config, "f5_potencia_instalada_mw", 0.0), 1.0, key="f6_rep_cap")
         with c2:
             aep = st.number_input("AEP actual (MWh/año)", 0.0, 10_000_000.0,
                                   _cfg_float(config, "f5_aep_neta_total_mwh", 0.0), 100.0, key="f6_rep_aep")
-        c3, c4 = st.columns(2)
         with c3:
             tasa = st.number_input("Tasa de descuento (%)", 1.0, 25.0,
                                    _cfg_float(config, "f5_tasa_descuento_pct", 8.0), 0.5, key="f6_rep_tasa")
@@ -3076,10 +3310,6 @@ def _render_card_repowering() -> None:
         etiquetas = {"decommission": "Desmantelar", "repowering": "Repotenciar", "life_extension": "Extender vida"}
         iconos = {"decommission": "🏚️", "repowering": "🔄", "life_extension": "⏳"}
         colores = {"decommission": _F6_GRIS, "repowering": _F6_AZUL, "life_extension": _F6_AZUL}
-        st.markdown(
-            _badge_html(f"Recomendado por VPN: {etiquetas.get(recomendado, recomendado).upper()}", "ok"),
-            unsafe_allow_html=True,
-        )
 
         def _musd(v) -> str:
             return _es_num(f"{float(v) / 1e6:,.2f}") + " MUSD"
@@ -3103,42 +3333,48 @@ def _render_card_repowering() -> None:
                 f"Flujo de caja anual: {float(r.get('FCF anual (USD)', 0) or 0) / 1e6:,.2f} MUSD\nVida adicional: {vida:.0f} años"
             )
             filas.append((etq, float(r["NPV (USD)"]), _F6_VERDE if rec else colores.get(e, _F6_GRIS), tip))
-        st.markdown(f'<div class="f6-escs">{"".join(tiles)}</div>', unsafe_allow_html=True)
-        st.markdown(
-            _f6_fig_html("VPN por escenario · MUSD", _f6_vbars_svg(filas),
-                         [("Recomendado", _F6_VERDE), ("Otras opciones", _F6_AZUL), ("Desmantelar", _F6_GRIS)]),
-            unsafe_allow_html=True,
-        )
 
         df_show = df_esc.copy()
         df_show["Escenario"] = df_show["Escenario"].map(etiquetas).fillna(df_show["Escenario"])
         df_show = df_show.rename(columns={"NPV (USD)": "VPN (USD)", "FCF anual (USD)": "Flujo de caja anual (USD)"})
-        with st.expander("📋 Tabla de escenarios"):
-            st.dataframe(
-                df_show,
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "CAPEX (USD)": st.column_config.NumberColumn(format="%.0f"),
-                    "AEP post (MWh/año)": st.column_config.NumberColumn(format="%.0f"),
-                    "Flujo de caja anual (USD)": st.column_config.NumberColumn(format="%.0f"),
-                    "VPN (USD)": st.column_config.NumberColumn(format="%.0f"),
-                },
+
+        # Veredicto + fichas (izquierda) | gráfico VPN (derecha).
+        col_l, col_r = st.columns([1, 1.1], gap="medium")
+        with col_l:
+            st.markdown(
+                _badge_html(f"Recomendado por VPN: {etiquetas.get(recomendado, recomendado).upper()}", "ok"),
+                unsafe_allow_html=True,
             )
-        st.caption(
-            "Supuestos por defecto: desmantelar 40k USD/MW (chatarra 15k), repotenciar 900k USD/MW con +30 % AEP "
-            "y 25 años, extender vida 200k USD/MW con −5 % AEP y 10 años."
-        )
-        with st.expander("💡 ¿Cómo se decide?"):
-            st.markdown(_f6_esquema_optim("repower"), unsafe_allow_html=True)
+            st.markdown(f'<div class="f6-escs">{"".join(tiles)}</div>', unsafe_allow_html=True)
+            st.caption(
+                "Supuestos por defecto: desmantelar 40k USD/MW (chatarra 15k), repotenciar 900k USD/MW con +30 % AEP "
+                "y 25 años, extender vida 200k USD/MW con −5 % AEP y 10 años."
+            )
+            with st.expander("📋 Tabla de escenarios"):
+                st.dataframe(
+                    df_show,
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "CAPEX (USD)": st.column_config.NumberColumn(format="%.0f"),
+                        "AEP post (MWh/año)": st.column_config.NumberColumn(format="%.0f"),
+                        "Flujo de caja anual (USD)": st.column_config.NumberColumn(format="%.0f"),
+                        "VPN (USD)": st.column_config.NumberColumn(format="%.0f"),
+                    },
+                )
+            with st.expander("💡 ¿Cómo se decide?"):
+                st.markdown(_f6_esquema_optim("repower"), unsafe_allow_html=True)
+        with col_r:
+            st.markdown(
+                _f6_fig_html("VPN por escenario · MUSD", _f6_vbars_svg(filas),
+                             [("Recomendado", _F6_VERDE), ("Otras opciones", _F6_AZUL), ("Desmantelar", _F6_GRIS)]),
+                unsafe_allow_html=True,
+            )
 
 
 def _render_optimizacion() -> None:
-    col_a, col_b = st.columns(2, gap="medium")
-    with col_a:
-        _render_card_optimizador()
-    with col_b:
-        _render_card_repowering()
+    _render_card_optimizador()
+    _render_card_repowering()
 
 
 # -----------------------------------------------------------------------------
@@ -3337,7 +3573,8 @@ def _render_auditoria() -> None:
                    for c, v in cat_scores.items()}
         peor_cat = min(pct_cat, key=pct_cat.get) if pct_cat else ""
 
-        col_g, col_k = st.columns([1, 1.55], gap="medium")
+        # Fila superior pareja: medidor | 4 KPIs apilados | dona (alturas similares, sin huecos).
+        col_g, col_k, col_d = st.columns([1.05, 1, 1], gap="medium")
         with col_g:
             st.markdown(
                 _f6_fig_html("Puntaje de auditoría", _f6_gauge_svg(score, etq_nivel),
@@ -3352,19 +3589,20 @@ def _render_auditoria() -> None:
                     ("✍️", "Sin dato / manual", str(score_res["n_na_manual"]), "cuentan medio punto", _F6_GRIS),
                     ("📉", "Categoría más débil", _F6_AUDIT_CAT_ES.get(peor_cat, peor_cat) or "—",
                      _es_num(f"{pct_cat.get(peor_cat, 0.0):.0f} % de su peso") if peor_cat else "", _F6_AMBAR),
-                ], n=2),
+                ], n=1),
                 unsafe_allow_html=True,
             )
-            s_txt = _es_num(f"{score:.1f}")
-            if score >= 85:
-                msg, tono = f"Puntaje {s_txt}: el proyecto está listo para un auditor externo (DNV/UL/TÜV).", "ok"
-            elif score >= 70:
-                msg, tono = f"Puntaje {s_txt}: brechas menores, refine antes de enviar al auditor.", "warn"
-            else:
-                msg, tono = f"Puntaje {s_txt}: aún no enviar al auditor, cierre los {score_res['n_fail']} criterios que fallan.", "bad"
-            st.markdown(_badge_html(msg, tono), unsafe_allow_html=True)
+        s_txt = _es_num(f"{score:.1f}")
+        if score >= 85:
+            msg, tono = f"Puntaje {s_txt}: el proyecto está listo para un auditor externo (DNV/UL/TÜV).", "ok"
+        elif score >= 70:
+            msg, tono = f"Puntaje {s_txt}: brechas menores, refine antes de enviar al auditor.", "warn"
+        else:
+            msg, tono = f"Puntaje {s_txt}: aún no enviar al auditor, cierre los {score_res['n_fail']} criterios que fallan.", "bad"
+        st.markdown(_badge_html(msg, tono), unsafe_allow_html=True)
 
-        col_c, col_d = st.columns([1.6, 1], gap="medium")
+        # Barras por categoría a todo el ancho (la dona ya va arriba, en la 3.ª columna).
+        col_c = st.container()
         with col_c:
             filas = []
             for cat, peso in audit.PESO_CATEGORIA.items():
