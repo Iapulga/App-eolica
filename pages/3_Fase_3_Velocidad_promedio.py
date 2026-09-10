@@ -518,13 +518,13 @@ def render_rosa_svg(resumen):
     for rv in rings:
         rr = rv / ring_max * RMAX
         grid += f'<circle cx="{CX}" cy="{CY}" r="{rr:.1f}" fill="none" stroke="#e6e9f5" stroke-width="1.2"/>'
-        grid += f'<text x="{CX + 4}" y="{CY - rr + 3:.1f}" font-size="10" fill="#94a3b8" font-weight="700">{_f3_fmt_num(rv)}%</text>'
+        grid += f'<text x="{CX + 4}" y="{CY - rr + 3:.1f}" font-size="12.5" fill="#94a3b8" font-weight="800">{_f3_fmt_num(rv)}%</text>'
     spokes = ""
     for lbl, b in [("N", 0), ("NE", 45), ("E", 90), ("SE", 135), ("S", 180), ("SW", 225), ("W", 270), ("NW", 315)]:
         x2, y2 = xy(RMAX, b)
         spokes += f'<line x1="{CX}" y1="{CY}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="#eef1fa" stroke-width="1"/>'
-        lx, ly = xy(RMAX + 20, b)
-        spokes += f'<text x="{lx:.1f}" y="{ly + 4:.1f}" text-anchor="middle" font-size="13" fill="#5a6b85" font-weight="900">{lbl}</text>'
+        lx, ly = xy(RMAX + 24, b)
+        spokes += f'<text x="{lx:.1f}" y="{ly + 5.5:.1f}" text-anchor="middle" font-size="16" fill="#5a6b85" font-weight="900">{lbl}</text>'
     wedges = ""
     half = (360.0 / 16.0) / 2.0 * 0.84
     for i in range(len(freqs)):
@@ -548,7 +548,7 @@ def render_rosa_svg(resumen):
         '<stop offset="0" stop-color="#c7d2fe"/><stop offset="1" stop-color="#4f46e5"/>'
         "</radialGradient></defs>"
     )
-    return _f3_svg_html("0 0 520 548", defs + grid + spokes + wedges)
+    return _f3_svg_html("22 32 476 476", defs + grid + spokes + wedges)
 
 
 def _sector_curve_arrays(df_sector, fila_sector, bins):
@@ -566,7 +566,7 @@ def _sector_curve_arrays(df_sector, fila_sector, bins):
     return centers, np.asarray(pw, dtype=float), np.asarray(pr, dtype=float)
 
 
-def render_sector_curve_svg(centers, probs_weib, probs_ray, cut_in, nominal, cut_out, vmax):
+def render_sector_curve_svg(centers, probs_weib, probs_ray, cut_in, nominal, cut_out, vmax, H=440):
     """Curva de probabilidad por sector (mockup): Weibull (índigo) + Rayleigh
     (naranja) + verticales cut-in/nominal/cut-out + ejes con números."""
     cxs = np.asarray(centers, dtype=float)
@@ -580,7 +580,8 @@ def render_sector_curve_svg(centers, probs_weib, probs_ray, cut_in, nominal, cut
     y_hi = float(np.nanmax(allp)) * 1.14 if len(allp) else 1.0
     if y_hi <= 0:
         y_hi = 1.0
-    X0, X1, YB, YT = 52.0, 686.0, 390.0, 26.0
+    # H = alto del viewBox (ancho fijo 700); ajustarlo al aspecto del iframe evita letterbox
+    X0, X1, YB, YT = 52.0, 686.0, float(H) - 50.0, 26.0
 
     def px(v):
         return X0 + (float(v) - x_lo) / (x_hi - x_lo) * (X1 - X0)
@@ -592,11 +593,11 @@ def render_sector_curve_svg(centers, probs_weib, probs_ray, cut_in, nominal, cut
     x_ticks = _f3_nice_ticks(x_lo, x_hi, 6)
     grid = "".join(f'<line x1="52" y1="{py(t):.1f}" x2="686" y2="{py(t):.1f}" stroke="#eef1fa" stroke-width="1"/>' for t in y_ticks)
     axes = (
-        '<line x1="52" y1="390" x2="686" y2="390" stroke="#c4d4e8" stroke-width="1.4"/>'
-        '<line x1="52" y1="20" x2="52" y2="390" stroke="#c4d4e8" stroke-width="1.4"/>'
+        f'<line x1="52" y1="{YB:.0f}" x2="686" y2="{YB:.0f}" stroke="#c4d4e8" stroke-width="1.4"/>'
+        f'<line x1="52" y1="20" x2="52" y2="{YB:.0f}" stroke="#c4d4e8" stroke-width="1.4"/>'
     )
-    ylab = "".join(f'<text x="48" y="{py(t) + 3:.1f}" text-anchor="end" font-size="9" fill="#94a3b8" font-weight="700">{_f3_fmt_num(t)}</text>' for t in y_ticks)
-    xlab = "".join(f'<text x="{px(t):.1f}" y="406" text-anchor="middle" font-size="9" fill="#94a3b8" font-weight="700">{_f3_fmt_num(t)}</text>' for t in x_ticks)
+    ylab = "".join(f'<text x="48" y="{py(t) + 3:.1f}" text-anchor="end" font-size="10.5" fill="#94a3b8" font-weight="700">{_f3_fmt_num(t)}</text>' for t in y_ticks)
+    xlab = "".join(f'<text x="{px(t):.1f}" y="{YB + 17:.0f}" text-anchor="middle" font-size="10.5" fill="#94a3b8" font-weight="700">{_f3_fmt_num(t)}</text>' for t in x_ticks)
 
     def line(arr, color):
         pts = [(px(cxs[i]), py(arr[i])) for i in range(len(arr)) if np.isfinite(arr[i])]
@@ -612,13 +613,14 @@ def render_sector_curve_svg(centers, probs_weib, probs_ray, cut_in, nominal, cut
         if xv is None:
             continue
         xx = px(xv)
-        cuts += f'<line x1="{xx:.1f}" y1="26" x2="{xx:.1f}" y2="390" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 4"/>'
-        cuts += f'<text x="{xx:.1f}" y="20" text-anchor="middle" font-size="8.5" fill="#64748b" font-weight="800">{nm}</text>'
+        cuts += f'<line x1="{xx:.1f}" y1="26" x2="{xx:.1f}" y2="{YB:.0f}" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 4"/>'
+        cuts += f'<text x="{xx:.1f}" y="20" text-anchor="middle" font-size="9.5" fill="#64748b" font-weight="800">{nm}</text>'
+    _ymid = (YT + YB) / 2.0
     labels = (
-        '<text x="369" y="426" text-anchor="middle" font-size="10" fill="#64748b" font-weight="800">Velocidad (m/s)</text>'
-        '<text x="13" y="208" font-size="10" fill="#64748b" font-weight="800" transform="rotate(-90 13 208)" text-anchor="middle">Probabilidad (%)</text>'
+        f'<text x="369" y="{YB + 38:.0f}" text-anchor="middle" font-size="11.5" fill="#64748b" font-weight="800">Velocidad (m/s)</text>'
+        f'<text x="13" y="{_ymid:.0f}" font-size="11.5" fill="#64748b" font-weight="800" transform="rotate(-90 13 {_ymid:.0f})" text-anchor="middle">Probabilidad (%)</text>'
     )
-    return _f3_svg_html("0 0 700 440", grid + axes + cuts + body + ylab + xlab + labels)
+    return _f3_svg_html(f"0 0 700 {int(H)}", grid + axes + cuts + body + ylab + xlab + labels)
 
 
 def _heatmap_matrix(df_rosa, bins):
@@ -2483,6 +2485,90 @@ st.markdown(
     .st-key-f3_use_alpha_calc [data-testid="stButton"]>button p{color:#4f46e5 !important}
     .st-key-f3_use_alpha_calc [data-testid="stButton"]>button:hover,
     .st-key-f3_btn_toggle_sector_table [data-testid="stButton"]>button:hover{border-color:#4f46e5 !important}
+    /* ── Aurora v2: el hero NO va dentro de una card blanca (el st-key cae en el propio stVerticalBlock) ── */
+    #root .st-key-f3_card_header{background:transparent !important;border:none !important;box-shadow:none !important;
+      padding:0 !important;border-radius:0 !important;min-height:0 !important;height:auto !important;overflow:visible !important;
+      margin-bottom:14px !important;gap:0 !important}
+    #root .st-key-f3_card_header .f3-hero{margin:0 !important}
+    /* mismo alto que el hero de F1/F2 (131px: padding 22 + fila 87 + 22) */
+    #root .st-key-f3_card_header .f3-hero-row{min-height:87px !important}
+    /* cortes: la etiqueta quedaba pegada/cortada por el borde del input (margin-bottom:-16px nativo del markdown) */
+    #root .st-key-f3_cfg_cuts [data-testid="stMarkdownContainer"]:has(> .f3-cut-field-label){margin-bottom:0 !important}
+    #root .st-key-f3_cfg_cuts [data-testid="stElementContainer"]:has(.f3-cut-field-label){height:auto !important;min-height:0 !important;overflow:visible !important}
+    #root .st-key-f3_cfg_cuts .f3-cut-field-label{display:block !important;margin:0 0 6px !important;padding:0 !important;transform:none !important;position:static !important}
+    #root .st-key-f3_cfg_cuts [data-testid="stHorizontalBlock"] [data-testid="stVerticalBlock"]{gap:0 !important}
+    #root .st-key-f3_cfg_cuts [data-testid="stSelectbox"] [data-testid="stWidgetLabel"] p{margin-bottom:6px !important}
+    /* ── Aurora v2: 3 cards de configuración (paridad 03_fase3: .card / .field / .input / .chip / .banner) ── */
+    #root .st-key-f3_cfg_general,#root .st-key-f3_cfg_cuts,#root .st-key-f3_cfg_sector{
+      min-height:0 !important;height:100% !important;padding:20px 22px 18px !important;border:1px solid #d3e0f0 !important;
+      border-radius:26px !important;background:linear-gradient(180deg,#fff,#fcfdff) !important;
+      box-shadow:0 1px 2px rgba(11,36,71,.05),0 10px 28px rgba(11,36,71,.08) !important;gap:10px !important;margin-bottom:14px !important}
+    #root div[data-testid="stLayoutWrapper"]:has(> .st-key-f3_cfg_general),
+    #root div[data-testid="stLayoutWrapper"]:has(> .st-key-f3_cfg_cuts),
+    #root div[data-testid="stLayoutWrapper"]:has(> .st-key-f3_cfg_sector){flex:1 1 auto !important}
+    #root .st-key-f3_cfg_general .aur-card-head,#root .st-key-f3_cfg_cuts .aur-card-head,#root .st-key-f3_cfg_sector .aur-card-head{margin-bottom:4px !important}
+    #root .st-key-f3_cfg_general [data-testid="stHorizontalBlock"],#root .st-key-f3_cfg_cuts [data-testid="stHorizontalBlock"]{gap:12px !important}
+    #root .st-key-f3_pg_altura,#root .st-key-f3_pg_modelo,#root .st-key-f3_pg_vmax,#root .st-key-f3_pg_binwidth{
+      border:none !important;background:transparent !important;box-shadow:none !important;padding:0 !important;
+      border-radius:0 !important;margin:0 !important;gap:0 !important;min-height:0 !important}
+    /* la etiqueta custom colapsaba (h0 por CSS viejo) y quedaba bajo el input → devolverle su alto */
+    #root [class*="st-key-f3_pg_"] [data-testid="stElementContainer"]:has(.f3-pg-custom-label),
+    #root [class*="st-key-f3_pg_"] [data-testid="stElementContainer"]:has(.f3-pg-custom-label) [data-testid="stMarkdown"],
+    #root [class*="st-key-f3_pg_"] [data-testid="stElementContainer"]:has(.f3-pg-custom-label) [data-testid="stMarkdown"] > div{
+      height:auto !important;min-height:0 !important;max-height:none !important;margin:0 !important;overflow:visible !important}
+    #root [class*="st-key-f3_pg_"] .f3-pg-custom-label{display:block !important;padding:0 !important}
+    #root [class*="st-key-f3_pg_"] [data-testid="stMarkdownContainer"]:has(> .f3-pg-custom-label){margin-bottom:0 !important}
+    /* etiquetas: MAYÚSCULAS 9.5px como .field label */
+    #root .st-key-f3_cfg_general .f3-pg-custom-label,#root .st-key-f3_cfg_cuts .f3-cut-field-label,
+    #root .st-key-f3_cfg_cuts [data-testid="stSelectbox"] [data-testid="stWidgetLabel"] p,
+    #root .st-key-f3_cfg_sector [data-testid="stSelectbox"] [data-testid="stWidgetLabel"] p{
+      font-size:9.5px !important;font-weight:900 !important;color:#64748b !important;text-transform:uppercase !important;
+      letter-spacing:.06em !important;margin:0 0 5px !important;line-height:1.2 !important;min-height:0 !important}
+    #root .st-key-f3_cfg_cuts [data-testid="stSelectbox"] [data-testid="stWidgetLabel"],
+    #root .st-key-f3_cfg_sector [data-testid="stSelectbox"] [data-testid="stWidgetLabel"]{min-height:0 !important;margin:0 !important}
+    /* inputs: 42px, borde 1.5px #cfe0f5, radio 12, texto 13.5px/800 */
+    #root .st-key-f3_cfg_general [data-testid="stNumberInputContainer"],#root .st-key-f3_cfg_cuts [data-testid="stNumberInputContainer"],
+    #root .st-key-f3_cfg_general [data-baseweb="select"] > div,#root .st-key-f3_cfg_cuts [data-baseweb="select"] > div,
+    #root .st-key-f3_cfg_sector [data-baseweb="select"] > div{
+      height:42px !important;min-height:42px !important;border:1.5px solid #cfe0f5 !important;border-radius:12px !important;
+      background:#fff !important;box-shadow:inset 0 1px 3px rgba(11,36,71,.04) !important;overflow:hidden !important}
+    #root .st-key-f3_cfg_general [data-testid="stNumberInputContainer"] [data-baseweb="input"],
+    #root .st-key-f3_cfg_cuts [data-testid="stNumberInputContainer"] [data-baseweb="input"]{border:none !important;height:100% !important;min-height:0 !important;background:transparent !important;box-shadow:none !important}
+    #root .st-key-f3_cfg_general input,#root .st-key-f3_cfg_cuts input,
+    #root .st-key-f3_cfg_general [data-baseweb="select"] div,#root .st-key-f3_cfg_cuts [data-baseweb="select"] div,
+    #root .st-key-f3_cfg_sector [data-baseweb="select"] div{font-size:13.5px !important;font-weight:800 !important;color:#0b2447 !important}
+    #root .st-key-f3_cfg_general input,#root .st-key-f3_cfg_cuts input{padding-left:12px !important;padding-right:4px !important;min-width:0 !important}
+    #root .st-key-f3_cfg_general [data-testid="stNumberInputContainer"] button,
+    #root .st-key-f3_cfg_cuts [data-testid="stNumberInputContainer"] button{width:24px !important;min-width:24px !important;height:24px !important;
+      padding:0 !important;margin:0 3px 0 0 !important;align-self:center !important;border:1px solid #dbe6f3 !important;border-radius:7px !important;
+      background:#f8fbff !important;color:#5a6b85 !important}
+    /* botón α al pie: .btn.ghost índigo */
+    #root .st-key-f3_use_alpha_calc{margin-top:2px !important}
+    #root .st-key-f3_use_alpha_calc [data-testid="stButton"] button{width:auto !important;height:auto !important;min-height:38px !important;
+      padding:9px 18px !important;border-radius:13px !important;border:1.5px solid #c7d2fe !important;background:#fff !important;
+      box-shadow:0 2px 6px rgba(11,36,71,.05) !important}
+    #root .st-key-f3_use_alpha_calc [data-testid="stButton"] button p{color:#4f46e5 !important;font-weight:800 !important;font-size:12.5px !important}
+    /* "Mostrar probabilidad acumulada" como .chip (on = índigo) */
+    #root .st-key-f3_mostrar_cdf{margin-top:2px !important}
+    #root .st-key-f3_mostrar_cdf label[data-baseweb="checkbox"]{display:inline-flex !important;align-items:center !important;width:auto !important;
+      padding:9px 15px !important;border-radius:999px !important;border:1.5px solid #cfe0f5 !important;background:#fff !important;
+      box-shadow:0 2px 6px rgba(11,36,71,.04) !important;cursor:pointer !important;margin:0 !important}
+    #root .st-key-f3_mostrar_cdf label[data-baseweb="checkbox"] > span{display:none !important}
+    #root .st-key-f3_mostrar_cdf label[data-baseweb="checkbox"] p{font-size:12px !important;font-weight:800 !important;color:#5a6b85 !important;
+      text-transform:none !important;letter-spacing:0 !important;margin:0 !important;line-height:1.2 !important}
+    #root .st-key-f3_mostrar_cdf label[data-baseweb="checkbox"]:has(input:checked){border-color:#4f46e5 !important;
+      background:linear-gradient(120deg,color-mix(in srgb,#4f46e5 13%,#fff),color-mix(in srgb,#4f46e5 6%,#fff)) !important;
+      box-shadow:0 6px 14px color-mix(in srgb,#4f46e5 18%,transparent) !important}
+    #root .st-key-f3_mostrar_cdf label[data-baseweb="checkbox"]:has(input:checked) p{color:#4f46e5 !important}
+    #root .st-key-f3_mostrar_cdf label[data-baseweb="checkbox"]:has(input:checked) p::before{content:"✓ "}
+    /* banner info del sector (.banner.info) */
+    #root .st-key-f3_cfg_sector .f3-soft-note.f3-aur-banner{display:flex !important;align-items:center !important;gap:12px !important;
+      border-radius:15px !important;padding:12px 16px !important;margin:6px 0 0 !important;min-height:0 !important;
+      background:linear-gradient(120deg,color-mix(in srgb,#4f46e5 8%,#fff),#fff) !important;border:1.5px solid color-mix(in srgb,#4f46e5 30%,#fff) !important;box-shadow:none !important}
+    #root .st-key-f3_cfg_sector .f3-soft-note.f3-aur-banner,#root .st-key-f3_cfg_sector .f3-soft-note.f3-aur-banner *{
+      color:#4f46e5 !important;font-weight:800 !important;font-size:12.5px !important;line-height:1.35 !important}
+    #root .st-key-f3_cfg_sector .f3-aur-banner .f3-bx{width:36px;height:36px;min-width:36px;border-radius:11px;display:flex;align-items:center;
+      justify-content:center;font-size:18px !important;background:rgba(255,255,255,.7)}
     </style>
     """,
     unsafe_allow_html=True,
@@ -2992,25 +3078,12 @@ if _alpha_calc_med and str(_alpha_calc_med).strip():
 config_cols = st.columns([1.0, 1.0, 1.0], gap="small")
 with config_cols[0]:
     with _phase_card("f3_cfg_general"):
-        _hdr_left, _hdr_right = st.columns([0.62, 0.38], gap="small")
-        with _hdr_left:
-            _render_card_header_native("Parámetros generales", "🎛️", "Altura, modelo y discretización")
-        with _hdr_right:
-            if _alpha_show:
-                if st.button("Usar α calculado", key="f3_use_alpha_calc"):
-                    guardar_config_values({"perfil_alpha": _alpha_val, "perfil_alpha_usuario": _alpha_val})
-                    st.success(f"α actualizado a {_alpha_val:.3f}. Recarga la fase para ver el efecto.")
-                    st.rerun()
+        _render_card_header_native("Parámetros generales", "🎛️", "Altura, modelo y discretización")
         if True:
-            st.markdown(
-                '<div class="f3-pg-content-down-spacer"></div>',
-                unsafe_allow_html=True,
-            )
             g1, g2 = st.columns(2, gap="small")
             with g1:
                 with st.container(border=True, key="f3_pg_altura"):
                     st.markdown('<div class="f3-pg-custom-label">Altura (m)</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="f3-pg-input-down-gap"></div>', unsafe_allow_html=True)
                     altura_deseada = st.number_input(
                         "Altura (m)",
                         min_value=0.10,
@@ -3022,7 +3095,6 @@ with config_cols[0]:
             with g2:
                 with st.container(border=True, key="f3_pg_modelo"):
                     st.markdown('<div class="f3-pg-custom-label">Modelo</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="f3-pg-input-down-gap"></div>', unsafe_allow_html=True)
                     modelo = st.selectbox(
                         "Modelo",
                         MODEL_OPTIONS,
@@ -3034,7 +3106,6 @@ with config_cols[0]:
             with g3:
                 with st.container(border=True, key="f3_pg_vmax"):
                     st.markdown('<div class="f3-pg-custom-label">V. máx. análisis (m/s)</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="f3-pg-input-down-gap"></div>', unsafe_allow_html=True)
                     vmax = st.number_input(
                         "V. máx. análisis (m/s)",
                         min_value=5.0,
@@ -3046,7 +3117,6 @@ with config_cols[0]:
             with g4:
                 with st.container(border=True, key="f3_pg_binwidth"):
                     st.markdown('<div class="f3-pg-custom-label">Ancho de intervalo (m/s)</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="f3-pg-input-down-gap"></div>', unsafe_allow_html=True)
                     bin_width = st.number_input(
                         "Ancho de intervalo (m/s)",
                         min_value=0.25,
@@ -3055,28 +3125,22 @@ with config_cols[0]:
                         key="f3_bin_width",
                         label_visibility="collapsed",
                     )
-            st.markdown(
-                '<div class="f3-pg-bottom-spacer"></div>',
-                unsafe_allow_html=True,
-            )
+            if _alpha_show:
+                if st.button("α  Usar α calculado", key="f3_use_alpha_calc", help=_alpha_hint or None):
+                    guardar_config_values({"perfil_alpha": _alpha_val, "perfil_alpha_usuario": _alpha_val})
+                    st.success(f"α actualizado a {_alpha_val:.3f}. Recarga la fase para ver el efecto.")
+                    st.rerun()
 
 with config_cols[1]:
     with _phase_card("f3_cfg_cuts"):
         _render_card_header_native("Dirección y cortes", "🧭", "Sectores y ventana de operación")
         if True:
-            top1, top2 = st.columns([1.18, 1.0], gap="small")
-            with top1:
-                direccion_fuente = st.selectbox(
-                    "Dirección usada",
-                    DIRECTION_OPTIONS,
-                    index=_safe_index(DIRECTION_OPTIONS, st.session_state.get("f3_direccion_fuente", dir_default), 0),
-                    key="f3_direccion_fuente",
-                )
-            with top2:
-                mostrar_cdf = st.checkbox(
-                    "Mostrar probabilidad acumulada",
-                    key="f3_mostrar_cdf",
-                )
+            direccion_fuente = st.selectbox(
+                "Dirección usada",
+                DIRECTION_OPTIONS,
+                index=_safe_index(DIRECTION_OPTIONS, st.session_state.get("f3_direccion_fuente", dir_default), 0),
+                key="f3_direccion_fuente",
+            )
             cuts1, cuts2, cuts3 = st.columns(3, gap="small")
             with cuts1:
                 st.markdown('<div class="f3-cut-field-label">Cut-in (m/s)</div>', unsafe_allow_html=True)
@@ -3084,7 +3148,7 @@ with config_cols[1]:
                     "Cut-in (m/s)",
                     min_value=0.0,
                     step=0.5,
-                    format="%.2f",
+                    format="%.1f",
                     key="f3_cut_in",
                     label_visibility="collapsed",
                 )
@@ -3094,7 +3158,7 @@ with config_cols[1]:
                     "Velocidad nominal (m/s)",
                     min_value=0.0,
                     step=0.5,
-                    format="%.2f",
+                    format="%.1f",
                     key="f3_nominal",
                     label_visibility="collapsed",
                 )
@@ -3104,13 +3168,13 @@ with config_cols[1]:
                     "Cut-out (m/s)",
                     min_value=0.0,
                     step=0.5,
-                    format="%.2f",
+                    format="%.1f",
                     key="f3_cut_out",
                     label_visibility="collapsed",
                 )
-            st.markdown(
-                '<div class="f3-cuts-bottom-spacer"></div>',
-                unsafe_allow_html=True,
+            mostrar_cdf = st.checkbox(
+                "Mostrar probabilidad acumulada",
+                key="f3_mostrar_cdf",
             )
 
 with config_cols[2]:
@@ -3123,13 +3187,8 @@ with config_cols[2]:
             key="f3_selected_sector",
         )
         st.markdown(
-            '<div class="f3-soft-note"><span class="f3-card-heading__icon" style="width:30px;height:30px;min-width:30px;">'
-            + _icon_svg("info", 16, "#2563eb")
-            + '</span><div>La curva y las tablas de probabilidad usan el ancho de intervalo seleccionado.</div></div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div class="f3-sector-bottom-spacer"></div>',
+            '<div class="f3-soft-note f3-aur-banner"><span class="f3-bx">ℹ️</span>'
+            '<div>La curva y tablas usan el ancho de intervalo elegido</div></div>',
             unsafe_allow_html=True,
         )
 
@@ -3161,7 +3220,7 @@ with top_cols[0]:
         _render_card_header_native("1 · Rosa de vientos", "🌹", "Frecuencia por dirección — 16 sectores")
         with st.container(key="f3_rose_body_v3"):
             with st.container(key="f3_rose_plot_col_v3"):
-                components.html(render_rosa_svg(resumen), height=355, scrolling=False)
+                components.html(render_rosa_svg(resumen), height=500, scrolling=False)
             with st.container(border=True, key="f3_sector_summary"):
                 _render_summary_sector_native(resumen, direccion_fuente)
             if st.button(
@@ -3193,8 +3252,8 @@ with top_cols[1]:
             with st.container(key="f3_sector_plot_wrap_v3"):
                 _f3_centers, _f3_pw, _f3_pr = _sector_curve_arrays(df_sector, fila_sector, bins)
                 components.html(
-                    render_sector_curve_svg(_f3_centers, _f3_pw, _f3_pr, cut_in, nominal, cut_out, vmax),
-                    height=345, scrolling=False,
+                    render_sector_curve_svg(_f3_centers, _f3_pw, _f3_pr, cut_in, nominal, cut_out, vmax, H=547),
+                    height=505, scrolling=False,
                 )
                 st.markdown(
                     '<div class="aur-legend">'
