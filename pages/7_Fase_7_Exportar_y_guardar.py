@@ -1,5 +1,7 @@
 import html
+import re
 
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -57,20 +59,96 @@ def _has_value(value) -> bool:
     return value is not None and str(value).strip() not in {"", "None", "nan", "NaN"}
 
 
+# Formato español: el código produce "1,234.5"; se muestra "1.234,5" (solo tokens numéricos).
+_F7_NUM_RE = re.compile(r"\d[\d.,]*\d")
+_F7_SWAP = str.maketrans({",": ".", ".": ","})
+
+
+def _es(text) -> str:
+    return _F7_NUM_RE.sub(lambda m: m.group(0).translate(_F7_SWAP), str(text)) if text else text
+
+
+# _fmt_float y _f7_money devuelven formato US ('1,234.5'); la ficha KPI aplica _es() UNA vez
+# al mostrar (aplicarlo dos veces deshacía el cambio).
 def _fmt_float(value, decimals=2, suffix="") -> str:
     if not _has_value(value):
         return "N/D"
     try:
-        return f"{float(value):.{decimals}f}{suffix}"
+        return f"{float(value):,.{decimals}f}{suffix}"
     except Exception:
         return f"{value}{suffix}"
+
+
+def _f7_money(value, unidad: str) -> str:
+    """Moneda compacta del mockup: 'USD 19.63 M' / 'USD 449.9 k' → la ficha lo muestra como '19,63 M'."""
+    if not _has_value(value):
+        return "N/D"
+    try:
+        v = float(value)
+    except Exception:
+        return f"{unidad} {value}"
+    if abs(v) >= 1e6:
+        return f"{unidad} {v / 1e6:,.2f} M"
+    if abs(v) >= 1e3:
+        return f"{unidad} {v / 1e3:,.1f} k"
+    return f"{unidad} {v:,.0f}"
+
+
+def _f7_icono(icon: str, size: int = 22, color: str = "#d97706") -> str:
+    """Emoji (mockup) si el icono no es ASCII; si no, el icono SVG de navigation."""
+    if icon and not icon.isascii():
+        return f'<span class="f7-emoji">{_escape(icon)}</span>'
+    return _safe_icon(icon, size, color)
+
+
+def _f7_plano_svg(df_layout) -> str:
+    """Plano del parque (turbinas de Fase 4) con tooltip por turbina, escala y norte."""
+    pts = []
+    for i, (_, r) in enumerate(df_layout.iterrows()):
+        try:
+            pts.append((str(r.get("turbina_id") or f"T{i + 1}"), float(r["x_m"]), float(r["y_m"])))
+        except (TypeError, ValueError, KeyError):
+            continue
+    if not pts:
+        return ""
+    W, H, L, R, T, B = 520.0, 230.0, 44.0, 44.0, 34.0, 40.0
+    xs, ys = [p[1] for p in pts], [p[2] for p in pts]
+    dx, dy = max(max(xs) - min(xs), 1.0), max(max(ys) - min(ys), 1.0)
+    esc = min((W - L - R) / dx, (H - T - B) / dy)
+    if dx < 50 and dy < 50:
+        esc = (W - L - R) / 400.0
+    xc, yc = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+
+    def P(x, y):
+        return L + (W - L - R) / 2 + (x - xc) * esc, T + (H - T - B) / 2 - (y - yc) * esc
+
+    p = ['<svg viewBox="0 0 520 230" xmlns="http://www.w3.org/2000/svg">',
+         '<rect x="6" y="6" width="508" height="218" rx="16" fill="#fffbeb" stroke="#fde68a"/>',
+         '<g opacity=".6">' + "".join(f'<line x1="{gx}" y1="12" x2="{gx}" y2="218" stroke="#fef3c7"/>' for gx in range(60, 500, 60)) + "</g>"]
+    for tid, x, y in pts:
+        px, py = P(x, y)
+        tip = _es(f"{tid} · x = {x:,.0f} m · y = {y:,.0f} m")
+        p.append(f'<g style="cursor:help"><title>{_escape(tip)}</title>'
+                 f'<circle cx="{px:.1f}" cy="{py:.1f}" r="11" fill="#d97706" opacity=".18"/>'
+                 f'<circle cx="{px:.1f}" cy="{py:.1f}" r="6.5" fill="#d97706" stroke="#fff" stroke-width="2"/>'
+                 f'<text x="{px:.1f}" y="{py - 12:.1f}" text-anchor="middle" font-size="10" font-weight="900" fill="#92400e">{_escape(tid)}</text></g>')
+    raw = (W - L - R) / esc / 4.0
+    e = 10 ** np.floor(np.log10(raw)) if raw > 0 else 1.0
+    lm = next((m * e for m in (5, 2, 1) if m * e <= raw), e)
+    lpx = lm * esc
+    p.append(f'<line x1="20" y1="208" x2="{20 + lpx:.1f}" y2="208" stroke="#78350f" stroke-width="2.4"/>'
+             f'<text x="{20 + lpx / 2:.1f}" y="200" text-anchor="middle" font-size="9.5" font-weight="900" fill="#78350f">{_escape(_es(f"{lm:,.0f} m"))}</text>'
+             '<g transform="translate(492,30)"><circle r="13" fill="#fff" stroke="#fde68a"/>'
+             '<path d="M0,-8 L4.5,4 L0,1 L-4.5,4 Z" fill="#78350f"/>'
+             '<text y="10.5" text-anchor="middle" font-size="7.5" font-weight="900" fill="#78350f">N</text></g></svg>')
+    return "".join(p)
 
 
 def _section_header(title: str, subtitle: str = "", icon: str = "chart", color: str = "#d97706") -> None:
     st.markdown(
         f"""
 <div class="f7-section-header">
-    <div class="f7-section-icon"><span class="f7-icon-soft">{_safe_icon(icon, 22, color)}</span></div>
+    <div class="f7-section-icon"><span class="f7-icon-soft">{_f7_icono(icon, 22, color)}</span></div>
     <div>
         <div class="f7-section-title">{_escape(title)}</div>
         {f'<div class="f7-section-subtitle">{_escape(subtitle)}</div>' if subtitle else ''}
@@ -310,6 +388,81 @@ div[data-testid="stHorizontalBlock"]:has(.st-key-f7_card_gis_export) > div[data-
 /* ════════ Responsive ════════ */
 @media(max-width:1200px){.f7-kpi-grid,.f7-summary-grid{grid-template-columns:repeat(3,1fr)}.f7-export-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:700px){.f7-kpi-grid,.f7-summary-grid{grid-template-columns:repeat(2,1fr)}.f7-export-grid{grid-template-columns:1fr}}
+/* ════════ Aurora v2 (F7) ════════ */
+.hero-card{border-radius:26px !important;margin:0 !important}
+.hero-row{min-height:87px}
+.hero-text{flex:1;min-width:0}
+.f7-wind{position:absolute;left:-30px;top:0;bottom:0;width:58%;height:100%;opacity:.45;pointer-events:none;z-index:1}
+.f7-wind path{stroke:rgba(255,255,255,.55);stroke-width:2;fill:none;stroke-dasharray:16 11;animation:f7windmove 2.6s linear infinite}
+.f7-wind path:nth-child(2){animation-duration:3.4s;opacity:.7}
+.f7-wind path:nth-child(3){animation-duration:4.2s;opacity:.5}
+@keyframes f7windmove{to{stroke-dashoffset:-54}}
+/* el hero NO va dentro de una card blanca (el st-key cae en el propio stVerticalBlock) */
+#root .st-key-f7_card_header{background:transparent !important;border:none !important;box-shadow:none !important;padding:0 !important;
+  border-radius:0 !important;min-height:0 !important;overflow:visible !important;margin-bottom:14px !important;gap:0 !important}
+#root .st-key-f7_card_header::before{display:none !important}
+/* Franja ámbar que sigue la curva: radio 27px = card 28px - 1px de borde (incluye Guardado final) */
+#root div[data-testid="stVerticalBlock"]:is(.st-key-f7_card_exec_summary,.st-key-f7_card_scenario,.st-key-f7_card_exports,.st-key-f7_card_informe_tecnico,.st-key-f7_card_bankable,.st-key-f7_card_gis_export,.st-key-f7_save_section){position:relative !important}
+#root div[data-testid="stVerticalBlock"]:is(.st-key-f7_card_exec_summary,.st-key-f7_card_scenario,.st-key-f7_card_exports,.st-key-f7_card_informe_tecnico,.st-key-f7_card_bankable,.st-key-f7_card_gis_export,.st-key-f7_save_section)::before{
+  content:"" !important;position:absolute !important;top:0 !important;right:0 !important;bottom:0 !important;left:0 !important;height:auto !important;width:auto !important;
+  z-index:5;pointer-events:none;display:block !important;
+  background:linear-gradient(90deg,#d97706, color-mix(in srgb,#d97706 25%,#fff) 70%, transparent) !important;
+  background-size:100% 4px !important;background-repeat:no-repeat !important;background-position:top left !important;
+  -webkit-clip-path:inset(0 round 27px 27px 0 0) !important;clip-path:inset(0 round 27px 27px 0 0) !important}
+/* Squircle ámbar de los encabezados + emojis */
+.f7-icon-soft{background:linear-gradient(135deg, color-mix(in srgb,#d97706 16%,#fff), color-mix(in srgb,#d97706 7%,#fff));
+  border:1.5px solid color-mix(in srgb,#d97706 35%,#fff);box-shadow:0 5px 12px color-mix(in srgb,#d97706 16%,transparent)}
+.f7-emoji{font-size:23px;line-height:1;display:flex;align-items:center;justify-content:center}
+/* Fichas de exportación con su botón real */
+#root [class*="st-key-f7_xtile_"]{background:#fff !important;border:1px solid #d8e5f5 !important;border-radius:18px !important;
+  padding:15px 14px 13px !important;box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06) !important;gap:12px !important}
+#root .st-key-f7_xtile_pdf{--xc:#dc2626} #root .st-key-f7_xtile_docx{--xc:#2563eb}
+#root .st-key-f7_xtile_excel{--xc:#16a34a} #root .st-key-f7_xtile_json{--xc:#7c3aed}
+#root [class*="st-key-f7_xtile_"] [data-testid="stButton"] button,
+#root [class*="st-key-f7_xtile_"] [data-testid="stDownloadButton"] button{
+  color:var(--xc) !important;background:color-mix(in srgb,var(--xc) 8%,#fff) !important;border:1.5px solid color-mix(in srgb,var(--xc) 38%,#fff) !important;
+  border-radius:12px !important;min-height:40px !important;font-size:12.5px !important;font-weight:800 !important;box-shadow:none !important}
+#root [class*="st-key-f7_xtile_"] [data-testid="stButton"] button p,
+#root [class*="st-key-f7_xtile_"] [data-testid="stDownloadButton"] button p{color:var(--xc) !important;font-weight:800 !important}
+#root [class*="st-key-f7_xtile_"] button:disabled{opacity:.55 !important}
+/* Botones principales en ámbar (acento F7) */
+#root [data-testid="stButton"] button[kind="primary"],#root [data-testid="stDownloadButton"] button[kind="primary"]{
+  background:linear-gradient(120deg,#d97706,#92400e) !important;border:none !important;color:#fff !important;
+  box-shadow:0 10px 20px color-mix(in srgb,#d97706 32%,transparent), inset 0 1px 0 rgba(255,255,255,.28) !important}
+#root [data-testid="stButton"] button[kind="primary"] p,#root [data-testid="stDownloadButton"] button[kind="primary"] p{color:#fff !important}
+/* Parejas de cards y fichas: misma altura (stColumn es display:block por defecto) */
+#root div[data-testid="stColumn"]:has(> div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"] > :is([class*="st-key-f7_card_"],.st-key-f7_save_section,[class*="st-key-f7_xtile_"])){
+  display:flex !important;flex-direction:column !important}
+#root div[data-testid="stColumn"]:has(> div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"] > :is([class*="st-key-f7_card_"],.st-key-f7_save_section,[class*="st-key-f7_xtile_"])) > div[data-testid="stVerticalBlock"]{
+  flex:1 1 auto !important}
+#root div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"]:has(> :is([class*="st-key-f7_card_"],.st-key-f7_save_section,[class*="st-key-f7_xtile_"])){
+  flex:1 1 auto !important;display:flex !important;flex-direction:column !important}
+#root div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"] > :is([class*="st-key-f7_card_"],.st-key-f7_save_section,[class*="st-key-f7_xtile_"]){
+  flex:1 1 auto !important;height:auto !important;margin-bottom:0 !important}
+#root div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"] > :is([class*="st-key-f7_card_"],.st-key-f7_save_section)){
+  margin-bottom:16px !important}
+/* Informe técnico: estado + qué usa */
+.f7-sub{font-size:12px;font-weight:900;color:#0a2444;margin:12px 0 7px}
+.f7-checks{display:flex;flex-direction:column;gap:7px}
+.f7-checks div{display:flex;gap:9px;align-items:center;padding:9px 12px;border-radius:12px;font-size:12px;font-weight:800}
+.f7-checks div.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d}
+.f7-checks div.pend{background:#fffbeb;border:1px solid #fde68a;color:#b45309}
+.f7-inc{display:flex;flex-wrap:wrap;gap:8px}
+.f7-inc span{padding:7px 12px;border-radius:999px;background:#fff;border:1.5px solid #fde68a;font-size:11.5px;font-weight:800;color:#92400e}
+.f7-pill.ok,.f7-pill.warn{margin-top:8px}
+/* GIS: formatos + plano */
+.f7-gis-fmt{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 6px}
+.f7-gis-fmt span{text-align:center;padding:8px 6px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;font-size:11px;font-weight:700;color:#78350f}
+.f7-fig{background:#fff;border:1px solid #d8e5f5;border-radius:18px;padding:12px 14px;margin:8px 0;
+  box-shadow:0 1px 2px rgba(11,36,71,.04), 0 6px 16px rgba(11,36,71,.06)}
+.f7-fig svg{display:block;width:100%;height:auto;max-width:640px;margin:0 auto}
+.f7-gtitle{font-size:12px;font-weight:900;color:#0a2444;margin-bottom:7px}
+/* Restaurar: una sola zona (la real) con borde ámbar; el bloque HTML queda como título */
+.st-key-f7_save_section .f7-upload{border:none !important;background:none !important;padding:4px 0 0 !important;display:flex;align-items:center;gap:12px;text-align:left}
+.st-key-f7_save_section .f7-upload .ui{margin:0 !important;width:44px;height:44px;font-size:21px}
+.st-key-f7_save_section .f7-upload b{margin-top:0 !important}
+.st-key-f7_save_section [data-testid="stFileUploaderDropzone"]{border:2px dashed color-mix(in srgb,#d97706 45%,#fff) !important;
+  border-radius:16px !important;background:linear-gradient(180deg, color-mix(in srgb,#d97706 6%,#fff), #fff) !important}
 </style>
 """,
     unsafe_allow_html=True,
@@ -384,9 +537,10 @@ with st.container(border=True, key="f7_card_header"):
     st.markdown(
         f"""
 <div class="hero-card">
+    <svg class="f7-wind" viewBox="0 0 600 190" preserveAspectRatio="none"><path d="M0 42 Q150 24 300 44 T600 34"/><path d="M0 100 Q180 82 340 102 T600 92"/><path d="M0 156 Q140 142 300 158 T600 150"/></svg>
     <div class="hero-row">
         <div class="hero-icon">📦</div>
-        <div>
+        <div class="hero-text">
             <div class="fase-hero-title">Fase 7 &middot; Exportar y guardar</div>
             <div class="fase-hero-subtitle">Guardado final del proyecto y exportaci&oacute;n de resultados e informes generados en Fase 5.</div>
         </div>
@@ -408,10 +562,10 @@ with st.container(border=True, key="f7_card_header"):
 def _kpi_tile(label, value, icon="chart", sub="", color="#2563eb", size=22):
     return (
         f'<div class="f7-kpi-card" style="--kc:{color}">'
-        f'<div class="f7-kpi-icon">{_safe_icon(icon, size, color)}</div>'
+        f'<div class="f7-kpi-icon">{_f7_icono(icon, size, color)}</div>'
         f'<div><div class="f7-kpi-label">{_escape(label)}</div>'
-        f'<div class="f7-kpi-value">{_escape(value)}</div>'
-        f'<div class="f7-kpi-sub">{_escape(sub)}</div></div></div>'
+        f'<div class="f7-kpi-value">{_escape(_es(value))}</div>'
+        f'<div class="f7-kpi-sub">{_escape(_es(sub))}</div></div></div>'
     )
 
 
@@ -419,16 +573,16 @@ with st.container(border=True, key="f7_card_exec_summary"):
     _section_header(
         "Resumen ejecutivo del escenario actual",
         "Indicadores clave antes de exportar",
-        "chart",
+        "📊",
         "#d97706",
     )
     main_kpis = [
-        _kpi_tile("Método", str(config.get("f5_metodo_detalle") or config.get("f5_modo_estadistico") or "N/D"), "turbine-simple", "principal", "#8b5cf6"),
-        _kpi_tile("AEP bruta", _fmt_float(bruto, 0, " MWh"), "bolt", "", "#7c3aed"),
-        _kpi_tile("AEP neta", _fmt_float(neto, 0, " MWh"), "bolt", "", "#16a34a"),
-        _kpi_tile("LCOE", format_lcoe_value(lcoe_kwh, unidad, "kWh") if _has_value(lcoe_kwh) else "N/D", "dollar", lcoe_sub, "#16a34a"),
-        _kpi_tile("Turbinas", str(config.get("f5_n_turbinas") or config.get("f4_num_turbinas") or "N/D"), "turbine-simple", "", "#94a3b8"),
-        _kpi_tile("Exportes enriquecidos", enriched_label, "file-text", "", "#16a34a"),
+        _kpi_tile("Método", str(config.get("f5_metodo_detalle") or config.get("f5_modo_estadistico") or "N/D"), "🧮", "principal", "#2563eb"),
+        _kpi_tile("AEP bruta", _fmt_float(bruto, 0, " MWh"), "⚡", "", "#7c3aed"),
+        _kpi_tile("AEP neta", _fmt_float(neto, 0, " MWh"), "🔋", "", "#16a34a"),
+        _kpi_tile("LCOE", format_lcoe_value(lcoe_kwh, unidad, "kWh") if _has_value(lcoe_kwh) else "N/D", "📉", lcoe_sub, "#16a34a"),
+        _kpi_tile("Turbinas", str(config.get("f5_n_turbinas") or config.get("f4_num_turbinas") or "N/D"), "🌀", "", "#94a3b8"),
+        _kpi_tile("Exportes enriquecidos", enriched_label, "📦", "", "#16a34a" if heavy_exports_ready else "#d97706"),
     ]
     st.markdown(f'<div class="f7-kpi-grid">{"".join(main_kpis)}</div>', unsafe_allow_html=True)
 
@@ -439,9 +593,9 @@ with st.container(border=True, key="f7_card_exec_summary"):
 def _summary_tile(label, value, icon="chart", color="#2563eb", size=22):
     return (
         f'<div class="f7-summary-card" style="--kc:{color}">'
-        f'<div class="f7-sc-icon">{_safe_icon(icon, size, color)}</div>'
+        f'<div class="f7-sc-icon">{_f7_icono(icon, size, color)}</div>'
         f'<div><div class="f7-summary-label">{_escape(label)}</div>'
-        f'<div class="f7-summary-value">{_escape(value)}</div></div></div>'
+        f'<div class="f7-summary-value">{_escape(_es(value))}</div></div></div>'
     )
 
 
@@ -449,16 +603,16 @@ with st.container(border=True, key="f7_card_scenario"):
     _section_header(
         "Resumen del escenario actual",
         "Estado financiero y de planta",
-        "database",
+        "📋",
         "#d97706",
     )
     summary_cards = [
-        _summary_tile("FP bruto", _fmt_float(fpb, 1, " %"), "chart", "#2563eb"),
-        _summary_tile("FP neto", _fmt_float(fpn, 1, " %"), "chart", "#16a34a"),
-        _summary_tile("Potencia", _fmt_float(potencia_instalada, 1, " MW"), "turbine-simple", "#7c3aed"),
-        _summary_tile("CAPEX", format_currency_amount(capex_total, unidad) if _has_value(capex_total) else "N/D", "dollar", "#d97706"),
-        _summary_tile("OPEX anual", format_currency_amount(opex_total, unidad) if _has_value(opex_total) else "N/D", "dollar", "#d97706"),
-        _summary_tile("VP costos", format_currency_amount(vp_costos, unidad) if _has_value(vp_costos) else "N/D", "dollar", "#94a3b8"),
+        _summary_tile("FP bruto", _fmt_float(fpb, 1, " %"), "📊", "#2563eb"),
+        _summary_tile("FP neto", _fmt_float(fpn, 1, " %"), "📈", "#16a34a"),
+        _summary_tile("Potencia", _fmt_float(potencia_instalada, 1, " MW"), "🏭", "#7c3aed"),
+        _summary_tile("CAPEX", _f7_money(capex_total, unidad), "🏗️", "#d97706"),
+        _summary_tile("OPEX anual", _f7_money(opex_total, unidad), "🧾", "#d97706"),
+        _summary_tile("VP costos", _f7_money(vp_costos, unidad), "💰", "#94a3b8"),
     ]
     st.markdown(f'<div class="f7-summary-grid">{"".join(summary_cards)}</div>', unsafe_allow_html=True)
 
@@ -466,7 +620,7 @@ with st.container(border=True, key="f7_card_scenario"):
         f"""
 <div class="f7-banner info">
     <span class="bx">🗂️</span>
-    Modo base: {_escape(config.get('f5_moneda_base') or 'USD')} · moneda de visualización: {_escape(unidad)} · tasa COP: {float(config.get('f5_fx_rate_cop_per_usd') or 0):,.0f} · Última actualización: {_escape(config.get('f5_fx_timestamp') or 'manual')}
+    Modo base: {_escape(config.get('f5_moneda_base') or 'USD')} · moneda de visualización: {_escape(unidad)} · tasa COP: {_es(format(float(config.get('f5_fx_rate_cop_per_usd') or 0), ',.0f'))} · Última actualización: {_escape(config.get('f5_fx_timestamp') or 'manual')}
 </div>
 """,
         unsafe_allow_html=True,
@@ -480,7 +634,7 @@ with st.container(border=True, key="f7_card_exports"):
     _section_header(
         "Exportación de resultados",
         "Reportes con los resultados de Fase 5.",
-        "export",
+        "📤",
         "#d97706",
     )
 
@@ -504,106 +658,68 @@ with st.container(border=True, key="f7_card_exports"):
             unsafe_allow_html=True,
         )
 
-    # Export tiles
-    st.markdown(
-        f"""
-<div class="f7-export-grid">
-    <div class="f7-export-tile" style="--xc:#dc2626">
-        <div class="f7-export-top">
-            <div class="f7-export-icon">📕</div>
-            <div>
-                <div class="f7-export-type">Informe PDF</div>
-                <div class="f7-export-name">Ejecutivo</div>
-                <div class="f7-export-desc">Resumen + análisis técnico.</div>
-            </div>
-        </div>
-        <div class="xbtn">📄 Generar informe PDF</div>
-    </div>
-    <div class="f7-export-tile" style="--xc:#2563eb">
-        <div class="f7-export-top">
-            <div class="f7-export-icon">📘</div>
-            <div>
-                <div class="f7-export-type">Informe Word</div>
-                <div class="f7-export-name">Técnico</div>
-                <div class="f7-export-desc">Metodología completa, editable.</div>
-            </div>
-        </div>
-        <div class="xbtn">📝 Exportar Word</div>
-    </div>
-    <div class="f7-export-tile" style="--xc:#16a34a">
-        <div class="f7-export-top">
-            <div class="f7-export-icon">📗</div>
-            <div>
-                <div class="f7-export-type">Excel / CSV</div>
-                <div class="f7-export-name">Anexos</div>
-                <div class="f7-export-desc">Tablas y datos detallados.</div>
-            </div>
-        </div>
-        <div class="xbtn">📊 Exportar Excel/CSV</div>
-    </div>
-    <div class="f7-export-tile" style="--xc:#7c3aed">
-        <div class="f7-export-top">
-            <div class="f7-export-icon">🗄️</div>
-            <div>
-                <div class="f7-export-type">Datos JSON</div>
-                <div class="f7-export-name">Proyecto</div>
-                <div class="f7-export-desc">Respaldo completo de datos.</div>
-            </div>
-        </div>
-        <div class="xbtn">🧾 Exportar JSON</div>
-    </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
+    # Fichas de exportación: la ficha y su botón REAL van en la misma tarjeta (sin fila duplicada).
+    def _f7_tile_head(emoji, tipo, nombre, desc):
+        st.markdown(
+            f'<div class="f7-export-top"><div class="f7-export-icon">{emoji}</div><div>'
+            f'<div class="f7-export-type">{tipo}</div><div class="f7-export-name">{nombre}</div>'
+            f'<div class="f7-export-desc">{desc}</div></div></div>',
+            unsafe_allow_html=True,
+        )
 
-    # Functional buttons row
     exp1, exp2, exp3, exp4 = st.columns(4, gap="medium")
 
     with exp1:
-        pdf_ok = bool(informe_tecnico_pdf_artifact and informe_tecnico_pdf_artifact.get("success"))
-        if pdf_ok and not btn_disabled:
-            st.download_button("📄 Generar informe PDF", data=informe_tecnico_pdf_artifact["pdf_bytes"], file_name=informe_tecnico_pdf_artifact.get("file_name", "informe_tecnico.pdf"), mime="application/pdf", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
-        else:
-            if st.button("📄 Generar informe PDF", key="fase7_generar_informe_tecnico", use_container_width=True, icon=":material/download:", disabled=btn_disabled):
-                with st.spinner("Generando informe técnico..."):
-                    outputs = generate_informe_tecnico_exports(config, runtime_context)
-                    outputs["pdf"]["source_signature"] = informe_tecnico_signature
-                    outputs["docx"]["source_signature"] = informe_tecnico_signature
-                    st.session_state[INFORME_TECNICO_PDF_STATE_KEY] = outputs["pdf"]
-                    st.session_state[INFORME_TECNICO_DOCX_STATE_KEY] = outputs["docx"]
-                    st.session_state[INFORME_TECNICO_META_STATE_KEY] = {"source_signature": informe_tecnico_signature, **outputs["meta"]}
-                st.rerun()
+        with st.container(key="f7_xtile_pdf"):
+            _f7_tile_head("📕", "Informe PDF", "Ejecutivo", "Resumen + análisis técnico.")
+            pdf_ok = bool(informe_tecnico_pdf_artifact and informe_tecnico_pdf_artifact.get("success"))
+            if pdf_ok and not btn_disabled:
+                st.download_button("📄 Generar informe PDF", data=informe_tecnico_pdf_artifact["pdf_bytes"], file_name=informe_tecnico_pdf_artifact.get("file_name", "informe_tecnico.pdf"), mime="application/pdf", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
+            else:
+                if st.button("📄 Generar informe PDF", key="fase7_generar_informe_tecnico", use_container_width=True, icon=":material/download:", disabled=btn_disabled):
+                    with st.spinner("Generando informe técnico..."):
+                        outputs = generate_informe_tecnico_exports(config, runtime_context)
+                        outputs["pdf"]["source_signature"] = informe_tecnico_signature
+                        outputs["docx"]["source_signature"] = informe_tecnico_signature
+                        st.session_state[INFORME_TECNICO_PDF_STATE_KEY] = outputs["pdf"]
+                        st.session_state[INFORME_TECNICO_DOCX_STATE_KEY] = outputs["docx"]
+                        st.session_state[INFORME_TECNICO_META_STATE_KEY] = {"source_signature": informe_tecnico_signature, **outputs["meta"]}
+                    st.rerun()
 
     with exp2:
-        docx_ok = bool(informe_tecnico_docx_artifact and informe_tecnico_docx_artifact.get("success"))
-        if docx_ok and not btn_disabled:
-            st.download_button("📝 Exportar Word", data=informe_tecnico_docx_artifact["docx_bytes"], file_name=informe_tecnico_docx_artifact.get("file_name", "informe_tecnico.docx"), mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
-        else:
-            st.download_button("📝 Exportar Word", data=b"", file_name="dummy.docx", use_container_width=True, icon=":material/download:", disabled=True, key="fase7_dummy_docx")
+        with st.container(key="f7_xtile_docx"):
+            _f7_tile_head("📘", "Informe Word", "Técnico", "Metodología completa, editable.")
+            docx_ok = bool(informe_tecnico_docx_artifact and informe_tecnico_docx_artifact.get("success"))
+            if docx_ok and not btn_disabled:
+                st.download_button("📝 Exportar Word", data=informe_tecnico_docx_artifact["docx_bytes"], file_name=informe_tecnico_docx_artifact.get("file_name", "informe_tecnico.docx"), mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
+            else:
+                st.download_button("📝 Exportar Word", data=b"", file_name="dummy.docx", use_container_width=True, icon=":material/download:", disabled=True, key="fase7_dummy_docx")
 
     with exp3:
-        excel_data = basic_bundle["excel_bytes"] if not btn_disabled and basic_bundle else b""
-        if st.download_button("📊 Exportar Excel/CSV", data=excel_data, file_name="fase5_resultados_completos.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, icon=":material/download:", disabled=btn_disabled):
-            st.session_state["f7_show_excel_pro"] = True
-        if st.session_state.get("f7_show_excel_pro"):
-            excel_pro_data = basic_bundle.get("excel_pro_bytes", b"") if not btn_disabled and basic_bundle else b""
-            pro_disabled = btn_disabled or not excel_pro_data
-            st.download_button("Exportar Excel PRO (16 hojas bankable)", data=excel_pro_data, file_name="fase5_excel_PRO_bankable.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, icon=":material/star:", disabled=pro_disabled, help="Excel profesional estilo WAsP/WindPRO/OpenWind: Cover + ExecSummary + Site + WindRes + PowerCurve + Sectorial + LossWaterfall + PerWTG + Uncertainty P50/P90 + CAPEX/OPEX + CashFlow + Sensitivity + IEC SiteSuitability + Assumptions + Glossary + AuditManifest")
+        with st.container(key="f7_xtile_excel"):
+            _f7_tile_head("📗", "Excel / CSV", "Anexos", "Tablas y datos detallados.")
+            excel_data = basic_bundle["excel_bytes"] if not btn_disabled and basic_bundle else b""
+            if st.download_button("📊 Exportar Excel/CSV", data=excel_data, file_name="fase5_resultados_completos.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, icon=":material/download:", disabled=btn_disabled):
+                st.session_state["f7_show_excel_pro"] = True
+            if st.session_state.get("f7_show_excel_pro"):
+                excel_pro_data = basic_bundle.get("excel_pro_bytes", b"") if not btn_disabled and basic_bundle else b""
+                pro_disabled = btn_disabled or not excel_pro_data
+                st.download_button("Exportar Excel PRO (16 hojas bankable)", data=excel_pro_data, file_name="fase5_excel_PRO_bankable.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, icon=":material/star:", disabled=pro_disabled, help="Excel profesional estilo WAsP/WindPRO/OpenWind: Cover + ExecSummary + Site + WindRes + PowerCurve + Sectorial + LossWaterfall + PerWTG + Uncertainty P50/P90 + CAPEX/OPEX + CashFlow + Sensitivity + IEC SiteSuitability + Assumptions + Glossary + AuditManifest")
 
     with exp4:
-        json_data = basic_bundle["report_manifest_json"].encode("utf-8") if not btn_disabled and basic_bundle else b""
-        st.download_button("🧾 Exportar JSON", data=json_data, file_name="fase5_manifiesto_reporte.json", mime="application/json", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
+        with st.container(key="f7_xtile_json"):
+            _f7_tile_head("🗄️", "Datos JSON", "Proyecto", "Respaldo completo de datos.")
+            json_data = basic_bundle["report_manifest_json"].encode("utf-8") if not btn_disabled and basic_bundle else b""
+            st.download_button("🧾 Exportar JSON", data=json_data, file_name="fase5_manifiesto_reporte.json", mime="application/json", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
 
     # Link to Fase 5
     if btn_disabled:
-        _go_col_left, _go_col_btn, _go_col_right = st.columns([1, 2, 1])
+        _go_col_btn, _go_col_right = st.columns([1.1, 3])
         with _go_col_btn:
             if st.button(
-                "▶️ Ir a Fase 5 y activar exportaciones",
+                "Ir a Fase 5 y activar exportaciones",
                 key="fase7_goto_fase5_activar",
                 use_container_width=True,
-                type="primary",
                 icon=":material/play_arrow:",
             ):
                 try:
@@ -671,7 +787,7 @@ with col_tecnico:
         _section_header(
             "Informe técnico",
             "PDF/Word con figuras y metodología",
-            "document",
+            "📑",
             "#d97706",
         )
         bc1, bc2 = st.columns(2, gap="small")
@@ -696,15 +812,30 @@ with col_tecnico:
             else:
                 st.download_button("📝 Generar Word", data=b"", file_name="dummy.docx", use_container_width=True, disabled=True, key="f7_tecnico_dummy_docx")
 
-        if informe_tecnico_meta.get("source_signature"):
-            st.markdown('<div class="f7-pill ok">🟢 Última generación: hace 2 min</div>', unsafe_allow_html=True)
+        _gen_ok = bool(pdf_ok or docx_ok)
+        _checks = (
+            ("Resultados de Fase 5 cargados en esta sesión", not btn_disabled),
+            ("Informe generado en esta sesión (PDF + Word)", _gen_ok),
+        )
+        st.markdown(
+            '<div class="f7-sub">✅ Estado</div><div class="f7-checks">'
+            + "".join(f'<div class="{"ok" if ok else "pend"}"><span>{"✅" if ok else "⏳"}</span>{_escape(t)}</div>' for t, ok in _checks)
+            + '</div><div class="f7-sub">📑 Qué usa el informe</div><div class="f7-inc">'
+            + "".join(f"<span>{e} {t}</span>" for e, t in (
+                ("⚡", "Resultados de la Fase 5"), ("🖼️", "Figuras"), ("📐", "Metodología"), ("📝", "Editable en Word")))
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+        if btn_disabled:
+            st.markdown('<div class="f7-banner warn"><span class="bx">⚠️</span>Active las exportaciones en la Fase 5 para generar el informe.</div>',
+                        unsafe_allow_html=True)
 
 with col_bankable:
     with st.container(border=True, key="f7_card_bankable"):
         _section_header(
             "Reporte BANKABLE",
             "Para banca: P50/P90, IEC 61400-15-2, riesgos",
-            "dollar",
+            "🏛️",
             "#d97706",
         )
 
@@ -784,7 +915,7 @@ with col_gis:
         _section_header(
             "Exportación GIS",
             "Lleve el parque a Google Earth / QGIS",
-            "globe",
+            "🌍",
         )
 
         try:
@@ -845,6 +976,18 @@ with col_gis:
                         except Exception as exc:
                             st.error(f"ZIP error: {exc}")
 
+                st.markdown(
+                    '<div class="f7-gis-fmt"><span>🌐 <b>KML</b> · Google Earth</span><span>🗺️ <b>GeoJSON</b> · QGIS / web</span>'
+                    '<span>📋 <b>CSV</b> · Excel</span><span>🗜️ <b>ZIP</b> · todo junto</span></div>',
+                    unsafe_allow_html=True,
+                )
+                _plano = _f7_plano_svg(df_layout_gis)
+                if _plano:
+                    st.markdown(
+                        f'<div class="f7-fig"><div class="f7-gtitle">🗺️ Layout que se exportará · {len(df_layout_gis)} turbinas '
+                        f'· centro {_es(f"{lat_site_gis:.4f}")}, {_es(f"{lon_site_gis:.4f}")}</div>{_plano}</div>',
+                        unsafe_allow_html=True,
+                    )
                 dl_cols = st.columns(2)
                 with dl_cols[0]:
                     if st.session_state.get("f7_kml_bytes"):
@@ -873,7 +1016,7 @@ with col_save:
         _section_header(
             "Guardado final del proyecto",
             "Guarde en la base de datos o descargue el archivo del proyecto.",
-            "database",
+            "💾",
         )
 
         nombre_proyecto = st.text_input(
