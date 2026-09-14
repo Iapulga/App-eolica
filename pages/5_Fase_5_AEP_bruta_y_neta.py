@@ -3232,6 +3232,7 @@ try:
                 "f5_iec_clase_declarada": iec_clase_ui,
                 "f5_iec_turb_declarada": iec_turb_ui,
                 "f5_ti_15ms_calc": _ti_15 if _ti_15 == _ti_15 else "",
+                "f5_v_media_buje_ms": _v_mean if _v_mean == _v_mean else "",
                 "f5_iec_cumple": "" if _cumple is None else ("True" if _cumple else "False"),
             })
 except Exception as _exc:
@@ -3954,6 +3955,8 @@ with st.container(border=True, key="f5_card_econ_master"):
                         "f5_mc_sigma_k_pct": mc_sigma_k, "f5_mc_sigma_c_pct": mc_sigma_c,
                         "f5_mc_sigma_curva_pct": mc_sigma_curva, "f5_mc_sigma_perdidas_pct": mc_sigma_perd,
                         "f5_mc_sigma_wake_pct": mc_sigma_wake,
+                        # AEP neta de la que sale este Monte Carlo: los exportables comprueban que siga vigente.
+                        "f5_mc_aep_neta_base_mwh": float(res["aep_neta_total"]),
                     })
                 except Exception as _exc:
                     st.error(f"Monte Carlo falló: {_exc}")
@@ -4075,6 +4078,7 @@ st.session_state[RUNTIME_CONTEXT_STATE_KEY] = {
     "df_curva_raw": df_curva_raw,
     "df_nasa": df_nasa,
     "df_layout": df_layout,
+    "df_analisis": df_analisis,
     "resumen_rosa": resumen_rosa,
     "fig_wind_rose_export": fig_wind_rose_export,
     "fig_layout_export": fig_layout_export,
@@ -4148,7 +4152,7 @@ with st.container(border=True, key="f5_card_export"):
     with exp4:
         st.page_link("pages/7_Fase_7_Exportar_y_guardar.py", label="Guardar proyecto", icon=":material/save:", use_container_width=True)
     with exp5:
-        st.page_link("pages/1_Fase_1_Aerogenerador.py", label="Cargar proyecto", icon=":material/folder_open:", use_container_width=True)
+        st.page_link("Inicio.py", label="Cargar proyecto", icon=":material/folder_open:", use_container_width=True)
     st.caption(
         f"Contexto disponible para Fase 7: {report_context['report_style_label']} "
         f"({project_context['mode_label']}, perfil: {project_context['profile_label']})."

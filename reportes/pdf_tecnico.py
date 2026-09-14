@@ -1,7 +1,10 @@
+import io
 import os
+import re
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 
 from .docx import build_informe_tecnico_docx
@@ -370,3 +373,175 @@ def build_informe_tecnico_pdf(report_model, file_name="informe_tecnico.pdf"):
     except Exception as exc:
         result["message"] = f"No fue posible generar el PDF del informe técnico desde el documento Word: {exc}"
         return result
+
+
+# ─────────────────────────────────────────────────────────────
+# Finalizar un DOCX con Microsoft Word: índice, numeración de figuras y "Página X de Y" ya
+# actualizados, para que el Word descargado NO pida "¿actualizar campos?" al abrirlo.
+# ─────────────────────────────────────────────────────────────
+WD_FORMAT_DOCX = 16
+
+
+def _quitar_update_fields(docx_bytes):
+    """Quita <w:updateFields/> de settings.xml (el aviso de Word al abrir)."""
+    try:
+        zin = zipfile.ZipFile(io.BytesIO(docx_bytes))
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+                if item.filename == "word/settings.xml":
+                    data = re.sub(rb"<w:updateFields[^>]*/>", b"", data)
+                zout.writestr(item, data)
+        return out.getvalue()
+    except Exception:
+        return docx_bytes
+
+
+def _word_finalizar_pywin32(docx_in, docx_out, pdf_out=None):
+    try:
+        import pythoncom  # type: ignore
+        import win32com.client  # type: ignore
+    except Exception as exc:
+        return False, f"pywin32 no disponible: {exc}"
+    word = document = None
+    try:
+        pythoncom.CoInitialize()
+        word = win32com.client.DispatchEx("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+        document = word.Documents.Open(str(Path(docx_in).resolve()), ReadOnly=False)
+        for paso in ("campos", "indice", "cabeceras", "campos", "paginas"):
+            try:
+                if paso == "campos":
+                    document.Fields.Update()
+                elif paso == "indice":
+                    for toc in document.TablesOfContents:
+                        toc.Update()
+                elif paso == "paginas":
+                    for toc in document.TablesOfContents:
+                        toc.UpdatePageNumbers()
+                else:
+                    for sect in document.Sections:
+                        for hdr in sect.Headers:
+                            hdr.Range.Fields.Update()
+                        for ftr in sect.Footers:
+                            ftr.Range.Fields.Update()
+            except Exception:
+                pass
+        document.SaveAs2(str(Path(docx_out).resolve()), FileFormat=WD_FORMAT_DOCX)
+        if pdf_out:
+            document.SaveAs2(str(Path(pdf_out).resolve()), FileFormat=WD_FORMAT_PDF)
+        document.Close(False)
+        document = None
+        word.Quit()
+        word = None
+        return True, "Documento actualizado con Microsoft Word (pywin32)"
+    except Exception as exc:
+        return False, f"Falló Microsoft Word (pywin32): {exc}"
+    finally:
+        try:
+            if document is not None:
+                document.Close(False)
+        except Exception:
+            pass
+        try:
+            if word is not None:
+                word.Quit()
+        except Exception:
+            pass
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
+
+
+def _word_finalizar_powershell(docx_in, docx_out, pdf_out=None, timeout=240):
+    if os.name != "nt":
+        return False, "Microsoft Word (COM) solo está disponible en Windows"
+    powershell = shutil.which("powershell") or shutil.which("powershell.exe")
+    if not powershell:
+        return False, "PowerShell no está disponible"
+
+    def _esc(ruta):
+        return str(Path(ruta).resolve()).replace("'", "''")
+
+    script = (
+        "$ErrorActionPreference = 'Stop';"
+        f"$entrada = '{_esc(docx_in)}'; $salida = '{_esc(docx_out)}';"
+        + (f"$pdf = '{_esc(pdf_out)}';" if pdf_out else "")
+        + "$word = $null; $doc = $null;"
+        "try {"
+        "  $word = New-Object -ComObject Word.Application;"
+        "  $word.Visible = $false; $word.DisplayAlerts = 0;"
+        "  $doc = $word.Documents.Open($entrada, $false, $false);"
+        "  try { $doc.Fields.Update() | Out-Null } catch {};"
+        "  try { foreach ($toc in $doc.TablesOfContents) { $toc.Update() } } catch {};"
+        "  try { foreach ($s in $doc.Sections) { foreach ($h in $s.Headers) { $h.Range.Fields.Update() | Out-Null };"
+        "        foreach ($f in $s.Footers) { $f.Range.Fields.Update() | Out-Null } } } catch {};"
+        "  try { $doc.Fields.Update() | Out-Null } catch {};"
+        "  try { foreach ($toc in $doc.TablesOfContents) { $toc.UpdatePageNumbers() } } catch {};"
+        f"  $doc.SaveAs2([ref] $salida, [ref] {WD_FORMAT_DOCX});"
+        + (f"  $doc.SaveAs2([ref] $pdf, [ref] {WD_FORMAT_PDF});" if pdf_out else "")
+        + "  $doc.Close($false); $doc = $null;"
+        "  $word.Quit(); $word = $null;"
+        "} catch {"
+        "  if ($doc -ne $null) { try { $doc.Close($false) } catch {} };"
+        "  if ($word -ne $null) { try { $word.Quit() } catch {} };"
+        "  throw"
+        "}"
+    )
+    try:
+        completed = subprocess.run(
+            [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except Exception as exc:
+        return False, f"Falló la ejecución de Microsoft Word por PowerShell: {exc}"
+    if completed.returncode == 0 and os.path.exists(docx_out) and os.path.getsize(docx_out) > 0:
+        return True, "Documento actualizado con Microsoft Word"
+    detalle = (completed.stderr or completed.stdout or "").strip()
+    return False, f"Falló Microsoft Word (PowerShell COM): {detalle or 'sin detalle'}"
+
+
+def finalizar_docx_con_word(docx_bytes, nombre_base="informe", exportar_pdf=True):
+    """Abre el DOCX en Microsoft Word (si está instalado), actualiza índice, numeración de figuras y
+    campos de página, y guarda el DOCX ya actualizado (+ PDF si se pide).
+
+    Sin Word: el DOCX se entrega tal cual (Word completará el índice al abrirlo) y el PDF se intenta
+    con docx2pdf / LibreOffice. Devuelve {"docx_bytes", "pdf_bytes", "mensaje", "con_word", "log"}.
+    """
+    resultado = {"docx_bytes": None, "pdf_bytes": None, "mensaje": "", "con_word": False, "log": []}
+    if not docx_bytes:
+        resultado["mensaje"] = "No hay documento Word para finalizar."
+        return resultado
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "_", str(nombre_base or "informe")).strip("_") or "informe"
+    with tempfile.TemporaryDirectory(prefix="sma_word_") as tmp:
+        entrada = Path(tmp) / f"{stem}_entrada.docx"
+        salida = Path(tmp) / f"{stem}.docx"
+        pdf = Path(tmp) / f"{stem}.pdf" if exportar_pdf else None
+        entrada.write_bytes(docx_bytes)
+        for funcion in (_word_finalizar_pywin32, _word_finalizar_powershell):
+            ok, mensaje = funcion(str(entrada), str(salida), str(pdf) if pdf else None)
+            resultado["log"].append(mensaje)
+            if ok and salida.exists():
+                resultado["docx_bytes"] = _quitar_update_fields(salida.read_bytes())
+                if pdf is not None and pdf.exists() and pdf.stat().st_size > 0:
+                    resultado["pdf_bytes"] = pdf.read_bytes()
+                resultado["con_word"] = True
+                resultado["mensaje"] = mensaje
+                return resultado
+        resultado["docx_bytes"] = docx_bytes
+        if pdf is not None:
+            for convertir in (_convert_with_docx2pdf, _convert_with_soffice):
+                ok, mensaje = convertir(str(entrada), str(pdf))
+                resultado["log"].append(mensaje)
+                if ok and pdf.exists():
+                    resultado["pdf_bytes"] = pdf.read_bytes()
+                    break
+        resultado["mensaje"] = (
+            "No se encontró Microsoft Word: el índice y la numeración se completarán al abrir el Word."
+            + (" PDF generado con LibreOffice." if resultado["pdf_bytes"] else
+               (" No fue posible generar el PDF: instale Microsoft Word o LibreOffice." if pdf is not None else ""))
+        )
+    return resultado

@@ -280,6 +280,40 @@ def get_country_profile(country_code: str) -> dict:
     return COUNTRY_PROFILES.get(code, COUNTRY_PROFILES["OTRO"])
 
 
+# ── País por coordenadas (aproximado) ──
+# Cajas lat/lon aproximadas para SUGERIR el país del informe y avisar si el elegido no
+# coincide con el sitio. El orden resuelve solapes (cajas más acotadas primero).
+_CAJAS_PAISES = [
+    ("CO", -4.3, 13.5, -79.1, -66.8),
+    ("PE", -18.4, -0.03, -81.4, -68.6),
+    ("CL", -56.0, -17.5, -75.8, -66.4),
+    ("ES", 27.6, 43.8, -18.2, 4.4),
+    ("UK", 49.9, 60.9, -8.7, 1.8),
+    ("DE", 47.2, 55.1, 5.8, 15.1),
+    ("ZA", -34.9, -22.1, 16.4, 32.9),
+    ("MX", 14.5, 32.7, -118.4, -86.7),
+    ("AR", -55.1, -21.8, -73.6, -53.6),
+    ("BR", -33.8, 5.3, -74.0, -34.8),
+    ("US", 24.4, 49.4, -125.0, -66.9),
+    ("IN", 6.7, 35.5, 68.1, 97.4),
+    ("AU", -43.7, -10.6, 113.1, 153.7),
+]
+
+
+def inferir_pais_por_coordenadas(lat, lon):
+    """Código de país (de COUNTRY_PROFILES) que contiene las coordenadas, o None."""
+    try:
+        lat_f, lon_f = float(lat), float(lon)
+    except (TypeError, ValueError):
+        return None
+    if lat_f != lat_f or lon_f != lon_f or (abs(lat_f) < 1e-9 and abs(lon_f) < 1e-9):
+        return None
+    for code, lat_min, lat_max, lon_min, lon_max in _CAJAS_PAISES:
+        if lat_min <= lat_f <= lat_max and lon_min <= lon_f <= lon_max:
+            return code
+    return None
+
+
 def get_currency_info(currency_code: str) -> dict:
     """Devuelve info moneda. Default USD si no encuentra."""
     code = str(currency_code or "USD").upper()

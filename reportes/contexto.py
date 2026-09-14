@@ -6,12 +6,12 @@ PROJECT_PROFILE_OPTIONS = [
     {
         "value": None,
         "label": "Sin perfil",
-        "description": "Configuracion general y abierta, sin plantilla especifica.",
+        "description": "Configuración general y abierta, sin plantilla específica.",
     },
     {
         "value": "academic",
-        "label": "Academico",
-        "description": "Perfil opcional para futuras plantillas academicas, sin restricciones automaticas por ahora.",
+        "label": "Académico",
+        "description": "Perfil opcional para futuras plantillas académicas, sin restricciones automáticas por ahora.",
     },
 ]
 
@@ -127,23 +127,23 @@ def get_report_context(config=None):
         "export_targets": ["CSV", "Excel", "JSON"],
         "template_hint": "Plantilla libre",
         "notes": [
-            "La exportacion permanece abierta y configurable.",
-            "No se aplican secciones obligatorias ni formatos rigidos por defecto.",
+            "La exportación permanece abierta y configurable.",
+            "No se aplican secciones obligatorias ni formatos rígidos por defecto.",
         ],
     }
 
     if profile == "academic":
         report_context.update({
             "report_style": "academic_outline",
-            "report_style_label": "Plantilla academica opcional",
+            "report_style_label": "Plantilla académica opcional",
             "report_sections": list(ACADEMIC_REPORT_SECTIONS),
             "citation_style": "APA (sugerido)",
             "include_ai_declaration": True,
             "export_targets": ["CSV", "Excel", "JSON", "DOCX/LaTeX (futuro)"],
-            "template_hint": "Borrador para informe academico",
+            "template_hint": "Borrador para informe académico",
             "notes": [
-                "El perfil academico solo ajusta metadatos de reporte y exportacion.",
-                "Todavia no activa restricciones globales ni bloquea el flujo libre.",
+                "El perfil académico solo ajusta metadatos de reporte y exportación.",
+                "Todavía no activa restricciones globales ni bloquea el flujo libre.",
             ],
         })
 

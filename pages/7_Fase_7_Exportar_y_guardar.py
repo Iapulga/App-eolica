@@ -28,6 +28,7 @@ from reportes.fase5_export_helpers import (
     dedupe_figure_export_artifacts,
     generate_heavy_export_artifacts,
     generate_informe_tecnico_exports,
+    nombre_archivo_proyecto,
 )
 
 st.set_page_config(page_title="Fase 7 · Exportar y guardar", layout="wide")
@@ -425,6 +426,11 @@ div[data-testid="stHorizontalBlock"]:has(.st-key-f7_card_gis_export) > div[data-
 #root [class*="st-key-f7_xtile_"] [data-testid="stButton"] button p,
 #root [class*="st-key-f7_xtile_"] [data-testid="stDownloadButton"] button p{color:var(--xc) !important;font-weight:800 !important}
 #root [class*="st-key-f7_xtile_"] button:disabled{opacity:.55 !important}
+/* Streamlit pone margin-bottom:-16px al texto: el botón se montaba sobre la descripción */
+#root [class*="st-key-f7_xtile_"] [data-testid="stMarkdownContainer"]{margin-bottom:0 !important}
+#root [class*="st-key-f7_xtile_"] .f7-export-desc{min-height:2.7em}
+/* Botones al pie de cada ficha: quedan alineados en las cuatro */
+#root [class*="st-key-f7_xtile_"] > div[data-testid="stElementContainer"]:nth-child(2){margin-top:auto !important}
 /* Botones principales en ámbar (acento F7) */
 #root [data-testid="stButton"] button[kind="primary"],#root [data-testid="stDownloadButton"] button[kind="primary"]{
   background:linear-gradient(120deg,#d97706,#92400e) !important;border:none !important;color:#fff !important;
@@ -488,10 +494,17 @@ basic_bundle = None
 informe_tecnico_pdf_artifact = None
 informe_tecnico_docx_artifact = None
 informe_tecnico_meta = {}
+BASIC_BUNDLE_STATE_KEY = "f7_basic_bundle_cache"
 
 if runtime_context:
-    basic_bundle = build_basic_export_bundle(config, runtime_context)
-    heavy_export_signature = build_export_signature(config, runtime_context, basic_bundle)
+    # Excel, Excel PRO, CSV y JSON solo se recalculan si cambian los datos del proyecto.
+    heavy_export_signature = build_export_signature(config, runtime_context)
+    _bundle_cache = st.session_state.get(BASIC_BUNDLE_STATE_KEY)
+    if _bundle_cache and _bundle_cache.get("signature") == heavy_export_signature:
+        basic_bundle = _bundle_cache["bundle"]
+    else:
+        basic_bundle = build_basic_export_bundle(config, runtime_context)
+        st.session_state[BASIC_BUNDLE_STATE_KEY] = {"signature": heavy_export_signature, "bundle": basic_bundle}
     cached_heavy_exports = st.session_state.get(HEAVY_EXPORT_STATE_KEY)
     heavy_exports_ready = bool(cached_heavy_exports and cached_heavy_exports.get("signature") == heavy_export_signature)
     heavy_exports_stale = bool(cached_heavy_exports and cached_heavy_exports.get("signature") != heavy_export_signature)
@@ -546,7 +559,7 @@ with st.container(border=True, key="f7_card_header"):
         </div>
         <div class="hero-pills">
             <div class="hpill"><b>4 tipos</b><span>Reportes</span></div>
-            <div class="hpill"><b>{'Listo' if heavy_exports_ready else 'Pendiente'}</b><span>Bankable</span></div>
+            <div class="hpill"><b>{'Listo' if st.session_state.get('f7_bankable_result') else 'Pendiente'}</b><span>Bankable</span></div>
             <div class="hpill"><b>KML+ZIP</b><span>GIS</span></div>
         </div>
     </div>
@@ -668,49 +681,55 @@ with st.container(border=True, key="f7_card_exports"):
         )
 
     exp1, exp2, exp3, exp4 = st.columns(4, gap="medium")
+    nombre_archivos = (runtime_context or {}).get("project_name_default") or config.get("project_name") or "proyecto"
+    _MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    _MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    def _generar_informe_tecnico():
+        """El informe técnico se genera una sola vez en los dos formatos (PDF + Word)."""
+        with st.spinner("Generando el informe técnico (PDF + Word)…"):
+            outputs = generate_informe_tecnico_exports(config, runtime_context)
+            outputs["pdf"]["source_signature"] = informe_tecnico_signature
+            outputs["docx"]["source_signature"] = informe_tecnico_signature
+            st.session_state[INFORME_TECNICO_PDF_STATE_KEY] = outputs["pdf"]
+            st.session_state[INFORME_TECNICO_DOCX_STATE_KEY] = outputs["docx"]
+            st.session_state[INFORME_TECNICO_META_STATE_KEY] = {"source_signature": informe_tecnico_signature, **outputs["meta"]}
+        st.rerun()
+
+    pdf_ok = bool(informe_tecnico_pdf_artifact and informe_tecnico_pdf_artifact.get("success"))
+    docx_ok = bool(informe_tecnico_docx_artifact and informe_tecnico_docx_artifact.get("success"))
 
     with exp1:
         with st.container(key="f7_xtile_pdf"):
-            _f7_tile_head("📕", "Informe PDF", "Ejecutivo", "Resumen + análisis técnico.")
-            pdf_ok = bool(informe_tecnico_pdf_artifact and informe_tecnico_pdf_artifact.get("success"))
+            _f7_tile_head("📕", "Informe PDF", "Técnico", "Informe técnico completo. Se genera junto con el Word.")
             if pdf_ok and not btn_disabled:
-                st.download_button("📄 Generar informe PDF", data=informe_tecnico_pdf_artifact["pdf_bytes"], file_name=informe_tecnico_pdf_artifact.get("file_name", "informe_tecnico.pdf"), mime="application/pdf", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
-            else:
-                if st.button("📄 Generar informe PDF", key="fase7_generar_informe_tecnico", use_container_width=True, icon=":material/download:", disabled=btn_disabled):
-                    with st.spinner("Generando informe técnico..."):
-                        outputs = generate_informe_tecnico_exports(config, runtime_context)
-                        outputs["pdf"]["source_signature"] = informe_tecnico_signature
-                        outputs["docx"]["source_signature"] = informe_tecnico_signature
-                        st.session_state[INFORME_TECNICO_PDF_STATE_KEY] = outputs["pdf"]
-                        st.session_state[INFORME_TECNICO_DOCX_STATE_KEY] = outputs["docx"]
-                        st.session_state[INFORME_TECNICO_META_STATE_KEY] = {"source_signature": informe_tecnico_signature, **outputs["meta"]}
-                    st.rerun()
+                st.download_button("📄 Descargar PDF", data=informe_tecnico_pdf_artifact["pdf_bytes"], file_name=informe_tecnico_pdf_artifact.get("file_name", "informe_tecnico.pdf"), mime="application/pdf", use_container_width=True, icon=":material/download:")
+            elif st.button("📄 Generar PDF", key="fase7_generar_informe_tecnico", use_container_width=True, icon=":material/play_arrow:", disabled=btn_disabled):
+                _generar_informe_tecnico()
+            if informe_tecnico_pdf_artifact and not pdf_ok and informe_tecnico_pdf_artifact.get("message"):
+                st.markdown(f'<div class="f7-banner warn"><span class="bx">⚠️</span>{_escape(informe_tecnico_pdf_artifact["message"])}</div>', unsafe_allow_html=True)
 
     with exp2:
         with st.container(key="f7_xtile_docx"):
-            _f7_tile_head("📘", "Informe Word", "Técnico", "Metodología completa, editable.")
-            docx_ok = bool(informe_tecnico_docx_artifact and informe_tecnico_docx_artifact.get("success"))
+            _f7_tile_head("📘", "Informe Word", "Técnico", "El mismo informe, editable. Se genera junto con el PDF.")
             if docx_ok and not btn_disabled:
-                st.download_button("📝 Exportar Word", data=informe_tecnico_docx_artifact["docx_bytes"], file_name=informe_tecnico_docx_artifact.get("file_name", "informe_tecnico.docx"), mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
-            else:
-                st.download_button("📝 Exportar Word", data=b"", file_name="dummy.docx", use_container_width=True, icon=":material/download:", disabled=True, key="fase7_dummy_docx")
+                st.download_button("📝 Descargar Word", data=informe_tecnico_docx_artifact["docx_bytes"], file_name=informe_tecnico_docx_artifact.get("file_name", "informe_tecnico.docx"), mime=_MIME_DOCX, use_container_width=True, icon=":material/download:")
+            elif st.button("📝 Generar Word", key="fase7_generar_informe_word", use_container_width=True, icon=":material/play_arrow:", disabled=btn_disabled):
+                _generar_informe_tecnico()
 
     with exp3:
         with st.container(key="f7_xtile_excel"):
-            _f7_tile_head("📗", "Excel / CSV", "Anexos", "Tablas y datos detallados.")
+            _f7_tile_head("📗", "Excel", "Datos y PRO", "Datos: tablas para trabajar. PRO: informe completo con gráficas.")
             excel_data = basic_bundle["excel_bytes"] if not btn_disabled and basic_bundle else b""
-            if st.download_button("📊 Exportar Excel/CSV", data=excel_data, file_name="fase5_resultados_completos.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, icon=":material/download:", disabled=btn_disabled):
-                st.session_state["f7_show_excel_pro"] = True
-            if st.session_state.get("f7_show_excel_pro"):
-                excel_pro_data = basic_bundle.get("excel_pro_bytes", b"") if not btn_disabled and basic_bundle else b""
-                pro_disabled = btn_disabled or not excel_pro_data
-                st.download_button("Exportar Excel PRO (16 hojas bankable)", data=excel_pro_data, file_name="fase5_excel_PRO_bankable.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, icon=":material/star:", disabled=pro_disabled, help="Excel profesional estilo WAsP/WindPRO/OpenWind: Cover + ExecSummary + Site + WindRes + PowerCurve + Sectorial + LossWaterfall + PerWTG + Uncertainty P50/P90 + CAPEX/OPEX + CashFlow + Sensitivity + IEC SiteSuitability + Assumptions + Glossary + AuditManifest")
+            excel_pro_data = (basic_bundle.get("excel_pro_bytes") or b"") if not btn_disabled and basic_bundle else b""
+            st.download_button("📊 Excel de datos (5 hojas)", data=excel_data, file_name=nombre_archivo_proyecto(nombre_archivos, "datos", "xlsx"), mime=_MIME_XLSX, use_container_width=True, disabled=btn_disabled, key="fase7_dl_excel", help="Tablas de resultados de la Fase 5 para trabajar los datos: resumen, pérdidas, energía por sector, metadatos y manifiesto.")
+            st.download_button("⭐ Excel PRO (17 hojas)", data=excel_pro_data, file_name=nombre_archivo_proyecto(nombre_archivos, "excel_pro", "xlsx"), mime=_MIME_XLSX, use_container_width=True, disabled=btn_disabled or not excel_pro_data, key="fase7_dl_excel_pro", help="Informe completo en Excel, con gráficas: portada, resumen ejecutivo, sitio y turbina, recurso eólico, curva de potencia, energía por sector, pérdidas, AEP por turbina, incertidumbre, economía, flujo de caja, sensibilidad, idoneidad IEC, supuestos, glosario, perfil diurno y estacional, y manifiesto.")
 
     with exp4:
         with st.container(key="f7_xtile_json"):
-            _f7_tile_head("🗄️", "Datos JSON", "Proyecto", "Respaldo completo de datos.")
+            _f7_tile_head("🗄️", "Datos JSON", "Resultados", "Resultados y datos del proyecto (el respaldo está en «Guardado final»).")
             json_data = basic_bundle["report_manifest_json"].encode("utf-8") if not btn_disabled and basic_bundle else b""
-            st.download_button("🧾 Exportar JSON", data=json_data, file_name="fase5_manifiesto_reporte.json", mime="application/json", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
+            st.download_button("🧾 Exportar JSON", data=json_data, file_name=nombre_archivo_proyecto(nombre_archivos, "resultados", "json"), mime="application/json", use_container_width=True, icon=":material/download:", disabled=btn_disabled)
 
     # Link to Fase 5
     if btn_disabled:
@@ -790,28 +809,11 @@ with col_tecnico:
             "📑",
             "#d97706",
         )
-        bc1, bc2 = st.columns(2, gap="small")
-        with bc1:
-            pdf_ok = bool(informe_tecnico_pdf_artifact and informe_tecnico_pdf_artifact.get("success"))
-            if pdf_ok and not btn_disabled:
-                st.download_button("📄 Generar informe técnico PDF", data=informe_tecnico_pdf_artifact["pdf_bytes"], file_name=informe_tecnico_pdf_artifact.get("file_name", "informe_tecnico.pdf"), mime="application/pdf", use_container_width=True, type="primary", key="f7_tecnico_pdf_dl")
-            else:
-                if st.button("📄 Generar informe técnico PDF", key="f7_tecnico_pdf_btn", use_container_width=True, type="primary", disabled=btn_disabled):
-                    with st.spinner("Generando informe técnico..."):
-                        outputs = generate_informe_tecnico_exports(config, runtime_context)
-                        outputs["pdf"]["source_signature"] = informe_tecnico_signature
-                        outputs["docx"]["source_signature"] = informe_tecnico_signature
-                        st.session_state[INFORME_TECNICO_PDF_STATE_KEY] = outputs["pdf"]
-                        st.session_state[INFORME_TECNICO_DOCX_STATE_KEY] = outputs["docx"]
-                        st.session_state[INFORME_TECNICO_META_STATE_KEY] = {"source_signature": informe_tecnico_signature, **outputs["meta"]}
-                    st.rerun()
-        with bc2:
-            docx_ok = bool(informe_tecnico_docx_artifact and informe_tecnico_docx_artifact.get("success"))
-            if docx_ok and not btn_disabled:
-                st.download_button("📝 Generar Word", data=informe_tecnico_docx_artifact["docx_bytes"], file_name=informe_tecnico_docx_artifact.get("file_name", "informe_tecnico.docx"), mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="f7_tecnico_docx_dl")
-            else:
-                st.download_button("📝 Generar Word", data=b"", file_name="dummy.docx", use_container_width=True, disabled=True, key="f7_tecnico_dummy_docx")
-
+        st.markdown(
+            '<div class="f7-banner info"><span class="bx">⬆️</span>Un solo informe en dos formatos: se genera y se '
+            'descarga en las fichas «Informe PDF» e «Informe Word» de «Exportación de resultados».</div>',
+            unsafe_allow_html=True,
+        )
         _gen_ok = bool(pdf_ok or docx_ok)
         _checks = (
             ("Resultados de Fase 5 cargados en esta sesión", not btn_disabled),
@@ -839,14 +841,20 @@ with col_bankable:
             "#d97706",
         )
 
-        from i18n_paises import get_country_profile, listar_idiomas, listar_paises
+        from i18n_paises import (
+            get_country_profile,
+            inferir_pais_por_coordenadas,
+            listar_idiomas,
+            listar_paises,
+        )
 
+        pais_sitio = inferir_pais_por_coordenadas(config.get("nasa_lat"), config.get("nasa_lon"))
         col_b1, col_b2, col_b3 = st.columns(3)
         with col_b1:
-            bk_project = st.text_input("Proyecto", value=config.get("project_name", "Wind Farm"), key="f7_bk_project")
+            bk_project = st.text_input("Proyecto", value=config.get("f7_bankable_project_name") or config.get("project_name") or "Proyecto eólico", key="f7_bk_project")
             paises_options = listar_paises()
             pais_labels = [f"{c} — {n}" for c, n in paises_options]
-            pais_default_code = config.get("f7_country_code", "OTRO")
+            pais_default_code = config.get("f7_country_code") or pais_sitio or "OTRO"
             idx_pais = next((i for i, (c, _) in enumerate(paises_options) if c == pais_default_code), len(paises_options) - 1)
             pais_sel_label = st.selectbox("País", pais_labels, index=idx_pais, key="f7_country_label")
             pais_sel_code = pais_sel_label.split(" — ")[0]
@@ -863,25 +871,34 @@ with col_bankable:
             logo_upload = st.file_uploader("Logo", type=["png", "jpg", "jpeg"], key="f7_bk_logo", help="subir imagen…")
 
         perfil_pais = get_country_profile(pais_sel_code)
+        if pais_sitio and pais_sitio != pais_sel_code:
+            st.markdown(
+                f'<div class="f7-banner warn"><span class="bx">⚠️</span>Las coordenadas del sitio están en '
+                f'{_escape(get_country_profile(pais_sitio)["nombre"])}, pero el informe usará {_escape(perfil_pais["nombre"])} '
+                f'(marco regulatorio, WACC y límites de ruido de ese país).</div>',
+                unsafe_allow_html=True,
+            )
 
-        btn_bk1, btn_bk2 = st.columns(2, gap="small")
+        resultado_bk = st.session_state.get("f7_bankable_result") or {}
+        btn_bk1, btn_bk2, btn_bk3 = st.columns([1.4, 1, 1], gap="small")
         with btn_bk1:
             if st.button("🏦 Generar reporte bankable", key="f7_btn_gen_bankable", use_container_width=True, type="primary"):
                 try:
-                    from reportes.bankable import construir_contexto_bankable, generar_reporte_bankable_bytes
-                    with st.spinner(f"Generando reporte bankable en {idioma_sel_code.upper()}…"):
+                    from reportes.bankable import construir_contexto_bankable, generar_reporte_bankable
+                    with st.spinner(f"Generando el reporte bankable en {idioma_sel_code.upper()} (Word + PDF)…"):
                         ctx_bk = construir_contexto_bankable(
                             config=config,
+                            runtime_context=runtime_context,
                             project_metadata={
                                 "project_name": bk_project,
                                 "autor": bk_autor,
                                 "cliente": bk_cliente,
                                 "country_code": pais_sel_code,
-                                "country_nombre": perfil_pais["nombre"],
                             },
                         )
                         logo_bytes = logo_upload.getvalue() if logo_upload else None
-                        docx_bytes = generar_reporte_bankable_bytes(ctx_bk, lang=idioma_sel_code, logo_bytes=logo_bytes)
+                        resultado_bk = generar_reporte_bankable(ctx_bk, lang=idioma_sel_code, logo_bytes=logo_bytes, exportar_pdf=True)
+                        resultado_bk.update({"lang": idioma_sel_code, "pais": perfil_pais["nombre"]})
                         guardar_config_values({
                             "f7_bankable_project_name": bk_project,
                             "f7_bankable_autor": bk_autor,
@@ -889,20 +906,35 @@ with col_bankable:
                             "f7_country_code": pais_sel_code,
                             "f7_report_lang": idioma_sel_code,
                         })
-                        st.session_state["f7_bankable_docx_bytes"] = docx_bytes
-                        st.success(f"Reporte generado ({len(docx_bytes)/1024:.1f} KB) en {idioma_sel_code.upper()} para {perfil_pais['nombre']}.")
+                        st.session_state["f7_bankable_result"] = resultado_bk
                 except Exception as exc:
-                    st.error(f"Error generando reporte: {exc}")
+                    st.error(f"Error generando el reporte: {exc}")
+        _base_bk = resultado_bk.get("nombre_base") or "reporte_bankable"
         with btn_bk2:
-            if st.session_state.get("f7_bankable_docx_bytes"):
-                st.download_button(
-                    "📥 Descargar DOCX",
-                    data=st.session_state["f7_bankable_docx_bytes"],
-                    file_name=f"{bk_project.replace(' ', '_')}_BANKABLE_{idioma_sel_code}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True,
-                    key="f7_dl_bankable",
-                )
+            st.download_button(
+                "📥 Word",
+                data=resultado_bk.get("docx_bytes") or b"",
+                file_name=f"{_base_bk}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                key="f7_dl_bankable",
+                disabled=not resultado_bk.get("docx_bytes"),
+            )
+        with btn_bk3:
+            st.download_button(
+                "📥 PDF",
+                data=resultado_bk.get("pdf_bytes") or b"",
+                file_name=f"{_base_bk}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="f7_dl_bankable_pdf",
+                disabled=not resultado_bk.get("pdf_bytes"),
+            )
+        if resultado_bk:
+            _detalle = f"Último reporte: {str(resultado_bk.get('lang', '')).upper()} · {resultado_bk.get('pais', '')}."
+            if not resultado_bk.get("con_word"):
+                _detalle += " " + str(resultado_bk.get("mensaje") or "")
+            st.caption(_detalle)
 
 
 # =============================================================================
@@ -936,7 +968,7 @@ with col_gis:
             else:
                 nombre_gis = (config.get("project_name") or "WindFarm").replace(" ", "_")
                 diametro_gis = float(config.get("diametro") or 100)
-                h_hub_gis = float(config.get("perfil_hhub") or 80)
+                h_hub_gis = float(config.get("f5_altura_deseada") or config.get("perfil_hhub") or 80)
 
                 # Botones en línea (como en el diseño de referencia)
                 gis_c1, gis_c2, gis_c3, gis_c4 = st.columns(4, gap="small")
@@ -953,7 +985,8 @@ with col_gis:
                 with gis_c2:
                     if st.button("🗺️ GeoJSON", key="f7_btn_geojson", use_container_width=True):
                         try:
-                            gj = exportar_geojson_layout(df_layout_gis, lat_site_gis, lon_site_gis, nombre_gis)
+                            gj = exportar_geojson_layout(df_layout_gis, lat_site_gis, lon_site_gis, nombre_gis,
+                                                         diametro_rotor=diametro_gis, altura_buje=h_hub_gis)
                             st.session_state["f7_geojson_bytes"] = gj
                             st.success(f"GeoJSON: {len(gj)/1024:.1f} KB")
                         except Exception as exc:
@@ -961,7 +994,8 @@ with col_gis:
                 with gis_c3:
                     if st.button("📋 CSV coordenadas", key="f7_btn_csv_coords", use_container_width=True):
                         try:
-                            csv_c = exportar_csv_coords(df_layout_gis, lat_site_gis, lon_site_gis)
+                            csv_c = exportar_csv_coords(df_layout_gis, lat_site_gis, lon_site_gis,
+                                                        diametro_rotor=diametro_gis, altura_buje=h_hub_gis)
                             st.session_state["f7_csv_coords_bytes"] = csv_c
                             st.success(f"CSV: {len(csv_c)/1024:.1f} KB")
                         except Exception as exc:

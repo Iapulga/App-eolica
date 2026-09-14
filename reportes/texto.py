@@ -118,10 +118,10 @@ _QUESTION_REPLACEMENTS = {
     "p?rdida": "pérdida",
     "P?rdidas": "Pérdidas",
     "p?rdidas": "pérdidas",
+    # Solo con mayúscula (inicio de etiqueta = sustantivo). En minúscula "perdida" también es
+    # participio válido ("Energía perdida"), así que no se toca.
     "Perdida": "Pérdida",
-    "perdida": "pérdida",
     "Perdidas": "Pérdidas",
-    "perdidas": "pérdidas",
 
     # métricas y tablas
     "M?xima": "Máxima",

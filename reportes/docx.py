@@ -1,4 +1,5 @@
 import io
+import math
 import os
 import re
 import unicodedata
@@ -48,7 +49,7 @@ def _safe_media_name(file_name, default_stem="figure", default_ext=".png"):
     return f"{stem}{ext}"
 
 
-def _paragraph(text, style=None, spacing_before=0, spacing_after=120, jc=None, bold=False):
+def _paragraph(text, style=None, spacing_before=0, spacing_after=120, jc=None, bold=False, keep_next=False):
     text = _clean_text(text)
     runs = []
     for line in text.split("\n") if text else [""]:
@@ -63,13 +64,29 @@ def _paragraph(text, style=None, spacing_before=0, spacing_after=120, jc=None, b
     ppr = []
     if style:
         ppr.append(f"<w:pStyle w:val=\"{style}\"/>")
+    if keep_next:
+        ppr.append("<w:keepNext/>")
     ppr.append(f"<w:spacing w:before=\"{int(spacing_before)}\" w:after=\"{int(spacing_after)}\"/>")
     if jc:
         ppr.append(f"<w:jc w:val=\"{jc}\"/>")
     return f"<w:p><w:pPr>{''.join(ppr)}</w:pPr>{''.join(runs)}</w:p>"
 
 
-def _table_cell(text, header=False, banded=False):
+_RE_NUMERO_CELDA = re.compile(r"^[−\-+]?\d[\d.,]*(\s?%)?$")
+_CELDAS_VACIAS = {"", "—", "–", "-", "n/d", "N/D"}
+
+
+def _columnas_numericas(rows, ncols):
+    """Columnas cuyas celdas son todas cifras (o guiones): se alinean enteras a la derecha."""
+    derecha = []
+    for j in range(ncols):
+        valores = [_clean_text(fila[j]).strip() for fila in rows if j < len(fila)]
+        valores = [v for v in valores if v not in _CELDAS_VACIAS]
+        derecha.append(bool(valores) and all(_RE_NUMERO_CELDA.match(v) for v in valores))
+    return derecha
+
+
+def _table_cell(text, header=False, banded=False, size=20, width=None, sep=False, keep=False, derecha=False):
     """Celda DOCX con estilo profesional.
 
     header=True: fondo navy #1F4E79 + texto blanco bold + centro
@@ -77,16 +94,20 @@ def _table_cell(text, header=False, banded=False):
     """
     text_value = _xml(_clean_text(text))
     if header:
-        shading = '<w:shd w:val="clear" w:color="auto" w:fill="1F4E79"/>'
-        run_pr = '<w:rPr><w:b/><w:color w:val="FFFFFF"/><w:sz w:val="20"/></w:rPr>'
-        para_pr = '<w:pPr><w:spacing w:before="40" w:after="40"/><w:jc w:val="center"/></w:pPr>'
+        shading = '<w:shd w:val="clear" w:color="auto" w:fill="1B365D"/>'
+        run_pr = f'<w:rPr><w:b/><w:color w:val="FFFFFF"/><w:sz w:val="{int(size)}"/></w:rPr>'
+        para_pr = '<w:pPr><w:keepNext/><w:spacing w:before="40" w:after="40" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/></w:pPr>'
     else:
-        shading = '<w:shd w:val="clear" w:color="auto" w:fill="F2F6FB"/>' if banded else ""
-        run_pr = '<w:rPr><w:sz w:val="20"/></w:rPr>'
-        para_pr = '<w:pPr><w:spacing w:before="0" w:after="40"/></w:pPr>'
+        shading = '<w:shd w:val="clear" w:color="auto" w:fill="F3F6F9"/>' if banded else ""
+        run_pr = f'<w:rPr><w:color w:val="2B3645"/><w:sz w:val="{int(size)}"/></w:rPr>'
+        para_pr = ('<w:pPr>' + ('<w:keepNext/>' if keep else '') + '<w:spacing w:before="0" w:after="30" w:line="240" w:lineRule="auto"/>'
+                   + ('<w:jc w:val="right"/>' if derecha else "") + "</w:pPr>")
+    tc_w = f'<w:tcW w:w="{int(width)}" w:type="dxa"/>' if width else '<w:tcW w:w="0" w:type="auto"/>'
+    borde = '<w:tcBorders><w:left w:val="single" w:sz="12" w:space="0" w:color="1F4E79"/></w:tcBorders>' if sep else ""
     tc_pr = (
         "<w:tcPr>"
-        '<w:tcW w:w="0" w:type="auto"/>'
+        f"{tc_w}"
+        f"{borde}"
         f"{shading}"
         '<w:tcMar><w:top w:w="60" w:type="dxa"/><w:left w:w="100" w:type="dxa"/>'
         '<w:bottom w:w="60" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>'
@@ -121,56 +142,58 @@ def _table_chunk_size(block):
     return 22
 
 
-def _table_horizontal_layout(chunks):
-    """Wrappea N chunks en tabla padre 1×N para layout lado a lado.
+_BORDES_TABLA = (  # estilo formal: reglas horizontales, sin líneas verticales
+    '<w:tblBorders>'
+    '<w:top w:val="single" w:sz="8" w:space="0" w:color="1B365D"/>'
+    '<w:left w:val="nil"/>'
+    '<w:bottom w:val="single" w:sz="8" w:space="0" w:color="1B365D"/>'
+    '<w:right w:val="nil"/>'
+    '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="C9D2DC"/>'
+    '<w:insideV w:val="nil"/>'
+    "</w:tblBorders>"
+)
+_TBL_LOOK = '<w:tblLook w:val="04A0" w:firstRow="1" w:lastRow="0" w:firstColumn="1" w:lastColumn="0" w:noHBand="0" w:noVBand="1"/>'
+_ANCHO_UTIL_TWIPS = 9360  # 6,5 in de texto (carta con márgenes de 1 in)
 
-    Cada chunk se convierte en mini-tabla dentro de una celda padre.
-    """
-    if not chunks:
-        return ""
-    n = len(chunks)
-    # Renderizar cada chunk como su propia mini-tabla (sin titulo intermedio)
-    inner_tables = []
-    for ch in chunks:
-        # Render mini table SIN title/description repetidos
-        mini = dict(ch)
-        mini.pop("title", None)
-        mini.pop("description", None)
-        inner_tables.append(_table_block(mini))
 
-    # Tabla padre: 1 fila, N celdas, cada celda con mini-tabla + padding
-    pct_per_col = int(5000 / n)  # tblW en pct * 50 (5000 = 100%)
-    cells = []
-    for tbl_xml in inner_tables:
-        cell = (
-            "<w:tc>"
-            f'<w:tcPr><w:tcW w:w="{pct_per_col}" w:type="pct"/>'
-            '<w:tcMar><w:top w:w="0" w:type="dxa"/><w:left w:w="40" w:type="dxa"/>'
-            '<w:bottom w:w="0" w:type="dxa"/><w:right w:w="40" w:type="dxa"/></w:tcMar>'
-            '<w:vAlign w:val="top"/>'
-            '</w:tcPr>'
-            f"{tbl_xml}"
-            "<w:p/>"
-            "</w:tc>"
-        )
-        cells.append(cell)
+def _table_side_by_side(block, max_cols=8):
+    """Tabla larga y estrecha (p. ej. curva de potencia) repartida en grupos lado a lado dentro
+    de UNA sola tabla de ancho fijo = ancho útil de la página: nunca se sale del margen."""
+    headers = list(normalize_headers((block or {}).get("headers", []) or []))
+    rows = list((block or {}).get("rows", []) or [])
+    ncols = len(headers)
+    if not headers or not rows:
+        return _table_block({**(block or {}), "headers": headers})
+    grupos = max(1, min(4, max_cols // max(1, ncols)))
+    por_grupo = math.ceil(len(rows) / grupos)
+    grupos = math.ceil(len(rows) / por_grupo)
+    total = grupos * ncols
+    size = 16 if total >= 9 else 18
+    ancho = _ANCHO_UTIL_TWIPS // total
+    grid = "".join(f'<w:gridCol w:w="{ancho}"/>' for _ in range(total))
+    celdas = [_table_cell(h, header=True, size=size, width=ancho, sep=(g > 0 and j == 0))
+              for g in range(grupos) for j, h in enumerate(headers)]
+    filas = ['<w:tr><w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>' + "".join(celdas) + "</w:tr>"]
+    derecha = _columnas_numericas(rows, ncols)
+    for r in range(por_grupo):
+        celdas = []
+        for g in range(grupos):
+            idx = g * por_grupo + r
+            fila = list(rows[idx]) if idx < len(rows) else [""] * ncols
+            fila += [""] * max(0, ncols - len(fila))
+            celdas += [_table_cell(fila[j], banded=(r % 2 == 1), size=size, width=ancho, sep=(g > 0 and j == 0),
+                                   derecha=derecha[j]) for j in range(ncols)]
+        filas.append("<w:tr><w:trPr><w:cantSplit/></w:trPr>" + "".join(celdas) + "</w:tr>")
     return (
-        "<w:tbl>"
-        "<w:tblPr>"
+        "<w:tbl><w:tblPr>"
         '<w:tblStyle w:val="TableGrid"/>'
         '<w:tblW w:w="5000" w:type="pct"/>'
-        '<w:tblBorders>'
-        '<w:top w:val="nil"/>'
-        '<w:left w:val="nil"/>'
-        '<w:bottom w:val="nil"/>'
-        '<w:right w:val="nil"/>'
-        '<w:insideH w:val="nil"/>'
-        '<w:insideV w:val="nil"/>'
-        '</w:tblBorders>'
-        "</w:tblPr>"
-        "<w:tblGrid/>"
-        f"<w:tr>{''.join(cells)}</w:tr>"
-        "</w:tbl>"
+        f"{_BORDES_TABLA}"
+        '<w:tblLayout w:type="fixed"/>'
+        f"{_TBL_LOOK}"
+        f"</w:tblPr><w:tblGrid>{grid}</w:tblGrid>"
+        + "".join(filas)
+        + "</w:tbl>"
     )
 
 
@@ -198,62 +221,68 @@ def _table_split_blocks(block):
 
 
 def _table_block(block):
+    """Tabla con cabecera que se repite en cada página y filas que no se parten entre páginas.
+    Las tablas anchas ocupan todo el ancho útil y usan letra más pequeña."""
     headers = list(block.get("headers", []) or [])
     rows = list(block.get("rows", []) or [])
     if not headers:
         return ""
-    tbl_rows = []
-    # Header row con estilo navy
-    tbl_rows.append(
-        '<w:tr><w:trPr><w:tblHeader/></w:trPr>'
-        + "".join(_table_cell(h, header=True) for h in headers)
+    ncols = len(headers)
+    size = 16 if ncols >= 9 else (18 if ncols >= 6 else 20)
+    ancho = '<w:tblW w:w="5000" w:type="pct"/>' if ncols >= 5 else '<w:tblW w:w="0" w:type="auto"/>'
+    tbl_rows = [
+        '<w:tr><w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>'
+        + "".join(_table_cell(h, header=True, size=size) for h in headers)
         + "</w:tr>"
-    )
-    # Body rows con banded alternado (filas pares = gris claro)
+    ]
+    juntar = len(rows) <= 20  # las tablas cortas no se parten entre páginas (ni dejan el encabezado solo)
+    derecha = _columnas_numericas(rows, ncols)
     for idx, row in enumerate(rows):
-        padded = list(row) + [""] * max(0, len(headers) - len(row))
-        is_banded = (idx % 2 == 1)  # 2da fila (idx=1) banded
+        padded = list(row) + [""] * max(0, ncols - len(row))
+        mantener = juntar and idx < len(rows) - 1
         tbl_rows.append(
-            "<w:tr>"
-            + "".join(_table_cell(cell, header=False, banded=is_banded) for cell in padded[: len(headers)])
+            "<w:tr><w:trPr><w:cantSplit/></w:trPr>"
+            + "".join(_table_cell(cell, header=False, banded=(idx % 2 == 1), size=size, keep=mantener, derecha=derecha[j])
+                      for j, cell in enumerate(padded[:ncols]))
             + "</w:tr>"
         )
     return (
-        "<w:tbl>"
-        "<w:tblPr>"
+        "<w:tbl><w:tblPr>"
         '<w:tblStyle w:val="TableGrid"/>'
-        '<w:tblW w:w="0" w:type="auto"/>'
-        '<w:tblBorders>'
-        '<w:top w:val="single" w:sz="8" w:space="0" w:color="1F4E79"/>'
-        '<w:left w:val="single" w:sz="4" w:space="0" w:color="C5D2E0"/>'
-        '<w:bottom w:val="single" w:sz="8" w:space="0" w:color="1F4E79"/>'
-        '<w:right w:val="single" w:sz="4" w:space="0" w:color="C5D2E0"/>'
-        '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="C5D2E0"/>'
-        '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="C5D2E0"/>'
-        "</w:tblBorders>"
-        '<w:tblLook w:val="04A0" w:firstRow="1" w:lastRow="0" w:firstColumn="1" w:lastColumn="0" w:noHBand="0" w:noVBand="1"/>'
-        "</w:tblPr>"
-        "<w:tblGrid/>"
-        + "".join(tbl_rows) +
-        "</w:tbl>"
+        f"{ancho}"
+        f"{_BORDES_TABLA}"
+        f"{_TBL_LOOK}"
+        "</w:tblPr><w:tblGrid/>"
+        + "".join(tbl_rows)
+        + "</w:tbl>"
     )
+
+
+_TAMANOS_FIGURA_IN = {
+    "phase2_time_series": (6.5, 3.4),
+    "phase2_profile": (4.4, 3.1),  # dos perfiles por página
+    "phase2_comparison": (6.0, 3.4),
+    "phase3_wind_rose": (5.0, 4.5),
+    "phase4_polar": (4.8, 4.4),
+    "phase5_loss_distribution": (4.8, 4.1),
+    "phase3_histogram": (6.4, 4.2),
+    "phase35_probability_curve": (6.4, 4.2),
+    "phase4_comparison": (6.4, 3.9),
+    "phase4_energy": (6.4, 3.9),
+    "phase5_sector_chart": (6.4, 3.9),
+    "phase35_heatmap": (6.4, 4.6),
+    "phase4_layout": (5.4, 4.3),
+    "phase4_direction_detail": (5.2, 4.2),
+    "diagrama": (6.3, 3.6),
+    "phase3_histogram_grid": (6.5, 5.9),
+    "phase35_probability_grid": (6.5, 5.9),
+}
 
 
 def _image_constraints_for_block(block):
     family = str((block or {}).get("figure_family") or "").strip().lower()
-    if family == "phase2_time_series":
-        return int(6.6 * 914400), int(3.9 * 914400)
-    if family == "phase2_profile":
-        return int(4.9 * 914400), int(6.0 * 914400)
-    if family == "phase2_comparison":
-        return int(6.2 * 914400), int(5.2 * 914400)
-    if family in ["phase3_wind_rose", "phase4_polar", "phase5_loss_distribution"]:
-        return int(5.7 * 914400), int(5.6 * 914400)
-    if family in ["phase3_histogram", "phase35_probability_curve", "phase4_comparison", "phase4_energy", "phase5_sector_chart"]:
-        return int(6.5 * 914400), int(4.7 * 914400)
-    if family in ["phase35_heatmap", "phase4_layout", "phase4_direction_detail"]:
-        return int(6.2 * 914400), int(5.4 * 914400)
-    return MAX_IMAGE_WIDTH_EMU, MAX_IMAGE_HEIGHT_EMU
+    ancho, alto = _TAMANOS_FIGURA_IN.get(family, (6.2, 4.4))
+    return int(ancho * 914400), int(alto * 914400)
 
 
 def _image_dimensions(image_bytes, block=None):
@@ -276,7 +305,7 @@ def _image_dimensions(image_bytes, block=None):
 def _image_paragraph(rel_id, image_name, cx, cy, doc_pr_id):
     return f"""
 <w:p>
-  <w:pPr><w:jc w:val="center"/><w:spacing w:before="80" w:after="120"/></w:pPr>
+  <w:pPr><w:keepNext/><w:jc w:val="center"/><w:spacing w:before="80" w:after="40"/></w:pPr>
   <w:r>
     <w:drawing>
       <wp:inline distT="0" distB="0" distL="0" distR="0">
@@ -313,81 +342,73 @@ def _image_paragraph(rel_id, image_name, cx, cy, doc_pr_id):
 
 
 def _styles_xml():
-    """Estilos APA 7: Times New Roman 12pt, interlineado 1.5, sin sangria.
+    """Estilo formal común de los entregables (ver reportes/estilo.py): Calibri 10,5 pt, interlineado 1,15,
+    títulos en azul marino con filete, rótulos de tabla y figura, índice compacto."""
+    marino, texto, gris = "1B365D", "2B3645", "6B7785"
+    fuente = '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/>'
 
-    Especificaciones:
-      - Fuente: Times New Roman 12 pt (24 half-points)
-      - Interlineado: 1.5 (line=360 twips, lineRule=auto)
-      - Sangria: 0 (sin sangria primera linea ni francesa)
-      - Margenes: 1 in (2540 twips) — definido en sectPr
-      - Headings centrados (Title) y alineados a izq (H1-H3) sin sangria
-      - Color navy SMA solo para distinguir headings (no estricto APA)
-    """
+    def titulo(style_id, nombre, tam, antes, despues, nivel, color=marino, filete=False):
+        borde = f'<w:pBdr><w:bottom w:val="single" w:sz="8" w:space="3" w:color="{marino}"/></w:pBdr>' if filete else ""
+        salto = "<w:pageBreakBefore/>" if style_id == "Heading1" else ""  # cada capítulo empieza en página nueva
+        return (f'<w:style w:type="paragraph" w:styleId="{style_id}"><w:name w:val="{nombre}"/><w:basedOn w:val="Normal"/>'
+                f'<w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/>{salto}{borde}'
+                f'<w:spacing w:before="{antes}" w:after="{despues}" w:line="259" w:lineRule="auto"/>'
+                f'<w:outlineLvl w:val="{nivel}"/></w:pPr><w:rPr>{fuente}<w:b/><w:color w:val="{color}"/>'
+                f'<w:sz w:val="{tam}"/><w:szCs w:val="{tam}"/></w:rPr></w:style>')
+
     return f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="{DOCX_NS['w']}">
   <w:docDefaults>
-    <w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="24"/></w:rPr></w:rPrDefault>
-    <w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="360" w:lineRule="auto"/><w:ind w:firstLine="0"/></w:pPr></w:pPrDefault>
+    <w:rPrDefault><w:rPr>{fuente}<w:color w:val="{texto}"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="es-ES"/></w:rPr></w:rPrDefault>
+    <w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault>
   </w:docDefaults>
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
-    <w:name w:val="Normal"/>
-    <w:qFormat/>
-    <w:pPr><w:spacing w:after="0" w:line="360" w:lineRule="auto"/><w:ind w:firstLine="0"/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="24"/></w:rPr>
+    <w:name w:val="Normal"/><w:qFormat/>
+    <w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr>
+    <w:rPr>{fuente}<w:color w:val="{texto}"/><w:sz w:val="21"/><w:szCs w:val="21"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Title">
-    <w:name w:val="Title"/>
-    <w:basedOn w:val="Normal"/>
-    <w:qFormat/>
-    <w:pPr>
-      <w:jc w:val="center"/>
-      <w:spacing w:before="240" w:after="360" w:line="360" w:lineRule="auto"/>
-      <w:ind w:firstLine="0"/>
-      <w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="1F4E79"/></w:pBdr>
-    </w:pPr>
-    <w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="36"/><w:color w:val="1F4E79"/></w:rPr>
+    <w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:qFormat/>
+    <w:pPr><w:spacing w:before="120" w:after="240"/></w:pPr>
+    <w:rPr>{fuente}<w:b/><w:color w:val="{marino}"/><w:sz w:val="52"/></w:rPr>
   </w:style>
-  <w:style w:type="paragraph" w:styleId="Heading1">
-    <w:name w:val="heading 1"/>
-    <w:basedOn w:val="Normal"/>
-    <w:next w:val="Normal"/>
-    <w:qFormat/>
-    <w:pPr>
-      <w:spacing w:before="360" w:after="180" w:line="360" w:lineRule="auto"/>
-      <w:ind w:firstLine="0"/>
-      <w:keepNext/>
-      <w:jc w:val="left"/>
-      <w:pBdr><w:bottom w:val="single" w:sz="8" w:space="4" w:color="2E5C8A"/></w:pBdr>
-    </w:pPr>
-    <w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="32"/><w:color w:val="1F4E79"/></w:rPr>
+  {titulo("Heading1", "heading 1", 30, 360, 160, 0, filete=True)}
+  {titulo("Heading2", "heading 2", 24, 240, 100, 1)}
+  {titulo("Heading3", "heading 3", 22, 180, 80, 2, color="2F5F8F")}
+  <w:style w:type="paragraph" w:styleId="TOCTitulo">
+    <w:name w:val="Titulo del indice"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>
+    <w:pPr><w:keepNext/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="3" w:color="{marino}"/></w:pBdr>
+      <w:spacing w:before="120" w:after="200"/></w:pPr>
+    <w:rPr>{fuente}<w:b/><w:color w:val="{marino}"/><w:sz w:val="30"/></w:rPr>
   </w:style>
-  <w:style w:type="paragraph" w:styleId="Heading2">
-    <w:name w:val="heading 2"/>
-    <w:basedOn w:val="Normal"/>
-    <w:next w:val="Normal"/>
-    <w:qFormat/>
-    <w:pPr><w:spacing w:before="240" w:after="120" w:line="360" w:lineRule="auto"/><w:ind w:firstLine="0"/><w:keepNext/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="28"/><w:color w:val="2E5C8A"/></w:rPr>
+  <w:style w:type="paragraph" w:styleId="Caption">
+    <w:name w:val="caption"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>
+    <w:pPr><w:spacing w:before="60" w:after="120" w:line="240" w:lineRule="auto"/></w:pPr>
+    <w:rPr>{fuente}<w:color w:val="{texto}"/><w:sz w:val="18"/></w:rPr>
   </w:style>
-  <w:style w:type="paragraph" w:styleId="Heading3">
-    <w:name w:val="heading 3"/>
-    <w:basedOn w:val="Normal"/>
-    <w:next w:val="Normal"/>
-    <w:qFormat/>
-    <w:pPr><w:spacing w:before="180" w:after="100" w:line="360" w:lineRule="auto"/><w:ind w:firstLine="0"/><w:keepNext/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:i/><w:sz w:val="24"/><w:color w:val="4A6C8E"/></w:rPr>
+  <w:style w:type="paragraph" w:styleId="TOC1">
+    <w:name w:val="toc 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>
+    <w:pPr><w:tabs><w:tab w:val="right" w:leader="dot" w:pos="9350"/></w:tabs><w:spacing w:before="80" w:after="40"/></w:pPr>
+    <w:rPr><w:b/><w:color w:val="{marino}"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="TOC2">
+    <w:name w:val="toc 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>
+    <w:pPr><w:tabs><w:tab w:val="right" w:leader="dot" w:pos="9350"/></w:tabs><w:spacing w:before="0" w:after="30"/><w:ind w:left="300"/></w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="TOC3">
+    <w:name w:val="toc 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>
+    <w:pPr><w:tabs><w:tab w:val="right" w:leader="dot" w:pos="9350"/></w:tabs><w:spacing w:before="0" w:after="20"/><w:ind w:left="600"/></w:pPr>
+    <w:rPr><w:sz w:val="19"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Header">
-    <w:name w:val="header"/>
-    <w:basedOn w:val="Normal"/>
+    <w:name w:val="header"/><w:basedOn w:val="Normal"/>
     <w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="18"/><w:color w:val="2E5C8A"/></w:rPr>
+    <w:rPr>{fuente}<w:sz w:val="16"/><w:color w:val="{gris}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Footer">
-    <w:name w:val="footer"/>
-    <w:basedOn w:val="Normal"/>
+    <w:name w:val="footer"/><w:basedOn w:val="Normal"/>
     <w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="18"/></w:rPr>
+    <w:rPr>{fuente}<w:sz w:val="16"/><w:color w:val="{gris}"/></w:rPr>
   </w:style>
 </w:styles>
 """
@@ -444,62 +465,104 @@ def _settings_xml():
 
 
 def _header_xml(project_name):
-    """Header con nombre proyecto + 'INFORME TECNICO' branding."""
-    safe_name = _xml(_clean_text(project_name or "Proyecto eolico"))
+    """Encabezado: proyecto e «INFORME TÉCNICO» a la izquierda, SMA 2.0 a la derecha, con filete inferior."""
+    safe_name = _xml(_clean_text(project_name or "Proyecto eólico"))
     return f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:hdr xmlns:w="{DOCX_NS['w']}">
   <w:p>
     <w:pPr>
       <w:pStyle w:val="Header"/>
-      <w:jc w:val="left"/>
+      <w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="C9D2DC"/></w:pBdr>
+      <w:tabs><w:tab w:val="right" w:pos="9360"/></w:tabs>
     </w:pPr>
-    <w:r>
-      <w:rPr><w:sz w:val="16"/><w:color w:val="2E5C8A"/></w:rPr>
-      <w:t xml:space="preserve">{safe_name}  ·  INFORME TECNICO  ·  SMA 2.0</w:t>
-    </w:r>
+    <w:r><w:rPr><w:b/><w:color w:val="1B365D"/><w:sz w:val="16"/></w:rPr><w:t xml:space="preserve">{safe_name}  ·  INFORME TÉCNICO</w:t></w:r>
+    <w:r><w:rPr><w:color w:val="6B7785"/><w:sz w:val="16"/></w:rPr><w:tab/><w:t xml:space="preserve">SMA 2.0</w:t></w:r>
   </w:p>
 </w:hdr>
 """
 
 
 def _footer_xml():
-    """Footer con 'Pagina X de Y' usando campos PAGE + NUMPAGES."""
+    """Pie: «Página X de Y» (campos PAGE y NUMPAGES) con filete superior."""
+    corrida = '<w:r><w:rPr><w:color w:val="6B7785"/><w:sz w:val="16"/></w:rPr>{}</w:r>'
+    campo = lambda nombre: "".join((  # noqa: E731
+        corrida.format('<w:fldChar w:fldCharType="begin"/>'),
+        corrida.format(f'<w:instrText xml:space="preserve"> {nombre} </w:instrText>'),
+        corrida.format('<w:fldChar w:fldCharType="separate"/>'),
+        corrida.format("<w:t>1</w:t>"),
+        corrida.format('<w:fldChar w:fldCharType="end"/>'),
+    ))
     return f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:ftr xmlns:w="{DOCX_NS['w']}">
   <w:p>
     <w:pPr>
       <w:pStyle w:val="Footer"/>
+      <w:pBdr><w:top w:val="single" w:sz="6" w:space="4" w:color="C9D2DC"/></w:pBdr>
       <w:jc w:val="center"/>
     </w:pPr>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:t xml:space="preserve">Página </w:t></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:t>1</w:t></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:t xml:space="preserve"> de </w:t></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:instrText xml:space="preserve"> NUMPAGES </w:instrText></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:t>1</w:t></w:r>
-    <w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>
+    {corrida.format('<w:t xml:space="preserve">Página </w:t>')}{campo("PAGE")}{corrida.format('<w:t xml:space="preserve"> de </w:t>')}{campo("NUMPAGES")}
   </w:p>
 </w:ftr>
 """
+
+
+def _rotulo_xml(etiqueta, numero, texto, centrado=False):
+    """Rótulo «Tabla N. …» (encima de la tabla) o «Figura N. …» (debajo de la figura) con campo SEQ."""
+    ppr = ('<w:pPr><w:pStyle w:val="Caption"/>' + ("" if centrado else "<w:keepNext/>")
+           + f'<w:spacing w:before="{40 if centrado else 140}" w:after="{180 if centrado else 60}"/>'
+           + ('<w:jc w:val="center"/>' if centrado else "") + "</w:pPr>")
+    negrita = '<w:rPr><w:b/><w:color w:val="1B365D"/></w:rPr>'
+    return (f"<w:p>{ppr}"
+            f'<w:r>{negrita}<w:t xml:space="preserve">{etiqueta} </w:t></w:r>'
+            f'<w:fldSimple w:instr=" SEQ {etiqueta} \\* ARABIC "><w:r>{negrita}<w:t>{numero}</w:t></w:r></w:fldSimple>'
+            f'<w:r>{negrita}<w:t xml:space="preserve">. </w:t></w:r>'
+            f'<w:r><w:t xml:space="preserve">{_xml(_clean_text(texto))}</w:t></w:r></w:p>')
+
+
+def _portada_xml(model):
+    """Portada formal: banda azul marino con el título, proyecto, ubicación, datos clave y aviso."""
+    titulo = _xml(_clean_text(model.get("cover_title") or "INFORME TÉCNICO"))
+    subtitulo = _xml(_clean_text(model.get("cover_subtitle") or model.get("title") or ""))
+    proyecto = _xml(_clean_text(model.get("project_name") or ""))
+    banda = (
+        '<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:jc w:val="center"/>'
+        '<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/>'
+        '<w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr>'
+        '<w:tblGrid><w:gridCol w:w="9360"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w="9360" w:type="dxa"/>'
+        '<w:shd w:val="clear" w:color="auto" w:fill="1B365D"/><w:tcMar><w:top w:w="380" w:type="dxa"/>'
+        '<w:left w:w="380" w:type="dxa"/><w:bottom w:w="340" w:type="dxa"/><w:right w:w="380" w:type="dxa"/></w:tcMar></w:tcPr>'
+        f'<w:p><w:pPr><w:spacing w:before="0" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FFFFFF"/>'
+        f'<w:sz w:val="52"/></w:rPr><w:t xml:space="preserve">{titulo}</w:t></w:r></w:p>'
+        f'<w:p><w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr><w:r><w:rPr><w:color w:val="D6DEE9"/>'
+        f'<w:sz w:val="24"/></w:rPr><w:t xml:space="preserve">{subtitulo}</w:t></w:r></w:p>'
+        "</w:tc></w:tr></w:tbl>"
+    )
+    partes = ['<w:p><w:pPr><w:spacing w:before="0" w:after="360"/></w:pPr></w:p>', banda,
+              f'<w:p><w:pPr><w:spacing w:before="420" w:after="60"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="1B365D"/>'
+              f'<w:sz w:val="44"/></w:rPr><w:t xml:space="preserve">{proyecto}</w:t></w:r></w:p>']
+    if model.get("cover_line"):
+        partes.append(f'<w:p><w:pPr><w:spacing w:before="0" w:after="360"/></w:pPr><w:r><w:rPr><w:color w:val="6B7785"/>'
+                      f'<w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">{_xml(_clean_text(model["cover_line"]))}</w:t></w:r></w:p>')
+    if model.get("cover_rows"):
+        partes.append(_table_block({"headers": ["Campo", "Valor"], "rows": model["cover_rows"], "table_family": "compact_summary"}))
+    for parrafo in model.get("intro_paragraphs") or []:
+        partes.append(_paragraph(parrafo, spacing_before=160, spacing_after=100, jc="both"))
+    partes.append('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
+    return "".join(partes)
 
 
 def _toc_paragraph_xml():
     """Campo TOC auto-actualizable. Word lo llena al abrir + F9."""
     return (
         "<w:p>"
-        "<w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr>"
-        "<w:r><w:t xml:space=\"preserve\">Tabla de contenidos</w:t></w:r>"
+        "<w:pPr><w:pStyle w:val=\"TOCTitulo\"/></w:pPr>"
+        "<w:r><w:t xml:space=\"preserve\">Tabla de contenido</w:t></w:r>"
         "</w:p>"
         "<w:p>"
         "<w:r><w:fldChar w:fldCharType=\"begin\" w:dirty=\"true\"/></w:r>"
         "<w:r><w:instrText xml:space=\"preserve\"> TOC \\o &quot;1-3&quot; \\h \\z \\u </w:instrText></w:r>"
         "<w:r><w:fldChar w:fldCharType=\"separate\"/></w:r>"
-        "<w:r><w:t>Tabla de contenidos — abra en Word y pulse F9 para actualizar.</w:t></w:r>"
+        "<w:r><w:t>El índice se completa automáticamente al abrir el documento en Word.</w:t></w:r>"
         "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>"
         "</w:p>"
         "<w:p><w:r><w:br w:type=\"page\"/></w:r></w:p>"
@@ -540,12 +603,9 @@ def build_informe_tecnico_docx(report_model, file_name="informe_tecnico.docx"):
         media_files = []
         doc_pr_id = 1
 
-        body_parts.append(_paragraph(report_model.get("title", "Informe técnico"), style="Title", spacing_after=220))
         project_name = report_model.get("project_name")
-        if project_name:
-            body_parts.append(_paragraph(project_name, spacing_after=120, jc="center"))
-        for paragraph in report_model.get("intro_paragraphs", []) or []:
-            body_parts.append(_paragraph(paragraph, spacing_after=140, jc="both"))
+        body_parts.append(_portada_xml(report_model))
+        numeros = {"tabla": 0, "figura": 0}
 
         # TOC auto despues de intro
         body_parts.append(_toc_paragraph_xml())
@@ -555,31 +615,34 @@ def build_informe_tecnico_docx(report_model, file_name="informe_tecnico.docx"):
             if section.get("description"):
                 body_parts.append(_paragraph(section.get("description"), jc="both"))
             for subsection in section.get("subsections", []) or []:
-                body_parts.append(_paragraph(subsection.get("title", "Subsección"), style="Heading2"))
+                if str(subsection.get("title") or "").strip():
+                    body_parts.append(_paragraph(subsection.get("title"), style="Heading2"))
                 for block in subsection.get("blocks", []) or []:
+                    if not block:
+                        continue
                     block_title = block.get("title")
                     block_desc = block.get("description")
-                    if block.get("type") != "table" and block_title:
-                        body_parts.append(_paragraph(block_title, bold=True, spacing_after=80))
+                    if block.get("type") == "paragraph":
+                        body_parts.append(_paragraph(block.get("text", ""), spacing_after=100, jc="both"))
+                        continue
+                    tiene_imagen = block.get("type") == "figure" and block.get("image_bytes")
+                    if block.get("type") != "table" and block_title and not tiene_imagen:
+                        body_parts.append(_paragraph(block_title, bold=True, spacing_after=80, keep_next=True))
                     if block.get("type") != "table" and block_desc:
-                        body_parts.append(_paragraph(block_desc, spacing_after=90, jc="both"))
+                        body_parts.append(_paragraph(block_desc, spacing_after=90, jc="both", keep_next=True))
                     if block.get("type") == "table":
-                        chunks = _table_split_blocks(block)
                         family = str(block.get("table_family") or "").strip().lower()
-                        if family == "split_horizontal" and len(chunks) > 1:
-                            # Render lado a lado: 1 titulo + 1 descripcion + 1 tabla padre con N mini-tablas
-                            if chunks[0].get("title"):
-                                body_parts.append(_paragraph(chunks[0]["title"], bold=True, spacing_after=60))
-                            if chunks[0].get("description"):
-                                body_parts.append(_paragraph(chunks[0]["description"], spacing_after=70, jc="both"))
-                            body_parts.append(_table_horizontal_layout(chunks))
+                        if block.get("description"):
+                            body_parts.append(_paragraph(block.get("description", ""), spacing_after=70, jc="both", keep_next=True))
+                        if block.get("title"):
+                            numeros["tabla"] += 1
+                            body_parts.append(_rotulo_xml("Tabla", numeros["tabla"], block.get("title", "")))
+                        if family == "split_horizontal":
+                            body_parts.append(_table_side_by_side(block))
                         else:
-                            for table_block in chunks:
-                                if table_block.get("title"):
-                                    body_parts.append(_paragraph(table_block.get("title", ""), bold=True, spacing_after=60))
-                                if table_block.get("description"):
-                                    body_parts.append(_paragraph(table_block.get("description", ""), spacing_after=70, jc="both"))
-                                body_parts.append(_table_block(table_block))
+                            body_parts.append(_table_block({**block, "headers": normalize_headers(block.get("headers", []) or [])}))
+                        if block.get("note"):
+                            body_parts.append(_paragraph(block.get("note", ""), spacing_before=120, spacing_after=60, jc="both"))
                     elif block.get("type") == "figure" and block.get("image_bytes"):
                         image_bytes = block.get("image_bytes")
                         dimensions = _image_dimensions(image_bytes, block=block)
@@ -597,6 +660,9 @@ def build_informe_tecnico_docx(report_model, file_name="informe_tecnico.docx"):
                             media_files.append((f"word/{media_target}", image_bytes))
                             body_parts.append(_image_paragraph(rel_id, image_name, dimensions[0], dimensions[1], doc_pr_id))
                             doc_pr_id += 1
+                            if block_title:
+                                numeros["figura"] += 1
+                                body_parts.append(_rotulo_xml("Figura", numeros["figura"], block_title, centrado=True))
                         else:
                             body_parts.append(_paragraph("La figura no pudo insertarse automáticamente en Word."))
                     body_parts.append(_paragraph("", spacing_after=40))
@@ -609,7 +675,8 @@ def build_informe_tecnico_docx(report_model, file_name="informe_tecnico.docx"):
       <w:headerReference w:type="default" r:id="rIdHeader1"/>
       <w:footerReference w:type="default" r:id="rIdFooter1"/>
       <w:pgSz w:w="12240" w:h="15840"/>
-      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="650" w:footer="650" w:gutter="0"/>
+      <w:titlePg/>
     </w:sectPr>
   </w:body>
 </w:document>

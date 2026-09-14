@@ -6,6 +6,7 @@ import re
 import pandas as pd
 
 from .contexto import get_export_metadata, get_project_context, get_report_context
+from .datos_proyecto import construir_datos_exportacion
 from .docx import build_informe_tecnico_docx
 from .excel_pro import exportar_excel_pro  # noqa: F401  (re-export para Fase 5)
 from .figuras import (
@@ -18,7 +19,7 @@ from .informe_tecnico import build_informe_tecnico_word_model
 from .latex import build_latex_appendix_pack, build_latex_skeleton
 from .manifiestos import build_report_payload, dataframe_to_table_payload, get_report_manifest
 from .paquete import build_appendix_pack_files, build_appendix_pack_zip_bytes
-from .pdf_tecnico import build_informe_tecnico_pdf
+from .pdf_tecnico import build_informe_tecnico_pdf, finalizar_docx_con_word  # noqa: F401
 
 RUNTIME_CONTEXT_STATE_KEY = "fase5_runtime_export_context"
 HEAVY_EXPORT_STATE_KEY = "fase5_heavy_export_artifacts"
@@ -27,9 +28,46 @@ INFORME_TECNICO_DOCX_STATE_KEY = "fase5_informe_tecnico_docx_artifact"
 INFORME_TECNICO_META_STATE_KEY = "fase5_informe_tecnico_meta"
 
 
-_EXCEL_HEADER_FILL_HEX = "1F4E79"
+_EXCEL_HEADER_FILL_HEX = "1B365D"  # paleta formal común (reportes/estilo.py)
 _EXCEL_HEADER_FONT_HEX = "FFFFFF"
-_EXCEL_BAND_FILL_HEX = "E7EEF7"
+_EXCEL_BAND_FILL_HEX = "F3F6F9"
+
+
+def _formato_excel(etiqueta):
+    """Formato numérico según la etiqueta (fila o columna). Excel lo muestra con la configuración
+    regional del usuario (en español: 1.234,56)."""
+    t = str(etiqueta or "").lower()
+    if t.startswith(("número", "numero", "n.º", "año", "anio")) or t in ("datos", "turbinas"):
+        return "0"
+    if "latitud" in t or "longitud" in t:
+        return "0.000000"
+    if "(%)" in t or "pct" in t or "porcentaje" in t:
+        return "0.00"
+    if "(°)" in t:
+        return "0.0"
+    if "(m/s)" in t:
+        return "0.00"
+    if "kwh)" in t and "lcoe" in t:
+        return "0.0000"
+    if "/mwh)" in t:
+        return "#,##0.00"
+    if "mwh" in t:
+        return "#,##0.0"
+    if "(kw)" in t:
+        return "#,##0.0"
+    if "(mw)" in t:
+        return "#,##0.00"
+    if "(w)" in t:
+        return "#,##0"
+    if "h/año" in t or "horas" in t:
+        return "#,##0"
+    if "tasa de cambio" in t:
+        return "#,##0.00"
+    if any(m in t for m in ("capex", "opex", "vp de costos", "vpn", "(cop", "(usd", "(eur")):
+        return "#,##0"
+    if "(años)" in t:
+        return "0.0"
+    return "#,##0.00"
 
 
 def _apply_excel_style(writer, sheet_name, df):
@@ -49,8 +87,10 @@ def _apply_excel_style(writer, sheet_name, df):
     header_font = Font(name="Calibri", size=11, bold=True, color=_EXCEL_HEADER_FONT_HEX)
     header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
     band_fill = PatternFill("solid", fgColor=_EXCEL_BAND_FILL_HEX)
-    thin = Side(style="thin", color="B7C0C7")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    thin = Side(style="thin", color="C9D2DC")
+    border = Border(bottom=thin)  # solo reglas horizontales
+    ws.sheet_view.showGridLines = False
+    ws.row_dimensions[1].height = 24
 
     # Header
     for col_idx in range(1, n_cols + 1):
@@ -60,7 +100,8 @@ def _apply_excel_style(writer, sheet_name, df):
         cell.alignment = header_align
         cell.border = border
 
-    # Body: borders + alt row banding + number format
+    # Body: borders + alt row banding + number format (tablas Indicador/Valor: formato por fila)
+    por_fila = len(df.columns) == 2 and str(df.columns[1]).lower() == "valor"
     max_row = ws.max_row
     for row_idx in range(2, max_row + 1):
         is_alt = (row_idx % 2 == 0)
@@ -71,21 +112,10 @@ def _apply_excel_style(writer, sheet_name, df):
                 cell.fill = band_fill
             v = cell.value
             if isinstance(v, (int, float)) and not isinstance(v, bool):
-                col_name = str(df.columns[col_idx - 1]).lower()
-                if "(%)" in col_name or "pct" in col_name or "porcentaje" in col_name:
-                    cell.number_format = "0.00"
-                elif "mwh" in col_name or "kwh" in col_name:
-                    cell.number_format = "#,##0.00"
-                elif "(w)" in col_name or "potencia" in col_name:
-                    cell.number_format = "#,##0.00"
-                elif "(m/s)" in col_name or "velocidad" in col_name:
-                    cell.number_format = "0.0000"
-                elif "(°)" in col_name or "(deg)" in col_name or "(hex)" in col_name:
-                    cell.number_format = "0.00"
-                elif "capex" in col_name or "opex" in col_name or "lcoe" in col_name or "vp " in col_name:
-                    cell.number_format = "#,##0.00"
+                if por_fila:
+                    cell.number_format = _formato_excel(ws.cell(row=row_idx, column=1).value)
                 else:
-                    cell.number_format = "#,##0.0000"
+                    cell.number_format = _formato_excel(df.columns[col_idx - 1])
                 cell.alignment = Alignment(horizontal="right")
 
     # Auto-width approx
@@ -113,25 +143,45 @@ def exportar_excel(
     comparacion_sector_df=None,
 ):
     output = io.BytesIO()
+    leame = pd.DataFrame({
+        "Hoja": ["Resumen", "Pérdidas", "Sectorial", "Metadatos", "Manifiesto", "¿Y el Excel PRO?"],
+        "Contenido": [
+            "Indicadores principales del proyecto: energía, pérdidas, incertidumbre y economía.",
+            "Pérdidas aplicadas en cascada en la Fase 5 (disponibilidad, eléctricas, estelas y otras).",
+            "Energía y parámetros por sector de dirección (16 sectores).",
+            "Datos de la exportación (proyecto, fechas y configuración).",
+            "Trazabilidad del cálculo (entradas y huellas de los datos).",
+            "Este libro reúne las tablas para trabajar los datos. El Excel PRO (17 hojas) es un informe completo con "
+            "gráficas, curva de potencia, incertidumbre P50/P90, flujo de caja, sensibilidad e idoneidad IEC.",
+        ],
+    })
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        leame.to_excel(writer, index=False, sheet_name="Léame")
+        _apply_excel_style(writer, "Léame", leame)
+        hoja_leame = writer.sheets["Léame"]
+        hoja_leame.column_dimensions["B"].width = 110
+        from openpyxl.styles import Alignment as _Alineacion
+
+        for fila in hoja_leame.iter_rows(min_row=2):
+            fila[1].alignment = _Alineacion(wrap_text=True, vertical="top")
         resumen_df.to_excel(writer, index=False, sheet_name="Resumen")
         _apply_excel_style(writer, "Resumen", resumen_df)
-        perdidas_df.to_excel(writer, index=False, sheet_name="Perdidas")
-        _apply_excel_style(writer, "Perdidas", perdidas_df)
+        perdidas_df.to_excel(writer, index=False, sheet_name="Pérdidas")
+        _apply_excel_style(writer, "Pérdidas", perdidas_df)
         sector_df.to_excel(writer, index=False, sheet_name="Sectorial")
         _apply_excel_style(writer, "Sectorial", sector_df)
         if export_metadata_df is not None:
-            export_metadata_df.to_excel(writer, index=False, sheet_name="Metadata_exportacion")
-            _apply_excel_style(writer, "Metadata_exportacion", export_metadata_df)
+            export_metadata_df.to_excel(writer, index=False, sheet_name="Metadatos")
+            _apply_excel_style(writer, "Metadatos", export_metadata_df)
         if report_manifest_df is not None:
-            report_manifest_df.to_excel(writer, index=False, sheet_name="Manifiesto_reporte")
-            _apply_excel_style(writer, "Manifiesto_reporte", report_manifest_df)
+            report_manifest_df.to_excel(writer, index=False, sheet_name="Manifiesto")
+            _apply_excel_style(writer, "Manifiesto", report_manifest_df)
         if comparacion_df is not None:
-            comparacion_df.to_excel(writer, index=False, sheet_name="Comparacion_metodos")
-            _apply_excel_style(writer, "Comparacion_metodos", comparacion_df)
+            comparacion_df.to_excel(writer, index=False, sheet_name="Comparación_métodos")
+            _apply_excel_style(writer, "Comparación_métodos", comparacion_df)
         if comparacion_sector_df is not None:
-            comparacion_sector_df.to_excel(writer, index=False, sheet_name="Comparacion_sectorial")
-            _apply_excel_style(writer, "Comparacion_sectorial", comparacion_sector_df)
+            comparacion_sector_df.to_excel(writer, index=False, sheet_name="Comparación_sectorial")
+            _apply_excel_style(writer, "Comparación_sectorial", comparacion_sector_df)
     output.seek(0)
     return output.getvalue()
 
@@ -151,52 +201,94 @@ def _stable_frame_hash(df, columns=None):
     return hashlib.md5(pd.util.hash_pandas_object(frame, index=True).values.tobytes()).hexdigest()
 
 
+def _resumen_desde_datos(datos):
+    """Hoja «Resumen»: indicadores del proyecto activo (ubicación, turbina, energía, incertidumbre, economía)."""
+    p, t, e, r = datos["proyecto"], datos["turbina"], datos["energia"], datos["recurso"]
+    inc, eco = datos["incertidumbre"], datos["economia"]
+    mon = eco["moneda"]
+    f = eco.get("factor") or 1.0
+    n = t.get("n_turbinas") or 0
+
+    def _m(valor):
+        return None if valor is None else valor * f
+
+    filas = [
+        ("Proyecto", p["nombre"]),
+        ("Latitud", p.get("lat")),
+        ("Longitud", p.get("lon")),
+        ("País del informe", p.get("pais_nombre")),
+        ("Período de datos", f"{p.get('inicio')} a {p.get('fin')}"),
+        ("Método principal", e.get("metodo")),
+        ("Número de turbinas", n or None),
+        ("Potencia nominal por turbina (kW)", t.get("p_nominal_kw")),
+        ("Potencia instalada (MW)", t.get("p_instalada_mw")),
+        ("Diámetro del rotor (m)", t.get("diametro_m")),
+        ("Altura de buje (m)", t.get("altura_buje_m")),
+        ("Velocidad media a la altura de buje (m/s)", r.get("v_media_buje")),
+        ("AEP bruta parque (MWh/año)", e.get("aep_bruta_mwh")),
+        ("AEP neta parque (MWh/año)", e.get("aep_neta_mwh")),
+        ("AEP bruta por turbina (MWh/año)", (e.get("aep_bruta_mwh") or 0) / n if n else None),
+        ("AEP neta por turbina (MWh/año)", (e.get("aep_neta_mwh") or 0) / n if n else None),
+        ("Pérdida por estela aplicada (%)", e.get("estela_pct")),
+        ("Pérdidas totales (%)", e.get("perdida_total_pct")),
+        ("Factor de planta bruto (%)", e.get("fp_bruto_pct")),
+        ("Factor de planta neto (%)", e.get("fp_neto_pct")),
+        ("AEP P50 (MWh/año)", inc.get("p50")),
+        ("AEP P90 (MWh/año)", inc.get("p90")),
+        ("Origen de P50/P90", "Monte Carlo de la Fase 5" if inc.get("fuente") == "monte_carlo" else (
+            "Estimación genérica (Monte Carlo desactualizado: vuelva a ejecutarlo en la Fase 5)" if inc.get("mc_obsoleto")
+            else "Estimación genérica (sin Monte Carlo)")),
+        ("Moneda", mon),
+        (f"CAPEX total ({mon})", _m(eco.get("capex_total"))),
+        (f"OPEX anual ({mon})", _m(eco.get("opex_total"))),
+        (f"VP de costos ({mon})", _m(eco.get("vp_costos"))),
+        (f"LCOE ({mon}/MWh)", _m(eco.get("lcoe_mwh"))),
+        (f"LCOE ({mon}/kWh)", _m(eco.get("lcoe_kwh"))),
+        (f"VPN ({mon})", _m(eco.get("npv"))),
+        ("TIR (%)", eco.get("irr_pct")),
+        ("Payback simple (años)", eco.get("payback_simple")),
+        ("Payback descontado (años)", eco.get("payback_desc")),
+    ]
+    if eco.get("fx_cop_usd") and "COP" in (eco.get("moneda_base"), mon):
+        filas.append(("Tasa de cambio (COP por USD)", eco.get("fx_cop_usd")))
+    return pd.DataFrame({"Indicador": [a for a, _ in filas], "Valor": [b for _, b in filas]})
+
+
+def _a_json(valor):
+    """Convierte los datos del proyecto a tipos JSON (tablas → lista de filas)."""
+    if isinstance(valor, pd.DataFrame):
+        return json.loads(valor.to_json(orient="records", force_ascii=False))
+    if isinstance(valor, dict):
+        return {str(k): _a_json(v) for k, v in valor.items() if not str(k).startswith("df_")}
+    if isinstance(valor, (list, tuple)):
+        return [_a_json(v) for v in valor]
+    if hasattr(valor, "item") and not isinstance(valor, (str, bytes)):
+        try:
+            return valor.item()
+        except Exception:
+            return str(valor)
+    if isinstance(valor, float) and valor != valor:
+        return None
+    return valor
+
+
+def datos_proyecto_json(datos):
+    """Bloque «datos_proyecto» del JSON: parámetros y resultados completos del proyecto activo."""
+    salida = _a_json({k: v for k, v in datos.items()})
+    salida["tablas"] = {
+        "energia_por_sector": _a_json(datos["energia"].get("df_aep_sector")),
+        "perdidas": _a_json(datos["energia"].get("tabla_perdidas")),
+        "recurso_por_sector": _a_json(datos["recurso"].get("resumen_sectorial")),
+    }
+    return salida
+
+
 def build_basic_export_bundle(config, context):
     project_name_default = context["project_name_default"]
     report_context = get_report_context(config)
 
-    resumen_export = pd.DataFrame({
-        "Indicador": [
-            "Método principal",
-            "AEP bruta parque (MWh/año)",
-            "AEP neta parque (MWh/año)",
-            "Factor de planta bruto (%)",
-            "Factor de planta neto (%)",
-            "AEP bruta por turbina (MWh/año)",
-            "AEP neta por turbina (MWh/año)",
-            "Potencia nominal por turbina (kW)",
-            "Número de turbinas",
-            "Potencia instalada (MW)",
-            "Moneda base",
-            "Moneda visualización",
-            "Tasa COP/USD",
-            "CAPEX total",
-            "OPEX anual total",
-            "VP costos",
-            "LCOE (display, kWh)",
-            "LCOE (display, MWh)",
-        ],
-        "Valor": [
-            context["metodo_detalle"],
-            context["res"]["aep_bruta_total"],
-            context["res"]["aep_neta_total"],
-            context["res"]["factor_planta_bruto"],
-            context["res"]["factor_planta_neto"],
-            context["res"]["aep_bruta_turbina"],
-            context["res"]["aep_neta_turbina"],
-            context["res"]["potencia_nominal_turbina_w"] / 1000.0,
-            context["n_turbinas"],
-            context.get("economics", {}).get("base_metrics", {}).get("potencia_instalada_mw"),
-            context.get("economics", {}).get("moneda_base"),
-            context.get("economics", {}).get("moneda_visualizacion"),
-            context.get("economics", {}).get("fx_rate_cop_per_usd"),
-            context.get("economics", {}).get("capex_total_display", context.get("economics", {}).get("capex_total")),
-            context.get("economics", {}).get("opex_total_anual_display", context.get("economics", {}).get("opex_total_anual")),
-            context.get("economics", {}).get("vp_costos_display", context.get("economics", {}).get("vp_costos")),
-            context.get("economics", {}).get("lcoe_display_kwh", context.get("economics", {}).get("lcoe_kwh")),
-            context.get("economics", {}).get("lcoe_display_mwh", context.get("economics", {}).get("lcoe_mwh")),
-        ],
-    })
+    datos = construir_datos_exportacion(config, context)
+    resumen_export = _resumen_desde_datos(datos)
 
     metadata_export = get_export_metadata(config=config, export_format="excel")
     metadata_export["project_name"] = project_name_default
@@ -294,11 +386,14 @@ def build_basic_export_bundle(config, context):
             report_manifest_rows.append((f"{section_name}.{key}", value))
 
     report_manifest_df = pd.DataFrame(report_manifest_rows, columns=["Campo", "Valor"])
-    report_manifest_json = json.dumps(report_manifest, ensure_ascii=False, indent=2)
+    report_manifest_json = json.dumps(
+        {**report_manifest, "datos_proyecto": datos_proyecto_json(datos)}, ensure_ascii=False, indent=2, default=str,
+    )
     report_payload = build_report_payload(report_manifest)
     latex_skeleton = build_latex_skeleton(report_payload)
 
-    csv_bytes = context["df_aep_sector"].to_csv(index=False).encode("utf-8-sig")
+    # CSV para Excel en español: separador «;» y coma decimal.
+    csv_bytes = context["df_aep_sector"].round(4).to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
     excel_bytes = exportar_excel(
         resumen_df=resumen_export,
         perdidas_df=context["tabla_perdidas"],
@@ -313,8 +408,9 @@ def build_basic_export_bundle(config, context):
     excel_pro_bytes = b""
     try:
         excel_pro_ctx = dict(context)
-        excel_pro_ctx["project_name"] = context.get("project_name_default", "Proyecto eolico")
+        excel_pro_ctx["project_name"] = context.get("project_name_default", "Proyecto eólico")
         excel_pro_ctx["config"] = config
+        excel_pro_ctx["datos"] = datos
         excel_pro_ctx["df_curva"] = context.get("df_curva")
         excel_pro_ctx["df_cp"] = context.get("df_cp")
         excel_pro_ctx["df_resumen_sectorial"] = context.get("df_resumen_sectorial")
@@ -342,12 +438,15 @@ def build_basic_export_bundle(config, context):
         "csv_bytes": csv_bytes,
         "excel_bytes": excel_bytes,
         "excel_pro_bytes": excel_pro_bytes,
+        "datos": datos,
     }
 
 
 def build_export_signature(config, context, basic_bundle=None):
-    basic_bundle = basic_bundle or build_basic_export_bundle(config, context)
+    """Huella de TODO lo que alimenta los exportables: si cambia cualquier dato, se regeneran."""
     payload = {
+        "config_completa": hashlib.md5(json.dumps(dict(config or {}), ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")).hexdigest(),
+        "proyecto": context.get("project_name_default"),
         "config": {
             key: config.get(key)
             for key in [
@@ -440,7 +539,10 @@ def build_informe_tecnico_signature(config, context):
 
 
 def office_safe_file_name(base_name, extension):
-    text = str(base_name or "informe_tecnico").strip().lower()
+    import unicodedata
+
+    text = unicodedata.normalize("NFKD", str(base_name or "informe_tecnico")).encode("ascii", "ignore").decode()
+    text = text.strip().lower()
     text = re.sub(r"[^a-z0-9]+", "_", text)
     text = re.sub(r"_+", "_", text).strip("_") or "informe_tecnico"
     extension = str(extension or "").lstrip(".") or "bin"
@@ -555,20 +657,7 @@ def generate_heavy_export_artifacts(config, context, basic_bundle=None):
         export_format="latex",
     )
     heavy_report_payload = build_report_payload(heavy_report_manifest)
-    general_appendix_pack = build_latex_appendix_pack(
-        report_payload=heavy_report_payload,
-        report_manifest=heavy_report_manifest,
-        main_latex_text=build_latex_skeleton(heavy_report_payload),
-        appendix_files={},
-        table_files={},
-        export_metadata=basic_bundle["metadata_export"],
-        generated_artifacts={
-            "excel_bytes": basic_bundle["excel_bytes"],
-            "csv_bytes": basic_bundle["csv_bytes"],
-            "figure_files": combined_figure_files,
-        },
-        main_file_name="main.tex",
-    )
+    general_appendix_pack = build_latex_appendix_pack(report_payload=heavy_report_payload, main_file_name="main.tex")
     general_appendix_pack_files = build_appendix_pack_files(
         report_payload=heavy_report_payload,
         report_manifest=heavy_report_manifest,
@@ -594,7 +683,13 @@ def generate_heavy_export_artifacts(config, context, basic_bundle=None):
     }
 
 
+def nombre_archivo_proyecto(nombre_proyecto, sufijo, extension):
+    """«Proyecto_eolico_1» + «informe_tecnico» → «proyecto_eolico_1_informe_tecnico.pdf»."""
+    return office_safe_file_name(f"{nombre_proyecto or 'proyecto'}_{sufijo}", extension)
+
+
 def generate_informe_tecnico_exports(config, context):
+    datos = construir_datos_exportacion(config, context)
     informe_tecnico_word_model = build_informe_tecnico_word_model(
         config=config,
         project_name=context["project_name_default"],
@@ -605,30 +700,28 @@ def generate_informe_tecnico_exports(config, context):
         master_docx_name=context.get("master_docx_name"),
         phase5_context={
             "method_label": context["metodo_detalle"],
-            "summary": {
-                "aep_bruta_total": context["res"]["aep_bruta_total"],
-                "aep_neta_total": context["res"]["aep_neta_total"],
-                "factor_planta_bruto": context["res"]["factor_planta_bruto"],
-                "factor_planta_neto": context["res"]["factor_planta_neto"],
-                "potencia_nominal_turbina_kw": context["res"]["potencia_nominal_turbina_w"] / 1000.0,
-                "n_turbinas": context["n_turbinas"],
-                "lcoe_mwh": context.get("lcoe", {}).get("lcoe_mwh"),
-                "unidad_monetaria": context.get("lcoe", {}).get("unidad_monetaria"),
-            },
             "df_aep_sector": context["df_aep_sector"],
             "tabla_perdidas": context["tabla_perdidas"],
             "fig_loss_distribution": context.get("fig_dona"),
             "fig_sectorial": context.get("fig_sectorial"),
         },
+        datos=datos,
     )
-    pdf_result = build_informe_tecnico_pdf(
-        report_model=informe_tecnico_word_model,
-        file_name=office_safe_file_name("informe_tecnico", "pdf"),
-    )
-    docx_result = build_informe_tecnico_docx(
-        report_model=informe_tecnico_word_model,
-        file_name=office_safe_file_name("informe_tecnico", "docx"),
-    )
+    nombre_pdf = nombre_archivo_proyecto(context.get("project_name_default"), "informe_tecnico", "pdf")
+    nombre_docx = nombre_archivo_proyecto(context.get("project_name_default"), "informe_tecnico", "docx")
+    docx_result = build_informe_tecnico_docx(report_model=informe_tecnico_word_model, file_name=nombre_docx)
+    final = finalizar_docx_con_word(docx_result.get("docx_bytes"), nombre_base=nombre_docx[:-5], exportar_pdf=True) \
+        if docx_result.get("success") else {"docx_bytes": None, "pdf_bytes": None, "mensaje": docx_result.get("message"), "log": []}
+    if final.get("docx_bytes"):
+        docx_result = {**docx_result, "docx_bytes": final["docx_bytes"]}
+    pdf_result = {
+        "success": bool(final.get("pdf_bytes")),
+        "pdf_bytes": final.get("pdf_bytes"),
+        "file_name": nombre_pdf,
+        "message": final.get("mensaje", ""),
+        "conversion_log": final.get("log", []),
+        "source_docx_name": nombre_docx,
+    }
     return {
         "pdf": pdf_result,
         "docx": docx_result,
@@ -641,6 +734,7 @@ def generate_informe_tecnico_exports(config, context):
                 if context.get("master_docx_bytes") and not informe_tecnico_word_model.get("master_source_used")
                 else ""
             ),
+            "word_actualizado": bool(final.get("con_word")),
         },
     }
 

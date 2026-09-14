@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from .contexto import get_export_metadata, get_project_context, get_report_context
+from .datos_proyecto import fmt_num
 from .texto import normalize_spanish_text as _normalize_spanish_text
 
 
@@ -47,7 +48,7 @@ def _format_report_metric(value, decimals=2, unit=""):
     if not _report_has_value(value):
         return None
     if isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool):
-        txt = f"{float(value):.{decimals}f}"
+        txt = fmt_num(value, decimals)
     else:
         txt = _normalize_spanish_text(value)
     return _normalize_spanish_text(f"{txt} {unit}".strip())
@@ -70,7 +71,7 @@ def _build_key_value_table(title, entries, note=""):
 INFORME_TECNICO_ROUGHNESS_OPTIONS = {
     "Water / Mar": 2e-4,
     "Snow / Nieve": 1e-3,
-    "Grass / CÃ©sped": 0.03,
+    "Grass / Césped": 0.03,
     "Farmland / Cultivo": 0.10,
     "Forest / Bosque": 0.80,
     "City / Ciudad": 1.00,
@@ -309,7 +310,7 @@ def _format_coordinate_pair(latitude, longitude):
     if not _report_has_value(latitude) or not _report_has_value(longitude):
         return None
     try:
-        return f"{float(latitude):.2f}, {float(longitude):.2f}"
+        return f"lat {fmt_num(latitude, 6)} · lon {fmt_num(longitude, 6)}"
     except Exception:
         return _normalize_spanish_text(f"{latitude}, {longitude}")
 
@@ -375,58 +376,58 @@ def _first_sentence(items, fallback):
 
 
 def _build_summary_paragraphs(project_name, calculation_context, result_summary, loss_summary):
-    project_name = project_name or "el proyecto eolico analizado"
+    project_name = project_name or "el proyecto eólico analizado"
     base_viento = calculation_context.get("base_viento") or "la base de viento configurada"
-    metodo = calculation_context.get("metodo_detalle") or calculation_context.get("modo_estadistico") or "el metodo configurado"
+    metodo = calculation_context.get("metodo_detalle") or calculation_context.get("modo_estadistico") or "el método configurado"
     n_turbinas = _format_report_metric(calculation_context.get("n_turbinas"), 0)
-    aep_bruta = _format_report_metric(result_summary.get("aep_bruta_total_mwh"), 2, "MWh/ano")
-    aep_neta = _format_report_metric(result_summary.get("aep_neta_total_mwh"), 2, "MWh/ano")
+    aep_bruta = _format_report_metric(result_summary.get("aep_bruta_total_mwh"), 2, "MWh/año")
+    aep_neta = _format_report_metric(result_summary.get("aep_neta_total_mwh"), 2, "MWh/año")
     fp_neto = _format_report_metric(result_summary.get("factor_planta_neto_pct"), 2, "%")
-    perdida_estela = _format_report_metric(loss_summary.get("perdida_estela_mwh"), 2, "MWh/ano")
+    perdida_estela = _format_report_metric(loss_summary.get("perdida_estela_mwh"), 2, "MWh/año")
 
     return [
         (
-            f"Este informe resume el analisis energetico de {project_name}, construido a partir de {base_viento} "
+            f"Este informe resume el análisis energético de {project_name}, construido a partir de {base_viento} "
             f"y procesado con {metodo}. "
             + (f"El escenario actual considera {n_turbinas} turbinas en el parque. " if n_turbinas else "")
         ).strip(),
         (
-            "El documento integra la caracterizacion del sitio, la procedencia de datos, la metodologia de modelado "
-            "y los resultados energeticos del escenario actual para servir como borrador tecnico editable."
+            "El documento integra la caracterización del sitio, la procedencia de datos, la metodología de modelado "
+            "y los resultados energéticos del escenario actual para servir como borrador técnico editable."
         ),
         (
             f"En los resultados disponibles se obtuvo una AEP bruta de {aep_bruta or 'sin dato'}, una AEP neta de {aep_neta or 'sin dato'} "
             f"y un factor de planta neto de {fp_neto or 'sin dato'}."
-            + (f" La perdida energetica por estela reportada es {perdida_estela}." if perdida_estela else "")
+            + (f" La pérdida energética por estela reportada es {perdida_estela}." if perdida_estela else "")
         ),
     ]
 
 
 def _build_introduction_paragraphs(project_name, calculation_context, result_summary):
-    project_label = project_name or "el proyecto eolico analizado"
+    project_label = project_name or "el proyecto eólico analizado"
     source = calculation_context.get("site_source") or "la fuente de recurso configurada"
     base_viento = calculation_context.get("base_viento") or "la base de viento disponible"
-    metodo = calculation_context.get("metodo_detalle") or calculation_context.get("modo_estadistico") or "el metodo configurado"
+    metodo = calculation_context.get("metodo_detalle") or calculation_context.get("modo_estadistico") or "el método configurado"
     n_turbinas = _format_report_metric(calculation_context.get("n_turbinas"), 0)
     potencia = _format_report_metric(result_summary.get("potencia_nominal_turbina_kw"), 2, "kW")
 
     return [
         (
-            f"El presente documento consolida un borrador tecnico del estudio energetico de {project_label}. "
-            f"Su objetivo es dejar trazable la configuracion del caso, la fuente de recurso usada y los resultados principales "
+            f"El presente documento consolida un borrador técnico del estudio energético de {project_label}. "
+            f"Su objetivo es dejar trazable la configuración del caso, la fuente de recurso usada y los resultados principales "
             "obtenidos en el flujo de trabajo del proyecto."
         ),
         (
-            f"El analisis se apoya en {source} y en {base_viento} como base de entrada para la estimacion del comportamiento del parque. "
-            f"Sobre esa informacion se estructuraron las etapas de caracterizacion del sitio, modelado metodologico y calculo de AEP con {metodo}."
+            f"El análisis se apoya en {source} y en {base_viento} como base de entrada para la estimación del comportamiento del parque. "
+            f"Sobre esa información se estructuraron las etapas de caracterización del sitio, modelado metodológico y cálculo de AEP con {metodo}."
         ),
         (
-            "El reporte se organiza en secciones de sitio y datos, procedencia de informacion, metodologia, resultados, discusion y conclusiones. "
+            "El reporte se organiza en secciones de sitio y datos, procedencia de información, metodología, resultados, discusión y conclusiones. "
             + (
                 f"En el escenario vigente se trabaja con {n_turbinas} turbinas"
                 + (f" de {potencia} nominales por unidad." if potencia else ".")
                 if n_turbinas
-                else "La configuracion del parque puede seguir ajustandose antes de una version final."
+                else "La configuración del parque puede seguir ajustandose antes de una versión final."
             )
         ),
     ]
@@ -444,23 +445,23 @@ def _build_site_data_paragraphs(project_name, calculation_context):
     paragraphs = []
     if project_name or coords:
         paragraphs.append(
-            f"El sitio de estudio corresponde a {project_name or 'la ubicacion seleccionada en el proyecto'}"
+            f"El sitio de estudio corresponde a {project_name or 'la ubicación seleccionada en el proyecto'}"
             + (f", ubicado en las coordenadas {coords}." if coords else ".")
         )
     paragraphs.append(
-        f"La procedencia principal de datos corresponde a {source}, con un periodo disponible entre {start} y {end} cuando esta informacion existe en la configuracion persistida."
+        f"La procedencia principal de datos corresponde a {source}, con un periodo disponible entre {start} y {end} cuando esta información existe en la configuración persistida."
     )
     paragraphs.append(
-        f"Para el escenario actual se trabajo con {base_viento}, una altura objetivo de {altura} y una condicion de terreno reportada como {roughness}. "
-        "La redaccion final puede ampliar acceso, entorno territorial, cercania a red y uso del suelo si el proyecto lo requiere."
+        f"Para el escenario actual se trabajó con {base_viento}, una altura objetivo de {altura} y una condición de terreno reportada como {roughness}. "
+        "La redacción final puede ampliar acceso, entorno territorial, cercanía a red y uso del suelo si el proyecto lo requiere."
     )
     return paragraphs
 
 
 def _build_methodology_paragraphs(calculation_context):
     base_viento = calculation_context.get("base_viento") or "la base de viento configurada"
-    estadistico = calculation_context.get("modo_estadistico") or "el esquema estadistico activo"
-    detalle = calculation_context.get("metodo_detalle") or "el metodo de detalle configurado"
+    estadistico = calculation_context.get("modo_estadistico") or "el esquema estadístico activo"
+    detalle = calculation_context.get("metodo_detalle") or "el método de detalle configurado"
     wake_mode = calculation_context.get("wake_mode") or "el modo de estelas configurado"
     ct = _format_report_metric(calculation_context.get("ct"), 3)
     kw = _format_report_metric(calculation_context.get("kw"), 3)
@@ -470,54 +471,54 @@ def _build_methodology_paragraphs(calculation_context):
     sens = calculation_context.get("sens_variable")
 
     return [
-        f"La metodologia parte de {base_viento} para construir la serie de analisis a la altura objetivo y propagarla hacia el calculo energetico del parque.",
-        f"El tratamiento estadistico principal se realizo con {estadistico}, mientras que las tablas y comparaciones del escenario actual se consolidaron con {detalle}.",
+        f"La metodología parte de {base_viento} para construir la serie de análisis a la altura objetivo y propagarla hacia el cálculo energético del parque.",
+        f"El tratamiento estadístico principal se realizó con {estadistico}, mientras que las tablas y comparaciones del escenario actual se consolidaron con {detalle}.",
         (
-            f"El modelo de estelas se configuro como {wake_mode}"
+            f"El modelo de estelas se configuró como {wake_mode}"
             + (f", con Ct={ct}" if ct else "")
             + (f" y kw={kw}" if kw else "")
             + "."
         ),
         (
-            "Las perdidas adicionales consideradas en la estimacion de AEP incluyen"
+            "Las pérdidas adicionales consideradas en la estimación de AEP incluyen"
             + (f" disponibilidad={disp}," if disp else "")
-            + (f" electricas={elec}," if elec else "")
+            + (f" eléctricas={elec}," if elec else "")
             + (f" otras={otras}" if otras else "")
             + "."
         ).replace(",.", "."),
         (
-            f"Cuando hay sensibilidad configurada, el analisis se orienta a la variable {sens} para explorar el impacto de cambios razonables sobre el AEP neto."
+            f"Cuando hay sensibilidad configurada, el análisis se orienta a la variable {sens} para explorar el impacto de cambios razonables sobre el AEP neto."
             if _report_has_value(sens)
-            else "La sensibilidad puede completarse con escenarios adicionales si se desea ampliar la discusion tecnica."
+            else "La sensibilidad puede completarse con escenarios adicionales si se desea ampliar la discusión técnica."
         ),
     ]
 
 
 def _build_results_paragraphs(result_summary, loss_summary):
-    aep_bruta = _format_report_metric(result_summary.get("aep_bruta_total_mwh"), 2, "MWh/ano")
-    aep_neta = _format_report_metric(result_summary.get("aep_neta_total_mwh"), 2, "MWh/ano")
+    aep_bruta = _format_report_metric(result_summary.get("aep_bruta_total_mwh"), 2, "MWh/año")
+    aep_neta = _format_report_metric(result_summary.get("aep_neta_total_mwh"), 2, "MWh/año")
     fp_bruto = _format_report_metric(result_summary.get("factor_planta_bruto_pct"), 2, "%")
     fp_neto = _format_report_metric(result_summary.get("factor_planta_neto_pct"), 2, "%")
-    aep_turbina = _format_report_metric(result_summary.get("aep_neta_turbina_mwh"), 2, "MWh/ano")
-    perdida_estela = _format_report_metric(loss_summary.get("perdida_estela_mwh"), 2, "MWh/ano")
-    perdida_disp = _format_report_metric(loss_summary.get("perdida_disponibilidad_mwh"), 2, "MWh/ano")
-    perdida_elec = _format_report_metric(loss_summary.get("perdida_electrica_mwh"), 2, "MWh/ano")
+    aep_turbina = _format_report_metric(result_summary.get("aep_neta_turbina_mwh"), 2, "MWh/año")
+    perdida_estela = _format_report_metric(loss_summary.get("perdida_estela_mwh"), 2, "MWh/año")
+    perdida_disp = _format_report_metric(loss_summary.get("perdida_disponibilidad_mwh"), 2, "MWh/año")
+    perdida_elec = _format_report_metric(loss_summary.get("perdida_electrica_mwh"), 2, "MWh/año")
 
     return [
         f"Los resultados consolidados del escenario indican una AEP bruta de {aep_bruta or 'sin dato'} y una AEP neta de {aep_neta or 'sin dato'}.",
-        f"El factor de planta bruto reportado es {fp_bruto or 'sin dato'} y el factor de planta neto es {fp_neto or 'sin dato'}, lo que permite contextualizar el desempeno energetico del parque.",
+        f"El factor de planta bruto reportado es {fp_bruto or 'sin dato'} y el factor de planta neto es {fp_neto or 'sin dato'}, lo que permite contextualizar el desempeño energético del parque.",
         (
             f"La AEP neta por turbina se estima en {aep_turbina}. " if aep_turbina else ""
         ) + (
-            f"Entre las perdidas energeticas disponibles destacan estelas={perdida_estela or 'sin dato'}, disponibilidad={perdida_disp or 'sin dato'} y perdidas electricas={perdida_elec or 'sin dato'}."
+            f"Entre las pérdidas energéticas disponibles destacan estelas={perdida_estela or 'sin dato'}, disponibilidad={perdida_disp or 'sin dato'} y pérdidas eléctricas={perdida_elec or 'sin dato'}."
         ),
     ]
 
 
 def _build_discussion_paragraphs(calculation_context, result_summary, loss_summary):
-    aep_neta = _format_report_metric(result_summary.get("aep_neta_total_mwh"), 2, "MWh/ano")
+    aep_neta = _format_report_metric(result_summary.get("aep_neta_total_mwh"), 2, "MWh/año")
     fp_neto = _format_report_metric(result_summary.get("factor_planta_neto_pct"), 2, "%")
-    perdida_estela = _format_report_metric(loss_summary.get("perdida_estela_mwh"), 2, "MWh/ano")
+    perdida_estela = _format_report_metric(loss_summary.get("perdida_estela_mwh"), 2, "MWh/año")
     base_viento = calculation_context.get("base_viento") or "la base de viento configurada"
     wake_mode = calculation_context.get("wake_mode") or "el tratamiento de estelas activo"
     sens = calculation_context.get("sens_variable")
@@ -525,20 +526,20 @@ def _build_discussion_paragraphs(calculation_context, result_summary, loss_summa
     paragraphs = [
         (
             f"Desde una lectura preliminar, los resultados netos del escenario se explican por la combinacion entre {base_viento}, "
-            f"las hipotesis de conversion energetica y el tratamiento de perdidas adoptado en {wake_mode}."
+            f"las hipótesis de conversión energética y el tratamiento de pérdidas adoptado en {wake_mode}."
         ),
         (
             f"La AEP neta reportada ({aep_neta or 'sin dato'}) y el factor de planta neto ({fp_neto or 'sin dato'}) deben interpretarse "
-            "como una sintesis del escenario actual, no como una afirmacion cerrada de factibilidad."
+            "como una síntesis del escenario actual, no como una afirmación cerrada de factibilidad."
         ),
     ]
     if perdida_estela:
         paragraphs.append(
-            f"La magnitud de la perdida por estela ({perdida_estela}) sugiere revisar la interaccion entre layout, separaciones y distribucion direccional para identificar mejoras potenciales."
+            f"La magnitud de la pérdida por estela ({perdida_estela}) sugiere revisar la interacción entre layout, separaciones y distribución direccional para identificar mejoras potenciales."
         )
     else:
         paragraphs.append(
-            "Cuando no se dispone todavia de una perdida por estela consolidada, conviene revisar el layout y la distribucion direccional antes de cerrar una lectura comparativa del parque."
+            "Cuando no se dispone todavia de una pérdida por estela consolidada, conviene revisar el layout y la distribución direccional antes de cerrar una lectura comparativa del parque."
         )
     if _report_has_value(sens):
         paragraphs.append(
@@ -546,24 +547,24 @@ def _build_discussion_paragraphs(calculation_context, result_summary, loss_summa
         )
     else:
         paragraphs.append(
-            "Si se habilitan escenarios de sensibilidad adicionales, esta discusion puede enriquecerse con comparaciones directas entre supuestos y respuesta del AEP neto."
+            "Si se habilitan escenarios de sensibilidad adicionales, esta discusión puede enriquecerse con comparaciones directas entre supuestos y respuesta del AEP neto."
         )
     return paragraphs
 
 
 def _build_conclusion_paragraphs(project_name, result_summary, loss_summary):
-    aep_neta = _format_report_metric(result_summary.get("aep_neta_total_mwh"), 2, "MWh/ano")
+    aep_neta = _format_report_metric(result_summary.get("aep_neta_total_mwh"), 2, "MWh/año")
     fp_neto = _format_report_metric(result_summary.get("factor_planta_neto_pct"), 2, "%")
-    perdida_estela = _format_report_metric(loss_summary.get("perdida_estela_mwh"), 2, "MWh/ano")
+    perdida_estela = _format_report_metric(loss_summary.get("perdida_estela_mwh"), 2, "MWh/año")
 
     return [
-        f"Como borrador tecnico, este informe sugiere concluir que {project_name or 'el proyecto analizado'} presenta un desempeno neto de {aep_neta or 'sin dato'} con un factor de planta neto de {fp_neto or 'sin dato'}.",
+        f"Como borrador técnico, este informe sugiere concluir que {project_name or 'el proyecto analizado'} presenta un desempeño neto de {aep_neta or 'sin dato'} con un factor de planta neto de {fp_neto or 'sin dato'}.",
         (
-            f"La perdida por estela del escenario actual ({perdida_estela}) merece revisarse junto con el layout y la distribucion direccional para identificar oportunidades de optimizacion."
+            f"La pérdida por estela del escenario actual ({perdida_estela}) merece revisarse junto con el layout y la distribución direccional para identificar oportunidades de optimización."
             if perdida_estela
-            else "Conviene contrastar las perdidas del escenario con alternativas de layout, disponibilidad y supuestos electricos antes de cerrar conclusiones finales."
+            else "Conviene contrastar las pérdidas del escenario con alternativas de layout, disponibilidad y supuestos electricos antes de cerrar conclusiones finales."
         ),
-        "La version final debe complementar esta sintesis con juicio ingenieril, validacion del sitio, criterio de factibilidad y cualquier restriccion externa relevante para la toma de decisiones.",
+        "La versión final debe complementar esta síntesis con juicio ingenieril, validación del sitio, criterio de factibilidad y cualquier restricción externa relevante para la toma de decisiones.",
     ]
 
 
@@ -573,13 +574,13 @@ def _build_provenance_paragraphs(calculation_context):
     start = calculation_context.get("site_start_date") or "sin definir"
     end = calculation_context.get("site_end_date") or "sin definir"
     base_viento = calculation_context.get("base_viento") or "base no especificada"
-    direccion = calculation_context.get("direccion_usada") or "direccion no especificada"
+    direccion = calculation_context.get("direccion_usada") or "dirección no especificada"
 
     return [
         f"La procedencia de datos del escenario actual se apoya en {source}, asociada al sitio seleccionado en Fase 2 y ubicado en {coords}.",
-        f"El intervalo temporal disponible para el recurso corresponde a {start} a {end} cuando esa informacion se encuentra persistida en el proyecto.",
-        f"Sobre esa base se construyo la serie de analisis empleando {base_viento} y la direccion {direccion}, de modo que la trazabilidad entre seleccion del sitio, recurso utilizado y calculo energetico quede explicitada en el reporte.",
-        "Cuando el proyecto incorpora figuras, tablas o anexos complementarios, estos deben interpretarse como derivados del mismo conjunto persistido de configuracion y resultados, salvo que el usuario reemplace manualmente algun activo para la version final.",
+        f"El intervalo temporal disponible para el recurso corresponde a {start} a {end} cuando esa información se encuentra persistida en el proyecto.",
+        f"Sobre esa base se construyó la serie de análisis empleando {base_viento} y la dirección {direccion}, de modo que la trazabilidad entre selección del sitio, recurso utilizado y cálculo energético quede explicitada en el reporte.",
+        "Cuando el proyecto incorpora figuras, tablas o anexos complementarios, estos deben interpretarse como derivados del mismo conjunto persistido de configuración y resultados, salvo que el usuario reemplace manualmente algun activo para la versión final.",
     ]
 
 
@@ -606,26 +607,21 @@ def _format_table_value(value, column_name=""):
     if not _report_has_value(value):
         return ""
     if isinstance(value, (np.integer, int)) and not isinstance(value, bool):
-        return str(int(value))
+        return fmt_num(value, 0)
     if isinstance(value, (np.floating, float)) and not isinstance(value, bool):
-        column_name = str(column_name or "").lower()
+        col = str(column_name or "").lower().strip()
         number = float(value)
-        decimals = 2
-        if abs(number) < 1 and number != 0:
-            decimals = 4
-        if "k weibull" in column_name or "ct" in column_name or "kw" in column_name:
-            decimals = 3
-        return f"{number:.{decimals}f}"
+        decimals = 3 if (col.startswith("k weibull") or col in ("ct", "kw") or col.startswith(("ct ", "kw "))) else 2
+        if number != 0 and abs(number) < 0.01:
+            decimals = max(decimals, 4)
+        return fmt_num(number, decimals)
     return _normalize_spanish_text(value)
 
 
 def _compact_table_header(value):
     text = _normalize_spanish_text(value).strip()
     replacements = {
-        "Horas equivalentes anuales (h/aÃ±o)": "Horas eq. (h/a)",
-        "AEP bruta parque (MWh/aÃ±o)": "AEP bruta parque (MWh/a)",
-        "AEP neta sector (MWh/aÃ±o)": "AEP neta sector (MWh/a)",
-        "EnergÃ­a perdida (MWh/aÃ±o)": "EnergÃ­a perdida (MWh/a)",
+        "Horas equivalentes anuales (h/año)": "Horas eq. (h/año)",
         "Probabilidad Weibull (%)": "Prob. Weibull (%)",
         "Probabilidad Rayleigh (%)": "Prob. Rayleigh (%)",
         "Probabilidad real (%)": "Prob. real (%)",
@@ -1575,22 +1571,13 @@ def _informe_tecnico_table_from_dataframe(df, title, description, columns=None, 
             if pd.isna(value):
                 row_cells.append("")
             elif isinstance(value, (int, np.integer)):
-                row_cells.append(f"{int(value):,}".replace(",", "."))
+                row_cells.append(fmt_num(value, 0))
             elif isinstance(value, (float, np.floating)):
-                # Forzar maximo 2 decimales (legibilidad profesional)
-                # decimals_map ignorado salvo si solicita MENOS de 2 (ej. 0 para enteros virtuales)
-                requested = decimals_map.get(column, 2)
                 try:
-                    requested_int = int(requested)
+                    decimals = max(0, min(4, int(decimals_map.get(column, 2))))
                 except (TypeError, ValueError):
-                    requested_int = 2
-                decimals = min(2, max(0, requested_int)) if requested_int < 2 else 2
-                fv = float(value)
-                # Miles con punto, decimales con coma estilo europeo simplificado
-                s = f"{fv:,.{decimals}f}"
-                # Style: 1,234.56 → 1.234,56 (europeo) o mantener 1,234.56 (US)
-                # Mantener formato US (mas neutro) pero garantizar 2 decimales
-                row_cells.append(s)
+                    decimals = 2
+                row_cells.append(fmt_num(float(value), decimals))
             else:
                 row_cells.append(_normalize_spanish_text(str(value)))
         rows.append(row_cells)

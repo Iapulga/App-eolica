@@ -1,191 +1,249 @@
-import unicodedata
+"""Informe técnico por fases (Word / PDF).
+
+Documento técnico-descriptivo del proyecto ACTIVO. Cada fase se documenta con las mismas funciones
+y parámetros que usa la app (curva y Cp de la Fase 1, perfiles de la Fase 2, rosa y Weibull de la
+Fase 3, probabilidades de la Fase 3.5, estelas de la Fase 4 y AEP de la Fase 5), de modo que las
+cifras coinciden con lo que se ve en pantalla. Números en formato español (1.234,56).
+"""
 from math import pi
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
+from .datos_proyecto import construir_datos_exportacion, fmt_coord, fmt_num, fmt_pct, num
 from .docx import load_informe_tecnico_master_docx
 from .figuras import (
+    _analyze_geometry_all_sectors,
+    _build_probability_heatmap,
+    _col,
     _create_phase4_annual_rose,
+    _create_phase4_energy_bars,
+    _create_phase4_geom_vs_annual,
     _create_phase4_geometric_rose,
+    analisis_anual_fase4,
     build_site_map_bundle,
     export_plotly_figure_artifact,
 )
-from .manifiestos import _informe_tecnico_table_from_dataframe
-from .texto import normalize_text_deep, normalize_visible_text
+from .texto import normalize_text_deep
 
-
-def _normalize_spanish_text(value):
-    return normalize_visible_text(value)
-
-
-ROUGHNESS_OPTIONS = {
-    "Water / Mar": 2e-4,
-    "Snow / Nieve": 1e-3,
-    "Grass / CÃ©sped": 0.03,
-    "Farmland / Cultivo": 0.10,
-    "Forest / Bosque": 0.80,
-    "City / Ciudad": 1.00,
-}
-
-
-def _style_phase2_time_series_figure(fig):
-    if fig is None:
-        return fig
-    fig.update_layout(
-        width=1220,
-        height=620,
-        template="plotly_white",
-        margin=dict(l=70, r=40, t=70, b=80),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5, bgcolor="rgba(255,255,255,0.85)"),
-    )
-    fig.update_xaxes(nticks=8, tickangle=0, showgrid=True, gridcolor="rgba(0,0,0,0.08)", ticklabelmode="period", rangeslider_visible=False)
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(0,0,0,0.10)", zeroline=False)
-    return fig
-
-
-def _style_phase2_profile_figure(fig, logarithmic=False):
-    if fig is None:
-        return fig
-    fig.update_layout(
-        width=860,
-        height=880,
-        template="plotly_white",
-        margin=dict(l=80, r=70, t=80, b=70),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5, bgcolor="rgba(255,255,255,0.88)"),
-    )
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.10)", zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(0,0,0,0.10)", zeroline=False)
-    if logarithmic:
-        fig.update_yaxes(type="log")
-    return fig
-
-
-def _style_phase2_comparison_figure(fig, logarithmic=False):
-    if fig is None:
-        return fig
-    fig.update_layout(
-        width=1180,
-        height=860,
-        template="plotly_white",
-        margin=dict(l=80, r=70, t=40, b=70),
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="center",
-            x=0.5,
-            bgcolor="rgba(255,255,255,0.92)",
-            bordercolor="rgba(0,0,0,0.08)",
-            borderwidth=1,
-            font=dict(size=11),
-        ),
-        title=None,
-    )
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.10)", zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(0,0,0,0.10)", zeroline=False)
-    if logarithmic:
-        fig.update_yaxes(type="log")
-    return fig
-
-
-def _phase2_export_figure_block(fig, figure_id, title, description, stem, figure_family=None, export_options=None):
-    image_bytes, metadata = export_plotly_figure_artifact(
-        fig=fig,
-        figure_id=figure_id,
-        title=title,
-        stem=stem,
-        source_hint=description,
-        preferred_format="png",
-        export_options=export_options or {},
-    )
-    block = {
-        "type": "figure",
-        "title": _normalize_spanish_text(title),
-        "description": _normalize_spanish_text(description),
-        "image_bytes": None,
-        "image_format": None,
-        "file_name": None,
-        "figure_family": str(figure_family or ""),
+try:
+    from calculos import ROUGHNESS_OPTIONS_DEFAULT as ROUGHNESS_OPTIONS
+except Exception:  # pragma: no cover
+    ROUGHNESS_OPTIONS = {
+        "Water / Mar": 2e-4, "Snow / Nieve": 1e-3, "Grass / Césped": 0.03,
+        "Farmland / Cultivo": 0.10, "Forest / Bosque": 0.80, "City / Ciudad": 1.00,
     }
-    if image_bytes and str(metadata.get("export_format") or "").lower() == "png":
-        block.update({"image_bytes": image_bytes, "image_format": "png", "file_name": metadata.get("file_name", f"{stem}.png")})
-    return block
+
+_DIRECCIONES = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+_ATRIBUCION_OSM = "Mapa base © colaboradores de OpenStreetMap (openstreetmap.org/copyright)."
 
 
-def _build_phase2_compare_figure(df_exp, df_log_a, df_log_b, altura_deseada, v_exp, v_log_a, v_log_b, puntos_medidos, yaxis_type="linear"):
-    fig = go.Figure()
-    traces = [
-        (df_exp, "Exponencial (2 puntos)", "#3366ff", None),
-        (df_log_a, "LogarÃ­tmico A (2 puntos)", "#ff5533", "dash"),
-        (df_log_b, "Promedio Log-Exp", "#2ca25f", "dot"),
-    ]
-    for df_modelo, nombre, color, dash in traces:
-        fig.add_trace(
-            go.Scatter(
-                x=df_modelo["Velocidad (m/s)"],
-                y=df_modelo["Altura (m)"],
-                mode="lines",
-                name=nombre,
-                line=dict(width=3, color=color, dash=dash),
-                hovertemplate="Velocidad: %{x:.2f} m/s<br>Altura: %{y:.2f} m<extra>" + nombre + "</extra>",
-            )
-        )
-    if puntos_medidos:
-        fig.add_trace(
-            go.Scatter(
-                x=[p["velocidad"] for p in puntos_medidos],
-                y=[p["altura"] for p in puntos_medidos],
-                mode="markers",
-                name="Puntos medidos",
-                marker=dict(size=10, color="black"),
-                text=[p["etiqueta"] for p in puntos_medidos],
-                hovertemplate="%{text}<br>Velocidad: %{x:.2f} m/s<br>Altura: %{y:.2f} m<extra></extra>",
-            )
-        )
-    fig.add_trace(
-        go.Scatter(
-            x=[v_exp], y=[altura_deseada], mode="markers", name="Objetivo exp.",
-            marker=dict(size=10, color="#3366ff"),
-            hovertemplate="Objetivo exp.<br>Velocidad: %{x:.2f} m/s<br>Altura: %{y:.2f} m<extra></extra>",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=[v_log_a], y=[altura_deseada], mode="markers", name="Objetivo log A",
-            marker=dict(size=10, color="#ff5533", symbol="diamond"),
-            hovertemplate="Objetivo log A<br>Velocidad: %{x:.2f} m/s<br>Altura: %{y:.2f} m<extra></extra>",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=[v_log_b], y=[altura_deseada], mode="markers", name="Objetivo promedio",
-            marker=dict(size=10, color="#2ca25f", symbol="square"),
-            hovertemplate="Objetivo promedio<br>Velocidad: %{x:.2f} m/s<br>Altura: %{y:.2f} m<extra></extra>",
-        )
-    )
-    fig.add_hline(y=float(altura_deseada), line_dash="dot", line_color="gray")
-    fig.update_layout(
-        template="plotly_white",
-        height=780,
-        margin=dict(l=50, r=40, t=20, b=40),
-        xaxis_title="Velocidad del viento (m/s)",
-        yaxis_title="Altura (m)",
-        title=None,
-    )
-    if yaxis_type == "log":
-        fig.update_yaxes(type="log", title_text="Altura (m)")
+# ─────────────────────────────────────────────────────────────
+# Bloques
+# ─────────────────────────────────────────────────────────────
+def _tabla(titulo, descripcion, headers, filas, familia="compact_summary", nota=None):
+    bloque = {
+        "type": "table", "title": titulo, "description": descripcion, "headers": list(headers),
+        "rows": [["—" if c is None else str(c) for c in fila] for fila in filas], "table_family": familia,
+    }
+    if nota:
+        bloque["note"] = nota
+    return bloque
+
+
+def _parrafo(texto):
+    return {"type": "paragraph", "text": texto}
+
+
+def _preparar_grafica(fig, ancho, alto, leyenda_horizontal=True):
+    """Copia de la figura lista para Word: tamaño fijo, letra legible y separadores decimales en español."""
+    if fig is None:
+        return None
+    from .estilo import recolorear_plotly, registrar_plantilla_plotly
+
+    fig = recolorear_plotly(go.Figure(fig))
+    # Estilo formal común (Calibri, azul marino, rejilla suave). Sin título interno: el título y el
+    # rótulo «Figura N.» los pone el documento.
+    fig.update_layout(width=int(ancho), height=int(alto), template=registrar_plantilla_plotly(),
+                      margin=dict(l=70, r=40, t=50, b=70), separators=",.", title=None,
+                      font=dict(family="Calibri, Segoe UI, Arial, sans-serif", size=15, color="#2B3645"))
+    if leyenda_horizontal:
+        fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5,
+                                      bgcolor="rgba(255,255,255,0.88)"))
+    fig.update_xaxes(showgrid=True, gridcolor="#E3E8EE", zeroline=False, showline=True, linecolor="#9AA5B1")
+    fig.update_yaxes(showgrid=True, gridcolor="#E3E8EE", zeroline=False, showline=True, linecolor="#9AA5B1")
     return fig
 
 
-def _build_phase2_section(config=None, project_name="", df_nasa=None):
-    config = config or {}
-    df_nasa = df_nasa.copy() if df_nasa is not None else pd.DataFrame()
-    if len(df_nasa) == 0:
-        return None
+def _figura(fig, fig_id, titulo, descripcion, stem, familia="", ancho=1100, alto=760):
+    bloque = {"type": "figure", "title": titulo, "description": descripcion, "image_bytes": None,
+              "image_format": None, "file_name": None, "figure_family": familia}
+    if fig is None:
+        return bloque
+    image_bytes, meta = export_plotly_figure_artifact(
+        fig=fig, figure_id=fig_id, title=titulo, stem=stem, source_hint=descripcion, preferred_format="png",
+        export_options={"width": ancho, "height": alto, "max_dimension": 1900},
+    )
+    if image_bytes and str(meta.get("export_format") or "").lower() == "png":
+        bloque.update({"image_bytes": image_bytes, "image_format": "png", "file_name": meta.get("file_name", f"{stem}.png")})
+    return bloque
 
+
+def _grilla_16_sectores(datos_sector, titulo, descripcion, stem, tipo="histograma"):
+    """Grilla 4×4 (matplotlib) con histograma + ajustes Weibull/Rayleigh o curvas de probabilidad por sector."""
+    try:
+        import io
+
+        from scipy import stats
+
+        from .estilo import aplicar_estilo_mpl
+    except ImportError:
+        return None
+    plt = aplicar_estilo_mpl()  # estilo formal común (Calibri, azul marino)
+    fig, axes = plt.subplots(4, 4, figsize=(14, 12), dpi=130)
+    axes = axes.flatten()
+    por_sector = {d.get("sector"): d for d in datos_sector}
+    for i, sec in enumerate(_DIRECCIONES):
+        ax = axes[i]
+        d = por_sector.get(sec)
+        ax.set_title(sec, fontsize=11, fontweight="bold", color="#1B365D", loc="left")
+        ax.tick_params(labelsize=8)
+        ax.grid(True, color="#C9D2DC", linewidth=0.5)
+        if not d:
+            ax.text(0.5, 0.5, "Sin datos", ha="center", va="center", transform=ax.transAxes, fontsize=9, color="#6B7785")
+            ax.set_xticks([])
+            ax.set_yticks([])
+            continue
+        if tipo == "histograma":
+            v = np.asarray(d.get("velocidades", []), dtype=float)
+            v = v[np.isfinite(v) & (v >= 0)]
+            if len(v) == 0:
+                continue
+            ax.hist(v, bins=20, density=True, color="#2F5F8F", alpha=0.4, edgecolor="white")
+            x = np.linspace(0, max(v.max(), 1.0), 120)
+            k, c, cr = d.get("k"), d.get("c"), d.get("c_rayleigh")
+            if k and c:
+                ax.plot(x, stats.weibull_min.pdf(x, k, scale=c), color="#1B365D", lw=1.7,
+                        label=f"Weibull k={fmt_num(k, 2)} c={fmt_num(c, 2)}")
+            if cr:
+                ax.plot(x, stats.rayleigh.pdf(x, scale=cr / np.sqrt(2)), color="#1F7A6F", lw=1.4, ls="--",
+                        label=f"Rayleigh c={fmt_num(cr, 2)}")
+            ax.legend(fontsize=7, loc="upper right")
+        else:
+            x = np.asarray(d.get("x", []), dtype=float)
+            ax.plot(x, d.get("y_weibull"), color="#1B365D", lw=1.7, label="Weibull")
+            ax.plot(x, d.get("y_rayleigh"), color="#1F7A6F", lw=1.4, ls="--", label="Rayleigh")
+            ax.set_ylabel("p(v)", fontsize=8)
+            ax.legend(fontsize=7, loc="upper right")
+        ax.set_xlabel("v (m/s)", fontsize=8)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=130, bbox_inches="tight", facecolor="white", edgecolor="none")
+    plt.close(fig)
+    familia = "phase3_histogram_grid" if tipo == "histograma" else "phase35_probability_grid"
+    return {"type": "figure", "title": titulo, "description": descripcion, "image_bytes": buf.getvalue(),
+            "image_format": "png", "file_name": f"{stem}.png", "figure_family": familia}
+
+
+def _seccion(sid, titulo, descripcion, subsecciones):
+    subsecciones = [s for s in subsecciones if s and s.get("blocks")]
+    if not subsecciones:
+        return None
+    return {"id": sid, "title": titulo, "description": descripcion, "subsections": subsecciones}
+
+
+def _sub(sid, titulo, bloques):
+    return {"id": sid, "title": titulo, "blocks": [b for b in bloques if b]}
+
+
+# ─────────────────────────────────────────────────────────────
+# Fase 1 — Aerogenerador
+# ─────────────────────────────────────────────────────────────
+def _seccion_fase1(config, datos, df_curva_raw):
+    from calculos import calcular_cp, crear_grafica_curva, preparar_datos_curva
+
+    t = datos["turbina"]
+    diametro = t.get("diametro_m") or 100.0
+    densidad = t.get("densidad_curva") or 1.225
+    area = pi * (diametro / 2.0) ** 2
+    curva = preparar_datos_curva(df_curva_raw) if df_curva_raw is not None else pd.DataFrame()
+    curva = curva.copy() if curva is not None else pd.DataFrame()
+    df_cp = calcular_cp(curva, densidad, area).copy() if len(curva) > 0 else pd.DataFrame()
+
+    datos_basicos = _tabla(
+        "Datos básicos del aerogenerador",
+        "Parámetros geométricos y de desempeño definidos en la Fase 1.",
+        ["Parámetro", "Valor"],
+        [
+            ["Modelo / referencia", t.get("modelo") or "Curva de potencia definida en la Fase 1"],
+            ["Diámetro del rotor", f"{fmt_num(diametro, 1)} m"],
+            ["Área barrida", f"{fmt_num(area, 0)} m²"],
+            ["Altura de buje", f"{fmt_num(t.get('altura_buje_m'), 1)} m"],
+            ["Potencia nominal", f"{fmt_num(t.get('p_nominal_kw'), 0)} kW"],
+            ["Velocidad de arranque (cut-in)", f"{fmt_num(t.get('cut_in'), 1)} m/s"],
+            ["Velocidad nominal", f"{fmt_num(t.get('v_nominal'), 1)} m/s"],
+            ["Velocidad de parada (cut-out)", f"{fmt_num(t.get('cut_out'), 1)} m/s"],
+            ["Densidad del aire de la curva", f"{fmt_num(densidad, 3)} kg/m³"],
+        ],
+    )
+    tabla_curva = None
+    if len(curva) > 0:
+        tabla_curva = _tabla(
+            "Curva de potencia", "Pares velocidad–potencia de la curva usada en todo el proyecto.",
+            ["Velocidad (m/s)", "Potencia (kW)"],
+            [[fmt_num(v, 1), fmt_num(p / 1000.0, 1)] for v, p in zip(curva["Velocidad_num"], curva["Potencia_W"], strict=False)],
+            familia="split_horizontal",
+        )
+    figura_cp = None
+    tabla_cp = None
+    if len(df_cp) > 0:
+        figura_cp = _figura(_preparar_grafica(crear_grafica_curva(df_cp), 1150, 700), "informe_tecnico_phase1_cp_curve",
+                            "Curva de potencia y coeficiente Cp",
+                            "Potencia eléctrica del aerogenerador y coeficiente de potencia Cp calculado con la densidad de la curva.",
+                            "informe_tecnico_potencia_cp", ancho=1150, alto=700)
+        filas = []
+        for _, r in df_cp.iterrows():
+            cp = num(r.get("Cp"))
+            filas.append([fmt_num(r.get("Velocidad_num"), 1), fmt_num(num(r.get("Potencia_W"), 0) / 1000.0, 1),
+                          fmt_num(num(r.get("P_viento_W"), 0) / 1000.0, 1), fmt_num(cp, 3) if cp is not None else "—"])
+        tabla_cp = _tabla("Coeficiente de potencia (Cp)",
+                          "Cp = potencia eléctrica / potencia del viento para cada velocidad de la curva.",
+                          ["Velocidad (m/s)", "Potencia (kW)", "P. del viento (kW)", "Cp"], filas, familia="split_horizontal")
+    return _seccion("fase1_aerogenerador", "Fase 1 – Aerogenerador",
+                    "Aerogenerador seleccionado, su geometría y la curva de potencia que se usa en el resto del estudio.", [
+                        _sub("f1_datos", "Datos básicos", [datos_basicos]),
+                        _sub("f1_curva", "Curva de potencia", [tabla_curva]),
+                        _sub("f1_cp", "Curva de potencia y Cp", [figura_cp, tabla_cp]),
+                    ])
+
+
+# ─────────────────────────────────────────────────────────────
+# Fase 2 — Perfiles de viento
+# ─────────────────────────────────────────────────────────────
+def _figura_comparacion_perfiles(df_exp, df_log_a, df_log_b, altura, v_exp, v_log_a, v_log_b, puntos, eje="linear"):
+    fig = go.Figure()
+    for df_m, nombre, color, dash in [(df_exp, "Exponencial", "#3366ff", None),
+                                      (df_log_a, "Logarítmico A (2 puntos)", "#ff5533", "dash"),
+                                      (df_log_b, "Promedio Log-Exp", "#2ca25f", "dot")]:
+        fig.add_trace(go.Scatter(x=df_m["Velocidad (m/s)"], y=df_m["Altura (m)"], mode="lines", name=nombre,
+                                 line=dict(width=3, color=color, dash=dash)))
+    fig.add_trace(go.Scatter(x=[p["velocidad"] for p in puntos], y=[p["altura"] for p in puntos], mode="markers",
+                             name="Puntos medidos", marker=dict(size=10, color="black")))
+    for v, nombre, color, simbolo in [(v_exp, "Buje · exponencial", "#3366ff", "circle"),
+                                      (v_log_a, "Buje · log A", "#ff5533", "diamond"),
+                                      (v_log_b, "Buje · promedio", "#2ca25f", "square")]:
+        fig.add_trace(go.Scatter(x=[v], y=[altura], mode="markers", name=nombre, marker=dict(size=10, color=color, symbol=simbolo)))
+    fig.add_hline(y=float(altura), line_dash="dot", line_color="gray")
+    fig.update_layout(template="plotly_white", xaxis_title="Velocidad del viento (m/s)", yaxis_title="Altura (m)", title=None)
+    if eje == "log":
+        fig.update_yaxes(type="log")
+    return fig
+
+
+def _seccion_fase2(config, datos, df_nasa):
+    if df_nasa is None or len(df_nasa) == 0:
+        return None
     from calculos import (
         KAPPA,
         ajustar_logaritmico_dos_puntos,
@@ -197,1022 +255,657 @@ def _build_phase2_section(config=None, project_name="", df_nasa=None):
         velocidad_logaritmica_en_altura,
     )
 
-    latitude = config.get("nasa_lat")
-    longitude = config.get("nasa_lon")
-    start_date = config.get("nasa_inicio")
-    end_date = config.get("nasa_fin")
-    altura_deseada = float(config.get("perfil_hhub") or 80.0)
-
+    df = df_nasa.copy()
     for col in ["WS10M", "WS50M", "WD10M", "WD50M"]:
-        if col in df_nasa.columns:
-            df_nasa[col] = pd.to_numeric(df_nasa[col], errors="coerce")
-
-    v10_series = df_nasa.get("WS10M", pd.Series(dtype=float)).dropna()
-    v50_series = df_nasa.get("WS50M", pd.Series(dtype=float)).dropna()
-    if len(v10_series) == 0 or len(v50_series) == 0:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    v10_s = df.get("WS10M", pd.Series(dtype=float)).dropna()
+    v50_s = df.get("WS50M", pd.Series(dtype=float)).dropna()
+    if len(v10_s) == 0 or len(v50_s) == 0:
         return None
-
-    v10 = float(v10_series.mean())
-    v50 = float(v50_series.mean())
+    r = datos["recurso"]
+    altura = datos["turbina"].get("altura_buje_m") or float(config.get("perfil_hhub") or 80.0)
+    v10 = float(v10_s.mean())
+    v50 = float(v50_s.mean())
     alpha = float(calcular_alpha_desde_dos_alturas(v10, 10.0, v50, 50.0))
-    u_star_a, z0_ajustada = ajustar_logaritmico_dos_puntos(v10, 10.0, v50, 50.0, kappa=KAPPA)
-    v_exp_deseada = float(v10 * (altura_deseada / 10.0) ** alpha)
-    v_log_a_deseada = float(velocidad_logaritmica_en_altura(u_star_a, altura_deseada, z0_ajustada, kappa=KAPPA))
-    v_log_b_deseada = float((v_exp_deseada + v_log_a_deseada) / 2.0)
-    alturas = np.linspace(10.0, max(float(altura_deseada), 80.0), 60)
+    u_star, z0 = ajustar_logaritmico_dos_puntos(v10, 10.0, v50, 50.0, kappa=KAPPA)
+    v_exp = float(v10 * (altura / 10.0) ** alpha)
+    v_log_a = float(velocidad_logaritmica_en_altura(u_star, altura, z0, kappa=KAPPA))
+    v_log_b = (v_exp + v_log_a) / 2.0
+    alturas = np.linspace(10.0, max(float(altura), 80.0), 60)
     df_exp = calcular_perfil_exponencial(v10, 10.0, alpha, alturas)
-    df_log_a = calcular_perfil_logaritmico(u_star_a, z0_ajustada, alturas, kappa=KAPPA)
+    df_log_a = calcular_perfil_logaritmico(u_star, z0, alturas, kappa=KAPPA)
     df_log_b = df_exp.copy()
-    df_log_b["Velocidad (m/s)"] = (df_exp["Velocidad (m/s)"].to_numpy(dtype=float) + df_log_a["Velocidad (m/s)"].to_numpy(dtype=float)) / 2.0
-    puntos_medidos = [{"altura": 10.0, "velocidad": v10, "etiqueta": "WS10M"}, {"altura": 50.0, "velocidad": v50, "etiqueta": "WS50M"}]
+    df_log_b["Velocidad (m/s)"] = (df_exp["Velocidad (m/s)"].to_numpy(float) + df_log_a["Velocidad (m/s)"].to_numpy(float)) / 2.0
+    puntos = [{"altura": 10.0, "velocidad": v10, "etiqueta": "WS10M"}, {"altura": 50.0, "velocidad": v50, "etiqueta": "WS50M"}]
 
-    site_map_bundle = build_site_map_bundle(config=config, base_folder="04_Figuras_mapas")
-    site_map_png = None
-    for artifact in site_map_bundle.get("artifacts", []):
-        if artifact.get("id") == "site_map" and artifact.get("export_format") == "png" and artifact.get("path"):
-            site_map_png = site_map_bundle.get("files", {}).get(artifact.get("path"))
+    mapa = build_site_map_bundle(config=config, base_folder="04_Figuras_mapas")
+    mapa_png = None
+    for art in mapa.get("artifacts", []):
+        if art.get("id") == "site_map" and art.get("export_format") == "png" and art.get("path"):
+            mapa_png = mapa.get("files", {}).get(art.get("path"))
             break
-
-    return {
-        "id": "fase2_perfiles_viento",
-        "title": _normalize_spanish_text("Fase 2 - Perfiles de viento"),
-        "description": _normalize_spanish_text("ContinuaciÃ³n del informe tÃ©cnico dedicada a la ubicaciÃ³n del sitio, la consulta NASA POWER y la construcciÃ³n de perfiles verticales del viento."),
-        "subsections": [
-            {
-                "id": "fase2_ubicacion_nasa",
-                "title": _normalize_spanish_text("UbicaciÃ³n y consulta NASA POWER"),
-                "blocks": [
-                    {"type": "figure", "title": _normalize_spanish_text("Mapa del sitio"), "description": _normalize_spanish_text("Mapa de la ubicaciÃ³n seleccionada en Fase 2, alineado con la vista cartogrÃ¡fica usada por la app."), "image_bytes": site_map_png, "image_format": "png" if site_map_png else None, "file_name": "mapa_sitio.png" if site_map_png else None},
-                    {"type": "table", "title": _normalize_spanish_text("UbicaciÃ³n y consulta NASA POWER"), "description": _normalize_spanish_text("Datos geogrÃ¡ficos y temporales de la consulta NASA POWER usada para caracterizar el sitio."), "headers": ["Campo", "Valor"], "rows": [["Latitud", f"{float(latitude):.2f}" if latitude not in [None, ""] else "Sin dato"], ["Longitud", f"{float(longitude):.2f}" if longitude not in [None, ""] else "Sin dato"], ["Fecha inicial", str(start_date or "Sin dato")], ["Fecha final", str(end_date or "Sin dato")]]},
-                ],
-            },
-            {
-                "id": "fase2_resumen_horario",
-                "title": _normalize_spanish_text("Resumen de datos horarios guardados"),
-                "blocks": [
-                    {"type": "table", "title": _normalize_spanish_text("Resumen de datos horarios guardados"), "description": _normalize_spanish_text("Resumen estadÃ­stico base de la serie horaria almacenada para el sitio seleccionado."), "headers": ["Concepto", "Valor"], "rows": [["Registros horarios", str(len(df_nasa))], ["Promedio WS10M", f"{v10:.2f} m/s"], ["Promedio WS50M", f"{v50:.2f} m/s"], ["Promedio WD10M", f"{float(df_nasa['WD10M'].dropna().mean()):.2f}Â°" if len(df_nasa['WD10M'].dropna()) > 0 else "Sin dato"]]},
-                    _phase2_export_figure_block(_style_phase2_time_series_figure(crear_grafica_nasa_hourly(df_nasa)), "informe_tecnico_phase2_nasa_hourly", "Serie horaria de velocidades", "Serie horaria de velocidades del viento registrada en los datos horarios guardados para el sitio.", "informe_tecnico_fase2_serie_horaria", figure_family="phase2_time_series", export_options={"width": 1220, "height": 620, "max_dimension": 1800}),
-                ],
-            },
-            {
-                "id": "fase2_perfiles_verticales",
-                "title": _normalize_spanish_text("Perfiles verticales del viento"),
-                "blocks": [
-                    _phase2_export_figure_block(_style_phase2_profile_figure(crear_grafica_perfil_individual(df_exp, "Perfil exponencial ajustado con 10 m y 50 m", "Perfil exponencial", altura_objetivo=altura_deseada, v_objetivo=v_exp_deseada, color="#3366ff", yaxis_type="linear", puntos_medidos=puntos_medidos), logarithmic=False), "informe_tecnico_phase2_perfil_exp", "Perfil exponencial", "Perfil vertical exponencial calculado a partir de las velocidades medias a 10 m y 50 m.", "informe_tecnico_fase2_perfil_exponencial", figure_family="phase2_profile", export_options={"width": 860, "height": 880, "max_dimension": 1900}),
-                    _phase2_export_figure_block(_style_phase2_profile_figure(crear_grafica_perfil_individual(df_log_a, "Perfil logarÃ­tmico modo A - ajustado con 10 m y 50 m", "Perfil logarÃ­tmico A", altura_objetivo=altura_deseada, v_objetivo=v_log_a_deseada, color="#ff5533", dash="dash", yaxis_type="log", puntos_medidos=puntos_medidos), logarithmic=True), "informe_tecnico_phase2_perfil_log_a", "Perfil logarÃ­tmico modo A", "Perfil logarÃ­tmico ajustado directamente con los puntos medidos en 10 m y 50 m.", "informe_tecnico_fase2_perfil_log_a", figure_family="phase2_profile", export_options={"width": 860, "height": 880, "max_dimension": 1900}),
-                    _phase2_export_figure_block(_style_phase2_profile_figure(crear_grafica_perfil_individual(df_log_b, "Promedio Log-Exp", "Promedio Log-Exp", altura_objetivo=altura_deseada, v_objetivo=v_log_b_deseada, color="#2ca25f", dash="dot", yaxis_type="log", puntos_medidos=puntos_medidos), logarithmic=True), "informe_tecnico_phase2_perfil_log_b", "Promedio Log-Exp", "Perfil operativo construido como promedio entre el perfil exponencial y el perfil logar??tmico A.", "informe_tecnico_fase2_promedio_log_exp", figure_family="phase2_profile", export_options={"width": 860, "height": 880, "max_dimension": 1900}),
-                    _phase2_export_figure_block(_style_phase2_comparison_figure(_build_phase2_compare_figure(df_exp, df_log_a, df_log_b, altura_deseada, v_exp_deseada, v_log_a_deseada, v_log_b_deseada, puntos_medidos, yaxis_type="linear"), logarithmic=False), "informe_tecnico_phase2_compare_linear", "ComparaciÃ³n entre perfiles en escala normal", "ComparaciÃ³n de los perfiles verticales en escala normal para contrastar los tres enfoques de extrapolaciÃ³n.", "informe_tecnico_fase2_comparacion_normal", figure_family="phase2_comparison", export_options={"width": 1180, "height": 860, "max_dimension": 2100}),
-                    _phase2_export_figure_block(_style_phase2_comparison_figure(_build_phase2_compare_figure(df_exp, df_log_a, df_log_b, altura_deseada, v_exp_deseada, v_log_a_deseada, v_log_b_deseada, puntos_medidos, yaxis_type="log"), logarithmic=True), "informe_tecnico_phase2_compare_log", "ComparaciÃ³n entre perfiles en escala logarÃ­tmica", "ComparaciÃ³n de los perfiles verticales usando escala logarÃ­tmica en altura para resaltar diferencias de comportamiento.", "informe_tecnico_fase2_comparacion_log", figure_family="phase2_comparison", export_options={"width": 1180, "height": 860, "max_dimension": 2100}),
-                    {"type": "table", "title": _normalize_spanish_text("Tabla resumen de perfiles"), "description": _normalize_spanish_text("Resumen num??rico de los par??metros y velocidades representativas obtenidas en la caracterizaci??n vertical del viento."), "headers": ["Concepto", "Valor"], "rows": [["Velocidad media a 10 m", f"{v10:.2f}"], ["Velocidad media a 50 m", f"{v50:.2f}"], ["Alpha exponencial", f"{alpha:.2f}"], ["u* modo A", f"{float(u_star_a):.2f}"], ["z0 modo A ajustada", f"{float(z0_ajustada):.2f}"], ["Velocidad a altura deseada - Exponencial", f"{v_exp_deseada:.2f}"], ["Velocidad a altura deseada - Log A", f"{v_log_a_deseada:.2f}"], ["Velocidad a altura deseada - Promedio Log-Exp", f"{v_log_b_deseada:.2f}"]]},
-                ],
-            },
-        ],
-    }
-
-
-def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None, df_nasa=None, master_docx_bytes=None, master_docx_name="informe_tecnico editado por mi.docx"):
-    config = config or {}
-    project_name = str(project_name or config.get("project_name") or "Proyecto eolico").strip() or "Proyecto eolico"
-
-    from calculos import calcular_cp, crear_grafica_curva, preparar_datos_curva
-
-    word_master = load_informe_tecnico_master_docx(master_docx_bytes, file_name=master_docx_name)
-    phase2_section = _build_phase2_section(config=config, project_name=project_name, df_nasa=df_nasa)
-    if word_master.get("available"):
-        sections = list(word_master.get("sections", []) or [])
-        if phase2_section:
-            sections.append(phase2_section)
-        report_model = {
-            "document_id": "informe_tecnico",
-            "title": word_master.get("title") or _normalize_spanish_text("Informe tÃ©cnico"),
-            "project_name": word_master.get("project_name") or _normalize_spanish_text(project_name),
-            "intro_paragraphs": word_master.get("intro_paragraphs", []),
-            "sections": sections,
-            "base_blocks": word_master.get("base_blocks", []),
-            "word_master": word_master,
-            "appended_sections": [phase2_section] if phase2_section else [],
-            "master_source_name": word_master.get("file_name", master_docx_name),
-            "master_source_used": True,
-        }
-        return normalize_text_deep(report_model)
-
-    diametro = float(config.get("diametro") or 100.0)
-    densidad = float(config.get("densidad") or 1.225)
-    area_rotor = pi * (diametro / 2.0) ** 2
-    df_curva = preparar_datos_curva(df_curva_raw)
-    df_curva = df_curva.copy() if df_curva is not None else pd.DataFrame()
-    df_cp = calcular_cp(df_curva, densidad, area_rotor).copy() if len(df_curva) > 0 else pd.DataFrame()
-
-    speed_power_table = _informe_tecnico_table_from_dataframe(df_curva, "Tabla editable de velocidades y potencia", "Tabla base de velocidades y potencia actualmente definida para el aerogenerador seleccionado en Fase 1.", ["Velocidad_num", "Potencia_W"], {"Velocidad_num": 2, "Potencia_W": 2})
-    if speed_power_table:
-        speed_power_table["headers"] = ["Velocidad (m/s)", "Potencia (W)"]
-        speed_power_table["table_family"] = "split_horizontal"
-    df_cp_for_table = df_cp[["Velocidad_num", "Potencia_W", "P_viento_W", "Cp"]].rename(columns={"Velocidad_num": "Velocidad (m/s)", "Potencia_W": "Potencia (W)", "P_viento_W": "Potencia del viento (W)"}) if len(df_cp) > 0 else df_cp
-    cp_table = _informe_tecnico_table_from_dataframe(df_cp_for_table, "Tabla de Cp calculado", "Tabla derivada de la curva de potencia actual para documentar el coeficiente de potencia calculado en cada velocidad.", ["Velocidad (m/s)", "Potencia (W)", "Potencia del viento (W)", "Cp"], {"Velocidad (m/s)": 2, "Potencia (W)": 2, "Potencia del viento (W)": 2, "Cp": 4})
-    if cp_table:
-        cp_table["table_family"] = "split_horizontal"
-    cp_fig = crear_grafica_curva(df_cp) if len(df_cp) > 0 else None
-    cp_figure_block = _phase2_export_figure_block(cp_fig, "informe_tecnico_phase1_cp_curve", "GrÃ¡fico de potencia y Cp", "GrÃ¡fico tÃ©cnico que muestra la potencia del aerogenerador y el coeficiente Cp calculado a partir de la definiciÃ³n actual de Fase 1.", "informe_tecnico_potencia_cp")
-    phase1_section = {
-        "id": "fase1_eleccion_aerogenerador",
-        "title": _normalize_spanish_text("Fase 1 - ElecciÃ³n del aerogenerador"),
-        "description": _normalize_spanish_text("SecciÃ³n dedicada a documentar el aerogenerador seleccionado, sus parÃ¡metros geomÃ©tricos y la base de desempeÃ±o usada para el resto del proyecto."),
-        "subsections": [
-            {"id": "datos_basicos_aerogenerador", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "blocks": [{"type": "table", "title": _normalize_spanish_text("Datos bÃ¡sicos del aerogenerador"), "description": _normalize_spanish_text("ParÃ¡metros geomÃ©tricos y fÃ­sicos base empleados para la caracterizaciÃ³n inicial del aerogenerador."), "headers": [_normalize_spanish_text("ParÃ¡metro"), _normalize_spanish_text("Valor")], "rows": [[_normalize_spanish_text("DiÃ¡metro del rotor"), f"{diametro:,.2f} m".replace(',', '')], [_normalize_spanish_text("Ãrea del rotor"), f"{area_rotor:,.2f} mÂ²".replace(',', '')], [_normalize_spanish_text("Densidad del aire"), f"{densidad:,.2f} kg/mÂ³".replace(',', '')]]}]},
-            {"id": "tabla_velocidades_potencia", "title": _normalize_spanish_text("Tabla editable de velocidades y potencia"), "blocks": [speed_power_table] if speed_power_table else []},
-            {"id": "grafico_potencia_cp", "title": _normalize_spanish_text("GrÃ¡fico de potencia y Cp"), "blocks": [cp_figure_block]},
-            {"id": "tabla_cp_calculado", "title": _normalize_spanish_text("Tabla de Cp calculado"), "blocks": [cp_table] if cp_table else []},
-        ],
-    }
-
-    sections = [phase1_section]
-    if phase2_section:
-        sections.append(phase2_section)
-    report_model = {
-        "document_id": "informe_tecnico",
-        "title": _normalize_spanish_text("Informe tÃ©cnico"),
-        "project_name": _normalize_spanish_text(project_name),
-        "intro_paragraphs": [_normalize_spanish_text("Este documento presenta la configuraciÃ³n tÃ©cnica inicial del proyecto eÃ³lico y comienza con la definiciÃ³n del aerogenerador seleccionado y su base de desempeÃ±o.")],
-        "sections": sections,
-        "base_blocks": [],
-        "word_master": {"available": False, "docx_bytes": None, "file_name": master_docx_name},
-        "appended_sections": [phase2_section] if phase2_section else [],
-        "master_source_name": master_docx_name,
-        "master_source_used": False,
-    }
-    return normalize_text_deep(report_model)
-
-
-def _word_direction_order():
-    return [
-        "N", "NNE", "NE", "ENE",
-        "E", "ESE", "SE", "SSE",
-        "S", "SSW", "SW", "WSW",
-        "W", "WNW", "NW", "NNW",
+    p = datos["proyecto"]
+    bloques_ubicacion = [
+        {"type": "figure", "title": "Mapa del sitio",
+         "description": f"Ubicación seleccionada en la Fase 2. {_ATRIBUCION_OSM}",
+         "image_bytes": mapa_png, "image_format": "png" if mapa_png else None,
+         "file_name": "mapa_sitio.png" if mapa_png else None, "figure_family": "phase2_map"},
+        _tabla("Ubicación y consulta de datos", "Coordenadas y período de la serie de viento usada para caracterizar el sitio.",
+               ["Campo", "Valor"], [
+                   ["Latitud", fmt_coord(p.get("lat"))], ["Longitud", fmt_coord(p.get("lon"))],
+                   ["Fuente de datos", p.get("fuente")], ["Fecha inicial", p.get("inicio")], ["Fecha final", p.get("fin")],
+               ]),
     ]
+    resumen_horario = _tabla("Resumen de la serie horaria", "Estadísticos básicos de la serie guardada para el sitio.",
+                             ["Concepto", "Valor"], [
+                                 ["Registros horarios", fmt_num(len(df), 0)],
+                                 ["Velocidad media a 10 m (WS10M)", f"{fmt_num(v10, 2)} m/s"],
+                                 ["Velocidad media a 50 m (WS50M)", f"{fmt_num(v50, 2)} m/s"],
+                             ])
+    fig_serie = _preparar_grafica(crear_grafica_nasa_hourly(df), 1250, 620)
+    if fig_serie is not None:
+        fig_serie.update_xaxes(nticks=8, tickangle=0, rangeslider_visible=False)
 
-
-def _word_table_block_from_dataframe(df, title, description, columns=None, rounding=None, table_family=""):
-    payload = _informe_tecnico_table_from_dataframe(
-        df.copy() if df is not None else pd.DataFrame(),
-        title=title,
-        description=description,
-        columns=columns,
-        decimals_map=rounding or {},
-    )
-    if not payload:
-        return None
-    payload["type"] = "table"
-    payload["table_family"] = str(table_family or "")
-    payload["title"] = _normalize_spanish_text(payload.get("title", title))
-    payload["description"] = _normalize_spanish_text(payload.get("description", description))
-    return payload
-
-
-def _word_grid_4x4_block(sector_data, title, description, stem, kind="histogram"):
-    """4x4 grid PNG block — kind in {'histogram', 'probability'}.
-
-    sector_data: list of dicts with keys depending on kind:
-      histogram: {'sector', 'velocities', 'k', 'c_weibull', 'c_rayleigh'}
-      probability: {'sector', 'x', 'y_weibull', 'y_rayleigh', 'y_hist'}
-    """
-    try:
-        import io
-        import matplotlib.pyplot as plt
-        import numpy as np
-        from scipy import stats
-    except ImportError:
-        return None
-
-    sectors_16 = list(_word_direction_order())
-    fig, axes = plt.subplots(4, 4, figsize=(14, 12), dpi=130)
-    axes = axes.flatten()
-    by_sector = {d.get("sector"): d for d in sector_data}
-
-    for i, sec in enumerate(sectors_16):
-        ax = axes[i]
-        d = by_sector.get(sec)
-        ax.set_title(sec, fontsize=10, fontweight="bold", color="#1F4E79")
-        ax.tick_params(labelsize=7)
-        ax.grid(True, alpha=0.25, color="#E2E8F0")
-        ax.spines[["top", "right"]].set_visible(False)
-        if not d:
-            ax.text(0.5, 0.5, "Sin datos", ha="center", va="center",
-                    transform=ax.transAxes, fontsize=8, color="gray")
-            ax.set_xticks([]); ax.set_yticks([])
-            continue
-        if kind == "histogram":
-            v = np.asarray(d.get("velocities", []), dtype=float)
-            v = v[np.isfinite(v) & (v >= 0)]
-            if len(v) == 0:
-                ax.text(0.5, 0.5, "Sin datos", ha="center", va="center",
-                        transform=ax.transAxes, fontsize=8, color="gray")
-                continue
-            ax.hist(v, bins=20, density=True, color="#1F4E79",
-                    alpha=0.55, edgecolor="white")
-            try:
-                k = float(d.get("k") or 2.0); c = float(d.get("c_weibull") or v.mean())
-                xline = np.linspace(0, max(v.max(), 1.0), 120)
-                ax.plot(xline, stats.weibull_min.pdf(xline, k, scale=c),
-                        color="#D97706", lw=1.6, label=f"W k={k:.2f},c={c:.2f}")
-            except Exception:
-                pass
-            try:
-                cr = float(d.get("c_rayleigh") or v.mean())
-                xline = np.linspace(0, max(v.max(), 1.0), 120)
-                ax.plot(xline, stats.rayleigh.pdf(xline, scale=cr / np.sqrt(2)),
-                        color="#1F6E3B", lw=1.4, ls="--", label=f"R c={cr:.2f}")
-            except Exception:
-                pass
-            ax.legend(fontsize=6, loc="upper right")
-            ax.set_xlabel("v (m/s)", fontsize=7)
-        else:  # probability
-            x = np.asarray(d.get("x", []), dtype=float)
-            yw = np.asarray(d.get("y_weibull", []), dtype=float)
-            yr = np.asarray(d.get("y_rayleigh", []), dtype=float)
-            if len(x) == 0:
-                ax.text(0.5, 0.5, "Sin datos", ha="center", va="center",
-                        transform=ax.transAxes, fontsize=8, color="gray")
-                continue
-            if len(yw) == len(x):
-                ax.plot(x, yw, color="#D97706", lw=1.6, label="Weibull")
-            if len(yr) == len(x):
-                ax.plot(x, yr, color="#1F6E3B", lw=1.4, ls="--", label="Rayleigh")
-            ax.legend(fontsize=6, loc="upper right")
-            ax.set_xlabel("v (m/s)", fontsize=7)
-            ax.set_ylabel("p(v)", fontsize=7)
-
-    fig.suptitle(title, fontsize=13, color="#1F4E79", fontweight="bold", y=0.995)
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=130, bbox_inches="tight",
-                facecolor="white", edgecolor="none")
-    plt.close(fig)
-    image_bytes = buf.getvalue()
-    return {
-        "type": "figure",
-        "title": _normalize_spanish_text(title),
-        "description": _normalize_spanish_text(description),
-        "image_bytes": image_bytes,
-        "image_format": "png",
-        "file_name": f"{stem}.png",
-        "figure_family": "phase3_histogram_grid" if kind == "histogram" else "phase35_probability_grid",
-    }
-
-
-def _word_export_figure_block(fig, figure_id, title, description, stem, figure_family="", export_options=None):
-    image_bytes, metadata = export_plotly_figure_artifact(
-        fig=fig,
-        figure_id=figure_id,
-        title=title,
-        stem=stem,
-        source_hint=description,
-        preferred_format="png",
-        export_options=export_options or {},
-    )
-    block = {
-        "type": "figure",
-        "title": _normalize_spanish_text(title),
-        "description": _normalize_spanish_text(description),
-        "image_bytes": None,
-        "image_format": None,
-        "file_name": None,
-        "figure_family": str(figure_family or ""),
-    }
-    if image_bytes and str(metadata.get("export_format") or "").lower() == "png":
-        block.update({
-            "image_bytes": image_bytes,
-            "image_format": "png",
-            "file_name": metadata.get("file_name", f"{stem}.png"),
-        })
-    return block
-
-
-def _word_chart_layout(fig, width, height, legend_horizontal=True, xgrid=True, ygrid=True):
-    if fig is None:
+    def _perfil(df_m, titulo_fig, nombre, v_obj, color, dash=None, eje="linear"):
+        fig = crear_grafica_perfil_individual(df_m, titulo_fig, nombre, altura_objetivo=altura, v_objetivo=v_obj,
+                                              color=color, dash=dash, yaxis_type=eje, puntos_medidos=puntos)
+        fig = _preparar_grafica(fig, 880, 800)
+        if eje == "log":
+            fig.update_yaxes(type="log")
         return fig
-    fig.update_layout(
-        width=int(width),
-        height=int(height),
-        template="plotly_white",
-        margin=dict(l=70, r=40, t=80, b=70),
+
+    alpha_tabla = num(r.get("alpha"), alpha)
+    tabla_perfiles = _tabla(
+        "Resumen de perfiles verticales",
+        "Parámetros de extrapolación y velocidades estimadas a la altura de buje con cada modelo.",
+        ["Concepto", "Valor"], [
+            ["Velocidad media a 10 m", f"{fmt_num(num(r.get('v10'), v10), 2)} m/s"],
+            ["Velocidad media a 50 m", f"{fmt_num(num(r.get('v50'), v50), 2)} m/s"],
+            ["Exponente de cizalladura α", fmt_num(alpha_tabla, 3)],
+            ["Velocidad de fricción u* (log A)", f"{fmt_num(num(r.get('u_star'), float(u_star)), 3)} m/s"],
+            ["Rugosidad z0 ajustada (log A)", f"{fmt_num(num(r.get('z0'), float(z0)), 4)} m"],
+            [f"Velocidad a {fmt_num(altura, 0)} m · exponencial", f"{fmt_num(v_exp, 2)} m/s"],
+            [f"Velocidad a {fmt_num(altura, 0)} m · logarítmico A", f"{fmt_num(v_log_a, 2)} m/s"],
+            [f"Velocidad a {fmt_num(altura, 0)} m · promedio Log-Exp", f"{fmt_num(v_log_b, 2)} m/s"],
+            ["Modelo usado para la AEP (Fase 5)", r.get("modelo_altura") or "—"],
+        ])
+    return _seccion("fase2_perfiles", "Fase 2 – Perfiles de viento",
+                    "Ubicación del sitio, serie de viento y perfiles verticales usados para llevar la velocidad a la altura de buje.", [
+                        _sub("f2_ubicacion", "Ubicación y datos de viento", bloques_ubicacion),
+                        _sub("f2_serie", "Serie horaria", [resumen_horario, _figura(
+                            fig_serie, "informe_tecnico_phase2_nasa_hourly", "Serie horaria de velocidades",
+                            "Velocidad del viento horaria a 10 m y 50 m de la serie guardada.", "informe_tecnico_fase2_serie_horaria",
+                            "phase2_time_series", ancho=1250, alto=620)]),
+                        _sub("f2_perfiles", "Perfiles verticales", [
+                            _figura(_perfil(df_exp, "Perfil exponencial (10 m y 50 m)", "Perfil exponencial", v_exp, "#3366ff"),
+                                    "informe_tecnico_phase2_perfil_exp", "Perfil exponencial",
+                                    "Perfil exponencial ajustado con las velocidades medias a 10 m y 50 m.",
+                                    "informe_tecnico_fase2_perfil_exponencial", "phase2_profile", 880, 800),
+                            _figura(_perfil(df_log_a, "Perfil logarítmico A (10 m y 50 m)", "Perfil logarítmico A", v_log_a, "#ff5533", "dash", "log"),
+                                    "informe_tecnico_phase2_perfil_log_a", "Perfil logarítmico A",
+                                    "Perfil logarítmico ajustado directamente con los puntos de 10 m y 50 m.",
+                                    "informe_tecnico_fase2_perfil_log_a", "phase2_profile", 880, 800),
+                            _figura(_perfil(df_log_b, "Promedio Log-Exp", "Promedio Log-Exp", v_log_b, "#2ca25f", "dot", "log"),
+                                    "informe_tecnico_phase2_perfil_log_b", "Promedio Log-Exp",
+                                    "Perfil operativo: promedio entre el perfil exponencial y el logarítmico A.",
+                                    "informe_tecnico_fase2_promedio_log_exp", "phase2_profile", 880, 800),
+                            _figura(_preparar_grafica(_figura_comparacion_perfiles(df_exp, df_log_a, df_log_b, altura, v_exp, v_log_a, v_log_b, puntos), 1180, 820),
+                                    "informe_tecnico_phase2_compare_linear", "Comparación de perfiles (escala normal)",
+                                    "Los tres enfoques de extrapolación en escala lineal de altura.",
+                                    "informe_tecnico_fase2_comparacion_normal", "phase2_comparison", 1180, 820),
+                            _figura(_preparar_grafica(_figura_comparacion_perfiles(df_exp, df_log_a, df_log_b, altura, v_exp, v_log_a, v_log_b, puntos, "log"), 1180, 820),
+                                    "informe_tecnico_phase2_compare_log", "Comparación de perfiles (escala logarítmica)",
+                                    "Los tres enfoques en escala logarítmica de altura para resaltar sus diferencias.",
+                                    "informe_tecnico_fase2_comparacion_log", "phase2_comparison", 1180, 820),
+                            tabla_perfiles,
+                        ]),
+                    ])
+
+
+# ─────────────────────────────────────────────────────────────
+# Fase 3 — Distribución direccional
+# ─────────────────────────────────────────────────────────────
+def _serie_fase3(config, df_nasa, prefijo="f3"):
+    from calculos import construir_serie_viento_analisis, preparar_datos_rosa, resumir_sectores_rosa
+
+    altura = float(config.get("perfil_hhub") or 80.0)
+    if prefijo == "f35":
+        modelo = str(config.get("f35_modelo") or config.get("f3_modelo_altura") or "Exponencial")
+        direccion = str(config.get("f35_direccion_fuente") or config.get("f3_direccion_fuente") or "WD50M")
+        rugosidad = str(config.get("f35_roughness_label") or config.get("f3_roughness_label") or "Grass / Césped")
+    else:
+        modelo = str(config.get("f3_modelo_altura") or "Exponencial")
+        direccion = str(config.get("f3_direccion_fuente") or "WD50M")
+        rugosidad = str(config.get("f3_roughness_label") or "Grass / Césped")
+    df_serie, meta = construir_serie_viento_analisis(
+        df_nasa=df_nasa, modelo=modelo, altura_deseada=altura, roughness_label=rugosidad,
+        direccion_fuente=direccion, roughness_options=ROUGHNESS_OPTIONS,
+        output_speed_col="WS_ALTURA", output_direction_col="WD_USADA",
     )
-    if legend_horizontal:
-        fig.update_layout(
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="center",
-                x=0.5,
-                bgcolor="rgba(255,255,255,0.88)",
-            )
-        )
-    if xgrid:
-        fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.10)", zeroline=False)
-    if ygrid:
-        fig.update_yaxes(showgrid=True, gridcolor="rgba(0,0,0,0.10)", zeroline=False)
-    return fig
+    df_rosa = preparar_datos_rosa(df_serie, ws_col="WS_ALTURA", wd_col="WD_USADA")
+    resumen = resumir_sectores_rosa(df_rosa, ws_col="WS_ALTURA").copy()
+    return {"altura": altura, "modelo": modelo, "direccion": direccion, "rugosidad": rugosidad,
+            "df": df_serie, "df_rosa": df_rosa, "resumen": resumen, "meta": meta}
 
 
-def _safe_float(value, default=np.nan):
-    try:
-        return float(value)
-    except Exception:
-        return float(default)
-
-
-def _word_selected_direction(config, fallback="N"):
-    return str(
-        config.get("f4_selected_sector")
-        or config.get("f35_selected_sector")
-        or config.get("f3_selected_sector")
-        or fallback
-    )
-
-
-def _find_column(frame, candidates):
-    if frame is None:
-        return None
-    def _norm(text):
-        text = unicodedata.normalize("NFKD", str(text or ""))
-        text = "".join(ch for ch in text if not unicodedata.combining(ch))
-        return text.lower()
-    columns = {str(col): str(col) for col in frame.columns}
-    normalized = {_norm(col): str(col) for col in frame.columns}
-    for candidate in candidates:
-        if candidate in columns:
-            return columns[candidate]
-        lookup = _norm(candidate)
-        if lookup in normalized:
-            return normalized[lookup]
-    return None
-
-
-def _rename_columns_if_present(frame, mapping):
-    renamed = frame.copy()
-    rename_map = {}
-    for canonical, candidates in (mapping or {}).items():
-        found = _find_column(renamed, [canonical] + list(candidates))
-        if found and found != canonical:
-            rename_map[found] = canonical
-    if rename_map:
-        renamed = renamed.rename(columns=rename_map)
-    return renamed
-
-
-def _build_phase3_section(config, df_nasa):
+def _seccion_fase3(config, df_nasa):
     if df_nasa is None or len(df_nasa) == 0:
         return None
+    from calculos import crear_rosa_vientos_16
 
-    from calculos import (
-        construir_serie_viento_analisis,
-        crear_histograma_sector_con_ajustes,
-        crear_rosa_vientos_16,
-        preparar_datos_rosa,
-        resumir_sectores_rosa,
-    )
-
-    altura_deseada = float(config.get("perfil_hhub") or 80.0)
-    modelo_f3 = str(config.get("f3_modelo_altura") or "Exponencial")
-    direccion_f3 = str(config.get("f3_direccion_fuente") or "WD50M")
-    roughness_f3 = str(config.get("f3_roughness_label") or "Grass / C?sped")
-    df_f3, meta_f3 = construir_serie_viento_analisis(
-        df_nasa=df_nasa,
-        modelo=modelo_f3,
-        altura_deseada=altura_deseada,
-        roughness_label=roughness_f3,
-        direccion_fuente=direccion_f3,
-        roughness_options=ROUGHNESS_OPTIONS,
-        output_speed_col="WS_ALTURA",
-        output_direction_col="WD_USADA",
-    )
-    df_rosa_f3 = preparar_datos_rosa(df_f3, ws_col="WS_ALTURA", wd_col="WD_USADA")
-    resumen_f3 = resumir_sectores_rosa(df_rosa_f3, ws_col="WS_ALTURA").copy()
-    if len(resumen_f3) == 0:
+    s3 = _serie_fase3(config, df_nasa)
+    resumen = s3["resumen"]
+    if len(resumen) == 0:
         return None
-
-    valid_records = int(pd.to_numeric(df_f3.get("WS_ALTURA"), errors="coerce").dropna().shape[0])
-    mean_speed = float(pd.to_numeric(df_f3.get("WS_ALTURA"), errors="coerce").dropna().mean())
-    sectors_with_data = int((pd.to_numeric(resumen_f3["Datos"], errors="coerce").fillna(0) > 0).sum())
-    ustar_avg = "No disponible para este modelo"
-    z0_avg = "No disponible para este modelo"
-    if str(meta_f3.get("parametro_1_nombre") or "").lower().startswith("u*"):
-        ustar_avg = f"{_safe_float(meta_f3.get('parametro_1_valor')):.2f}"
-    if "z0" in str(meta_f3.get("parametro_2_nombre") or "").lower():
-        z0_avg = f"{_safe_float(meta_f3.get('parametro_2_valor')):.2f}"
-    elif "z0" in str(meta_f3.get("parametro_1_nombre") or "").lower():
-        z0_avg = f"{_safe_float(meta_f3.get('parametro_1_valor')):.2f}"
-
-    rose_fig = _word_chart_layout(
-        crear_rosa_vientos_16(resumen_f3.copy()),
-        860,
-        760,
-        legend_horizontal=False,
-    )
-    rose_fig.update_layout(title="Rosa de vientos para el modelo seleccionado")
-
-    histogram_grid_data = []
-    for sector in _word_direction_order():
-        row = resumen_f3[resumen_f3["Sector"] == sector]
-        if len(row) == 0 or int(row.iloc[0]["Datos"]) <= 0:
+    ws = pd.to_numeric(s3["df"].get("WS_ALTURA"), errors="coerce").dropna()
+    con_datos = resumen[pd.to_numeric(resumen["Datos"], errors="coerce").fillna(0) > 0]
+    predominante = str(resumen.sort_values("Frecuencia (%)", ascending=False).iloc[0]["Sector"]) if len(resumen) else "—"
+    config_tabla = _tabla("Configuración del análisis direccional", "Parámetros usados en la Fase 3 y resultados de conjunto.",
+                          ["Campo", "Valor"], [
+                              ["Altura de análisis", f"{fmt_num(s3['altura'], 1)} m"],
+                              ["Modelo de extrapolación", s3["modelo"]],
+                              ["Dirección usada", s3["direccion"]],
+                              ["Rugosidad del terreno", s3["rugosidad"]],
+                              ["Registros válidos", fmt_num(len(ws), 0)],
+                              ["Velocidad media", f"{fmt_num(ws.mean(), 2)} m/s"],
+                              ["Sectores con datos", fmt_num(len(con_datos), 0)],
+                              ["Dirección predominante", predominante],
+                          ])
+    rosa = _preparar_grafica(crear_rosa_vientos_16(resumen.copy()), 900, 800, leyenda_horizontal=False)
+    filas = []
+    for _, r in resumen.iterrows():
+        filas.append([r["Sector"], fmt_num(r.get("Centro (°)"), 1), fmt_num(r.get("Datos"), 0), fmt_num(r.get("Frecuencia (%)"), 2),
+                      fmt_num(r.get("Velocidad media (m/s)"), 2), fmt_num(r.get("Desv. estándar (m/s)"), 2),
+                      fmt_num(r.get("k Weibull"), 2), fmt_num(r.get("c Weibull (m/s)"), 2), fmt_num(r.get("c Rayleigh (m/s)"), 2),
+                      fmt_num(num(r.get("Frecuencia (%)"), 0) / 100.0 * 8760.0, 0)])
+    tabla_sector = _tabla("Tabla sectorial", "Frecuencia, ajuste Weibull/Rayleigh y horas equivalentes por sector.",
+                          ["Sector", "Centro (°)", "Datos", "Frec. (%)", "V media (m/s)", "Desv. (m/s)", "k", "c Weibull (m/s)",
+                           "c Rayleigh (m/s)", "Horas eq. (h/año)"], filas, familia="wide_sector_table")
+    datos_grilla = []
+    for sector in _DIRECCIONES:
+        fila = resumen[resumen["Sector"] == sector]
+        if len(fila) == 0 or int(fila.iloc[0]["Datos"]) <= 0:
             continue
-        velocidades = df_rosa_f3.loc[df_rosa_f3["Sector"] == sector, "WS_ALTURA"].dropna().to_numpy(dtype=float)
-        histogram_grid_data.append({
+        datos_grilla.append({
             "sector": sector,
-            "velocities": velocidades,
-            "k": row.iloc[0]["k Weibull"],
-            "c_weibull": row.iloc[0]["c Weibull (m/s)"],
-            "c_rayleigh": row.iloc[0]["c Rayleigh (m/s)"],
+            "velocidades": s3["df_rosa"].loc[s3["df_rosa"]["Sector"] == sector, "WS_ALTURA"].dropna().to_numpy(float),
+            "k": num(fila.iloc[0]["k Weibull"]), "c": num(fila.iloc[0]["c Weibull (m/s)"]),
+            "c_rayleigh": num(fila.iloc[0]["c Rayleigh (m/s)"]),
         })
-    histogram_grid_block = _word_grid_4x4_block(
-        histogram_grid_data,
-        title="Histogramas sectoriales (16 direcciones)",
-        description="Grid 4x4 con histograma de velocidades + ajustes Weibull y Rayleigh por sector.",
-        stem="word_fase3_histogramas_grid",
-        kind="histogram",
-    )
-    histogram_blocks = [histogram_grid_block] if histogram_grid_block else []
-
-    config_df = pd.DataFrame([
-        {"Campo": "Altura deseada", "Valor": f"{altura_deseada:.2f} m"},
-        {"Campo": "Modelo seleccionado", "Valor": modelo_f3},
-        {"Campo": "Direcci?n usada", "Valor": direccion_f3},
-        {"Campo": "Modelo combinado", "Valor": roughness_f3},
-        {"Campo": "Registros v?lidos", "Valor": str(valid_records)},
-        {"Campo": "Velocidad media", "Valor": f"{mean_speed:.2f} m/s"},
-        {"Campo": "Sectores con datos", "Valor": str(sectors_with_data)},
-        {"Campo": "u* promedio", "Valor": ustar_avg},
-        {"Campo": "z0 efectiva promedio", "Valor": z0_avg},
-    ])
-    resumen_f3["Horas equivalentes anuales (h/a?o)"] = resumen_f3["Frecuencia (%)"] / 100.0 * 8760.0
-
-    return {
-        "id": "fase3_distribucion_direccional",
-        "title": _normalize_spanish_text("Fase 3 - Distribuci?n direccional del viento"),
-        "description": _normalize_spanish_text("Caracterizaci?n direccional del recurso e?lico a la altura y modelo seleccionados para el proyecto."),
-        "subsections": [
-            {
-                "id": "fase3_configuracion",
-                "title": _normalize_spanish_text("Configuraci?n de Fase 3"),
-                "blocks": [
-                    _word_table_block_from_dataframe(config_df, "Configuraci?n de Fase 3", "Resumen de la configuraci?n y de los indicadores base usados para la distribuci?n direccional del viento.", ["Campo", "Valor"], table_family="compact_summary"),
-                ],
-            },
-            {
-                "id": "fase3_rosa_vientos",
-                "title": _normalize_spanish_text("Rosa de vientos"),
-                "blocks": [
-                    _word_export_figure_block(rose_fig, "word_phase3_wind_rose", "Rosa de vientos", "Rosa de vientos correspondiente al modelo seleccionado en Fase 3.", "word_fase3_rosa_vientos", figure_family="phase3_wind_rose", export_options={"width": 860, "height": 760, "max_dimension": 1600}),
-                ],
-            },
-            {
-                "id": "fase3_tabla_sectorial",
-                "title": _normalize_spanish_text("Tabla sectorial completa"),
-                "blocks": [
-                    _word_table_block_from_dataframe(resumen_f3, "Tabla sectorial completa", "Resumen completo de frecuencias, ajuste estad?stico y horas equivalentes por sector.", list(resumen_f3.columns), table_family="wide_sector_table"),
-                ],
-            },
-            {
-                "id": "fase3_graficas_16_sectores",
-                "title": _normalize_spanish_text("Gr?ficas de los 16 sectores"),
-                "blocks": histogram_blocks,
-            },
-        ],
-    }
+    grilla = _grilla_16_sectores(datos_grilla, "Histogramas sectoriales (16 direcciones)",
+                                 "Histograma de velocidades con ajustes Weibull y Rayleigh en cada sector.",
+                                 "word_fase3_histogramas_grid", "histograma")
+    return _seccion("fase3_direccional", "Fase 3 – Distribución direccional del viento",
+                    "Caracterización direccional del recurso a la altura y con el modelo seleccionados.", [
+                        _sub("f3_config", "Configuración", [config_tabla]),
+                        _sub("f3_rosa", "Rosa de vientos", [_figura(rosa, "word_phase3_wind_rose", "Rosa de vientos",
+                                                                    "Frecuencia y velocidad media por sector (16 direcciones).",
+                                                                    "word_fase3_rosa_vientos", "phase3_wind_rose", 900, 800)]),
+                        _sub("f3_tabla", "Tabla sectorial", [tabla_sector]),
+                        _sub("f3_graficas", "Histogramas por sector", [grilla]),
+                    ])
 
 
-def _build_phase35_section(config, df_nasa, df_curva_raw):
+# ─────────────────────────────────────────────────────────────
+# Fase 3.5 — Probabilidad de ocurrencia
+# ─────────────────────────────────────────────────────────────
+def _seccion_fase35(config, df_nasa):
     if df_nasa is None or len(df_nasa) == 0:
         return None
-
-    from calculos import (
-        construir_serie_viento_analisis,
-        inferir_puntos_operacion_curva,
-        preparar_datos_curva,
-        preparar_datos_rosa,
-        resumir_sectores_rosa,
-    )
-
-    from .figuras import _build_probability_heatmap, _build_probability_sector_figure
-
-    altura_deseada = float(config.get("perfil_hhub") or 80.0)
-    modelo_f35 = str(config.get("f35_modelo") or config.get("f3_modelo_altura") or "Exponencial")
-    direccion_f35 = str(config.get("f35_direccion_fuente") or config.get("f3_direccion_fuente") or "WD50M")
-    roughness_f35 = str(config.get("f35_roughness_label") or config.get("f3_roughness_label") or "Grass / C?sped")
-    vmax = float(config.get("f35_vmax") or 25.0)
-    bin_width = float(config.get("f35_bin_width") or 0.5)
-    mostrar_cdf = str(config.get("f35_show_cdf") or "False") == "True"
-    curva_df = preparar_datos_curva(df_curva_raw)
-    cut_in_inf, nominal_inf, cut_out_inf = inferir_puntos_operacion_curva(curva_df)
-    cut_in = float(config.get("f35_cutin") or cut_in_inf)
-    nominal = float(config.get("f35_nominal") or nominal_inf)
-    cut_out = float(config.get("f35_cutout") or cut_out_inf)
-
-    df_f35, _ = construir_serie_viento_analisis(
-        df_nasa=df_nasa,
-        modelo=modelo_f35,
-        altura_deseada=altura_deseada,
-        roughness_label=roughness_f35,
-        direccion_fuente=direccion_f35,
-        roughness_options=ROUGHNESS_OPTIONS,
-        output_speed_col="WS_ANALISIS",
-        output_direction_col="WD_USADA",
-    )
-    df_rosa_f35 = preparar_datos_rosa(df_f35, ws_col="WS_ANALISIS", wd_col="WD_USADA")
-    resumen_f35 = resumir_sectores_rosa(df_rosa_f35, ws_col="WS_ANALISIS").copy()
-    if len(resumen_f35) == 0:
-        return None
-
-    heatmap_fig, bins = _build_probability_heatmap(df_rosa_f35, vmax=vmax, bin_width=bin_width)
-    heatmap_fig = _word_chart_layout(heatmap_fig, 980, 700, legend_horizontal=False)
-
-    import numpy as np
     from scipy import stats
 
-    probability_grid_data = []
-    x_grid = np.linspace(0.05, vmax, 200)
-    for sector in _word_direction_order():
-        row = resumen_f35[resumen_f35["Sector"] == sector]
-        if len(row) == 0 or int(row.iloc[0]["Datos"]) <= 0:
+    s35 = _serie_fase3(config, df_nasa, prefijo="f35")
+    resumen = s35["resumen"]
+    if len(resumen) == 0:
+        return None
+    vmax = float(config.get("f35_vmax") or config.get("f3_prob_vmax") or 25.0)
+    ancho_bin = float(config.get("f35_bin_width") or config.get("f3_prob_bin_width") or 0.5)
+    df_rosa = s35["df_rosa"].rename(columns={"WS_ALTURA": "WS_ANALISIS"})
+    heatmap, _ = _build_probability_heatmap(df_rosa, vmax=vmax, bin_width=ancho_bin)
+    heatmap = _preparar_grafica(heatmap, 1100, 720, leyenda_horizontal=False)
+    try:
+        categorias = list(heatmap.data[0].x)
+        paso = max(1, len(categorias) // 12)
+        heatmap.update_xaxes(tickmode="array", tickvals=categorias[::paso], ticktext=categorias[::paso], tickangle=-35)
+    except Exception:
+        pass
+    x = np.linspace(0.05, vmax, 200)
+    datos_grilla = []
+    for sector in _DIRECCIONES:
+        fila = resumen[resumen["Sector"] == sector]
+        if len(fila) == 0 or int(fila.iloc[0]["Datos"]) <= 0:
             continue
-        try:
-            k = float(row.iloc[0].get("k Weibull") or 2.0)
-            c_w = float(row.iloc[0].get("c Weibull (m/s)") or 1.0)
-            c_r = float(row.iloc[0].get("c Rayleigh (m/s)") or 1.0)
-            y_w = stats.weibull_min.pdf(x_grid, k, scale=c_w)
-            y_r = stats.rayleigh.pdf(x_grid, scale=c_r / np.sqrt(2))
-        except Exception:
-            y_w = np.zeros_like(x_grid)
-            y_r = np.zeros_like(x_grid)
-        probability_grid_data.append({
-            "sector": sector,
-            "x": x_grid,
-            "y_weibull": y_w,
-            "y_rayleigh": y_r,
-        })
-    curve_grid_block = _word_grid_4x4_block(
-        probability_grid_data,
-        title="Curvas de probabilidad por sector (16 direcciones)",
-        description="Grid 4x4 con curva de probabilidad Weibull y Rayleigh por sector.",
-        stem="word_fase35_curvas_grid",
-        kind="probability",
-    )
-    curve_blocks = [curve_grid_block] if curve_grid_block else []
-
-    return {
-        "id": "fase35_probabilidad_ocurrencia",
-        "title": _normalize_spanish_text("Fase 3.5 - Curva de probabilidad de ocurrencia"),
-        "description": _normalize_spanish_text("Construcci?n de curvas de probabilidad de ocurrencia por sector y del mapa visual global para las 16 direcciones."),
-        "subsections": [
-            {
-                "id": "fase35_curvas",
-                "title": _normalize_spanish_text("Curvas de probabilidad por sector"),
-                "blocks": curve_blocks,
-            },
-            {
-                "id": "fase35_mapa_visual",
-                "title": _normalize_spanish_text("Mapa visual para las 16 direcciones"),
-                "blocks": [
-                    _word_export_figure_block(heatmap_fig, "word_phase35_heatmap", "Mapa visual para las 16 direcciones", "Mapa de probabilidad de ocurrencia por intervalo y por sector para las 16 direcciones.", "word_fase35_mapa_probabilidad", figure_family="phase35_heatmap", export_options={"width": 980, "height": 700, "max_dimension": 1700}),
-                ],
-            },
-        ],
-    }
+        k = num(fila.iloc[0].get("k Weibull"), 2.0)
+        c = num(fila.iloc[0].get("c Weibull (m/s)"), 1.0)
+        cr = num(fila.iloc[0].get("c Rayleigh (m/s)"), 1.0)
+        datos_grilla.append({"sector": sector, "x": x, "y_weibull": stats.weibull_min.pdf(x, k, scale=c),
+                             "y_rayleigh": stats.rayleigh.pdf(x, scale=cr / np.sqrt(2))})
+    grilla = _grilla_16_sectores(datos_grilla, "Curvas de probabilidad por sector (16 direcciones)",
+                                 "Densidad de probabilidad Weibull y Rayleigh de la velocidad en cada sector.",
+                                 "word_fase35_curvas_grid", "probabilidad")
+    return _seccion("fase35_probabilidad", "Fase 3.5 – Probabilidad de ocurrencia",
+                    "Curvas de probabilidad por sector y mapa de probabilidad para las 16 direcciones.", [
+                        _sub("f35_curvas", "Curvas por sector", [grilla]),
+                        _sub("f35_mapa", "Mapa de probabilidad", [_figura(
+                            heatmap, "word_phase35_heatmap", "Probabilidad por dirección e intervalo de velocidad",
+                            f"Probabilidad de ocurrencia por sector e intervalo de {fmt_num(ancho_bin, 1)} m/s.",
+                            "word_fase35_mapa_probabilidad", "phase35_heatmap", 1100, 720)]),
+                    ])
 
 
-def _build_phase4_section(config, df_nasa, df_curva_raw, df_layout):
+# ─────────────────────────────────────────────────────────────
+# Fase 4 — Estelas y arreglo (mismo cálculo que la página de Fase 4)
+# ─────────────────────────────────────────────────────────────
+def _tabla_detalle_turbinas(df_detalle, titulo, descripcion):
+    if df_detalle is None or len(df_detalle) == 0:
+        return None
+    filas = []
+    for _, r in df_detalle.iterrows():
+        v_libre = num(r.get("velocidad_libre"))
+        v_ef = num(r.get("velocidad_efectiva"))
+        deficit = (1.0 - v_ef / v_libre) * 100.0 if (v_libre and v_ef is not None) else None
+        filas.append([str(r.get("turbina_id")), fmt_num(r.get("x_m"), 0), fmt_num(r.get("y_m"), 0), fmt_num(v_libre, 2),
+                      fmt_num(v_ef, 2), fmt_num(deficit, 2), fmt_num(r.get("perdida_potencia_pct"), 2),
+                      fmt_num(num(r.get("potencia_base_W"), 0) / 1000.0, 0), fmt_num(num(r.get("potencia_wake_W"), 0) / 1000.0, 0)])
+    return _tabla(titulo, descripcion, ["Turbina", "x (m)", "y (m)", "V libre (m/s)", "V efectiva (m/s)", "Déficit (%)",
+                                        "Pérdida de potencia (%)", "P sin estela (kW)", "P con estela (kW)"],
+                  filas, familia="phase4_detail_table")
+
+
+def _seccion_fase4(config, df_nasa, df_curva_raw, df_layout):
     if df_layout is None or len(df_layout) == 0 or df_nasa is None or len(df_nasa) == 0:
         return None
+    from calculos import crear_figura_direccion_estela, crear_figura_layout_parque
 
-    from calculos import analizar_estelas_parque_16, crear_figura_direccion_estela, crear_figura_layout_parque
-
-    from .figuras import _analyze_geometry_all_sectors, _build_phase4_wind_analysis
-
+    analisis = analisis_anual_fase4(df_nasa, config, df_curva_raw, df_layout)
+    if analisis is None:
+        return None
+    resumen_anual, detalles_anual, perdida_ponderada, energia_f4 = analisis
     diametro = float(config.get("diametro") or 100.0)
     ct = float(config.get("f4_ct") or 0.80)
     kw = float(config.get("f4_kw") or 0.05)
-    velocidad_geom = float(config.get("f4_geom_speed") or 8.0)
-    selected_sector = _word_selected_direction(config, fallback="N")
-    df_f4_analisis, _ = _build_phase4_wind_analysis(df_nasa=df_nasa, config=config, roughness_options=ROUGHNESS_OPTIONS)
-    if df_f4_analisis is None:
-        return None
+    v_geom = float(config.get("f4_geom_speed") or 8.0)
+    resumen_geom, detalles_geom = _analyze_geometry_all_sectors(df_layout=df_layout, curva_df=df_curva_raw, diametro=diametro,
+                                                                ct=ct, kw=kw, velocidad_ref=v_geom)
+    col_geom = _col(resumen_geom, "Pérdida geométrica (%)")
+    col_dir_geom = _col(resumen_geom, "Dirección centro (°)")
+    col_dir_anual = _col(resumen_anual, "Dirección centro (°)")
+    col_pond = _col(resumen_anual, "Pérdida ponderada (%)")
+    col_sector = _col(resumen_anual, "Pérdida por estela (%)")
 
-    resumen_geom, detalles_geom = _analyze_geometry_all_sectors(df_layout=df_layout, curva_df=df_curva_raw, diametro=diametro, ct=ct, kw=kw, velocidad_ref=velocidad_geom)
-    resumen_anual, detalles_anual, _ = analizar_estelas_parque_16(df_layout=df_layout, df_nasa=df_f4_analisis, curva_df=df_curva_raw, diametro=diametro, ct=ct, kw=kw, ws_col="WS_ANALISIS", wd_col="WD_ANALISIS")
-    if len(resumen_geom) == 0 or len(resumen_anual) == 0:
-        return None
-    resumen_geom = _rename_columns_if_present(resumen_geom, {
-        "DirecciÃ³n centro (Â°)": ["Direcci?n centro (Ãƒâ€š?)"],
-        "PÃ©rdida geomÃ©trica (%)": ["Perdida GeomÃ©trica (%)"],
-    })
-    resumen_anual = _rename_columns_if_present(resumen_anual, {
-        "DirecciÃ³n centro (Â°)": ["Direcci?n centro (Ãƒâ€š?)"],
-        "PÃ©rdida por estela (%)": ["P?rdida por estela (%)"],
-        "PÃ©rdida ponderada (%)": ["P?rdida ponderada (%)"],
-        "Horas equivalentes anuales (h/aÃ±o)": ["Horas equivalentes anuales (h/a?o)"],
-        "Frecuencia (%)": [],
-        "Sector": [],
-        "Potencia parque sin estela (W)": [],
-        "Potencia parque con estela (W)": [],
-    }).copy()
-    horas_col = _find_column(resumen_anual, ["Horas equivalentes anuales (h/ano)"])
-    p_sin_col = _find_column(resumen_anual, ["Potencia parque sin estela (W)"])
-    p_con_col = _find_column(resumen_anual, ["Potencia parque con estela (W)"])
-    perdida_pond_col = _find_column(resumen_anual, ["Perdida ponderada (%)"])
-    dir_centro_col = _find_column(resumen_geom, ["Direccion centro (Â°)"])
-    dir_centro_anual_col = _find_column(resumen_anual, ["Direccion centro (Â°)"])
-    perdida_sector_col = _find_column(resumen_anual, ["Perdida por estela (%)"])
-    geom_loss_col = _find_column(resumen_geom, ["Perdida geometrica (%)"])
-    dir_centro_col = dir_centro_col or (str(resumen_geom.columns[1]) if len(resumen_geom.columns) > 1 else None)
-    geom_loss_col = geom_loss_col or (str(resumen_geom.columns[5]) if len(resumen_geom.columns) > 5 else None)
-    dir_centro_anual_col = dir_centro_anual_col or (str(resumen_anual.columns[1]) if len(resumen_anual.columns) > 1 else None)
-    horas_col = horas_col or (str(resumen_anual.columns[4]) if len(resumen_anual.columns) > 4 else None)
-    p_sin_col = p_sin_col or (str(resumen_anual.columns[6]) if len(resumen_anual.columns) > 6 else None)
-    p_con_col = p_con_col or (str(resumen_anual.columns[7]) if len(resumen_anual.columns) > 7 else None)
-    perdida_sector_col = perdida_sector_col or (str(resumen_anual.columns[8]) if len(resumen_anual.columns) > 8 else None)
-    perdida_pond_col = perdida_pond_col or (str(resumen_anual.columns[10]) if len(resumen_anual.columns) > 10 else None)
-    resumen_anual["energy_gross_mwh"] = resumen_anual[p_sin_col] * resumen_anual[horas_col] / 1e6
-    resumen_anual["energy_wake_mwh"] = resumen_anual[p_con_col] * resumen_anual[horas_col] / 1e6
-    resumen_anual["energy_loss_mwh"] = resumen_anual["energy_gross_mwh"] - resumen_anual["energy_wake_mwh"]
-
-    fig_layout = _word_chart_layout(
-        crear_figura_layout_parque(df_layout=df_layout, diametro=diametro, titulo="Vista en planta del parque"),
-        900,
-        760,
-        legend_horizontal=False,
-    )
-
-    resumen_geom_for_rose = resumen_geom.rename(
-        columns={
-            dir_centro_col: "Direcci?n centro (?)",
-            geom_loss_col: "Perdida GeomÃ©trica (%)",
-        }
-    ).copy()
-    resumen_anual_for_rose = resumen_anual.rename(
-        columns={
-            dir_centro_anual_col: "Direcci?n centro (?)",
-            perdida_pond_col: "P?rdida ponderada (%)",
-            perdida_sector_col: "P?rdida por estela (%)",
-        }
-    ).copy()
-
-    fig_geom = _word_chart_layout(
-        _create_phase4_geometric_rose(resumen_geom_for_rose),
-        820,
-        760,
-        legend_horizontal=False,
-    )
-    fig_anual = _word_chart_layout(
-        _create_phase4_annual_rose(resumen_anual_for_rose),
-        820,
-        760,
-        legend_horizontal=False,
-    )
-    df_plot_compare = resumen_geom[["Sector", geom_loss_col]].merge(resumen_anual[["Sector", perdida_pond_col]], on="Sector", how="left")
-    fig_compare = go.Figure()
-    fig_compare.add_trace(go.Bar(x=df_plot_compare["Sector"], y=df_plot_compare[geom_loss_col], name="GeomÃ©trica (%)"))
-    fig_compare.add_trace(go.Bar(x=df_plot_compare["Sector"], y=df_plot_compare[perdida_pond_col], name="Anual ponderada (%)"))
-    fig_compare.update_layout(title="ComparaciÃ³n: criticidad geomÃ©trica vs criticidad anual", template="plotly_white", barmode="group", xaxis_title="Sector", yaxis_title="PÃ©rdida (%)")
-    fig_compare = _word_chart_layout(fig_compare, 980, 700, legend_horizontal=True)
-    fig_energy = go.Figure()
-    fig_energy.add_trace(go.Bar(x=resumen_anual["Sector"], y=resumen_anual["energy_gross_mwh"], name="Bruta"))
-    fig_energy.add_trace(go.Bar(x=resumen_anual["Sector"], y=resumen_anual["energy_wake_mwh"], name="Con estela"))
-    fig_energy.update_layout(title="EnergÃ­a anual por direcciÃ³n", template="plotly_white", barmode="group", xaxis_title="Sector", yaxis_title="EnergÃ­a (MWh/aÃ±o)")
-    fig_energy = _word_chart_layout(fig_energy, 980, 700, legend_horizontal=True)
-
-    geom_indicators = pd.DataFrame([
-        {"Indicador": "Direcciones analizadas", "Valor": str(len(resumen_geom))},
-        {"Indicador": "Perdida GeomÃ©trica media", "Valor": f"{pd.to_numeric(resumen_geom[geom_loss_col], errors='coerce').mean():.2f}%"},
-        {"Indicador": "Perdida GeomÃ©trica m?xima", "Valor": f"{pd.to_numeric(resumen_geom[geom_loss_col], errors='coerce').max():.2f}%"},
-    ])
-    annual_indicators = pd.DataFrame([
-        {"Indicador": "Direcciones analizadas", "Valor": str(len(resumen_anual))},
-        {"Indicador": "P?rdida ponderada media", "Valor": f"{pd.to_numeric(resumen_anual[perdida_pond_col], errors='coerce').mean():.2f}%"},
-        {"Indicador": "Energ?a bruta total", "Valor": f"{pd.to_numeric(resumen_anual['energy_gross_mwh'], errors='coerce').sum():.2f} MWh/a?o"},
-        {"Indicador": "Energ?a con estela total", "Valor": f"{pd.to_numeric(resumen_anual['energy_wake_mwh'], errors='coerce').sum():.2f} MWh/a?o"},
-    ])
-
-    detail_blocks = []
-    row_sel_geom = resumen_geom[resumen_geom["Sector"] == selected_sector]
-    row_sel_anual = resumen_anual[resumen_anual["Sector"] == selected_sector]
-    df_detalle_geom = detalles_geom.get(selected_sector, pd.DataFrame())
-    df_detalle_anual = detalles_anual.get(selected_sector, pd.DataFrame())
-    if len(row_sel_geom) > 0:
-        fig_sel_geom = _word_chart_layout(crear_figura_direccion_estela(df_detalle=df_detalle_geom, sector=selected_sector, direction_deg=float(row_sel_geom.iloc[0][dir_centro_col]), diametro=diametro), 860, 760, legend_horizontal=False)
-        detail_blocks.append(_word_export_figure_block(fig_sel_geom, f"word_phase4_geom_detail_{selected_sector.lower()}", f"Detalle geom?trico - Direcci?n {selected_sector}", f"Detalle geom?trico del arreglo para la direcci?n actualmente seleccionada ({selected_sector}).", f"word_fase4_detalle_geom_{selected_sector.lower()}", figure_family="phase4_direction_detail", export_options={"width": 860, "height": 760, "max_dimension": 1700}))
-    if len(df_detalle_geom) > 0:
-        detail_blocks.append(_word_table_block_from_dataframe(df_detalle_geom[["turbina_id", "x_m", "y_m", "velocidad_libre", "velocidad_efectiva", "deficit_total", "perdida_potencia_pct", "potencia_base_W", "potencia_wake_W"]].copy(), f"Detalle geom?trico por turbina - Direcci?n {selected_sector}", "Detalle geom?trico por turbina para la direcci?n actualmente seleccionada.", table_family="phase4_detail_table"))
-    if len(row_sel_anual) > 0:
-        fig_sel_anual = _word_chart_layout(crear_figura_direccion_estela(df_detalle=df_detalle_anual, sector=selected_sector, direction_deg=float(row_sel_anual.iloc[0][dir_centro_anual_col]), diametro=diametro), 860, 760, legend_horizontal=False)
-        detail_blocks.append(_word_export_figure_block(fig_sel_anual, f"word_phase4_annual_detail_{selected_sector.lower()}", f"Detalle anual - Direcci?n {selected_sector}", f"Detalle anual ponderado del arreglo para la direcci?n actualmente seleccionada ({selected_sector}).", f"word_fase4_detalle_anual_{selected_sector.lower()}", figure_family="phase4_direction_detail", export_options={"width": 860, "height": 760, "max_dimension": 1700}))
-    if len(df_detalle_anual) > 0:
-        detail_blocks.append(_word_table_block_from_dataframe(df_detalle_anual[["turbina_id", "x_m", "y_m", "velocidad_libre", "velocidad_efectiva", "deficit_total", "perdida_potencia_pct", "potencia_base_W", "potencia_wake_W"]].copy(), f"Detalle anual por turbina - Direcci?n {selected_sector}", "Detalle anual por turbina para la direcci?n actualmente seleccionada.", table_family="phase4_detail_table"))
-
-    return {
-        "id": "fase4_estelas_arreglo",
-        "title": _normalize_spanish_text("Fase 4 - Estelas y arreglo del parque"),
-        "description": _normalize_spanish_text("Documentaci?n del layout del parque y del an?lisis de estelas del proyecto."),
-        "subsections": [
-            {"id": "fase4_layout", "title": _normalize_spanish_text("Vista en planta del parque"), "blocks": [_word_export_figure_block(fig_layout, "word_phase4_layout", "Vista en planta del parque", "Vista en planta del parque con posiciones y rotor representado cuando est? disponible.", "word_fase4_layout", figure_family="phase4_layout", export_options={"width": 900, "height": 760, "max_dimension": 1700})]},
-            {"id": "fase4_geom", "title": _normalize_spanish_text("AnÃ¡lisis geometrico puro del arreglo"), "blocks": [_word_export_figure_block(fig_geom, "word_phase4_geometric", "An?lisis geom?trico puro", "Distribuci?n polar de la criticidad geom?trica del arreglo.", "word_fase4_geometrico", figure_family="phase4_polar", export_options={"width": 820, "height": 760, "max_dimension": 1600}), _word_table_block_from_dataframe(geom_indicators, "Indicadores geom?tricos clave", "Indicadores resumidos del an?lisis geom?trico puro.", ["Indicador", "Valor"], table_family="compact_summary")]},
-            {"id": "fase4_anual", "title": _normalize_spanish_text("Analisis anual ponderado"), "blocks": [_word_export_figure_block(fig_anual, "word_phase4_annual", "Analisis anual ponderado", "Distribuci?n polar de p?rdidas ponderadas y criticidad anual.", "word_fase4_anual", figure_family="phase4_polar", export_options={"width": 820, "height": 760, "max_dimension": 1600}), _word_table_block_from_dataframe(annual_indicators, "Indicadores anuales clave", "Indicadores resumidos del Analisis anual ponderado.", ["Indicador", "Valor"], table_family="compact_summary")]},
-            {"id": "fase4_comparacion", "title": _normalize_spanish_text("Comparaci?n criticidad geom?trica vs criticidad anual"), "blocks": [_word_export_figure_block(fig_compare, "word_phase4_compare", "Comparaci?n criticidad geom?trica vs criticidad anual", "Comparaci?n directa entre la criticidad geom?trica y la criticidad anual ponderada por direcci?n.", "word_fase4_comparacion", figure_family="phase4_comparison", export_options={"width": 980, "height": 700, "max_dimension": 1700})]},
-            {"id": "fase4_energia", "title": _normalize_spanish_text("Energ?a anual por direcci?n"), "blocks": [_word_export_figure_block(fig_energy, "word_phase4_energy", "Energ?a anual por direcci?n", "Comparaci?n de energ?a bruta y energ?a con estela por direcci?n.", "word_fase4_energia", figure_family="phase4_energy", export_options={"width": 980, "height": 700, "max_dimension": 1700})]},
-            {"id": "fase4_detalle_direccion", "title": _normalize_spanish_text("Detalle por direcci?n"), "blocks": detail_blocks},
+    geom = pd.to_numeric(resumen_geom[col_geom], errors="coerce")
+    criticos = str(config.get("f4_geom_critical_sectors") or "—")
+    tabla_geom = _tabla("Indicadores geométricos", "Pérdida por estela de cada dirección con viento a la velocidad de referencia.",
+                        ["Indicador", "Valor"], [
+                            ["Direcciones analizadas", fmt_num(len(resumen_geom), 0)],
+                            ["Velocidad de referencia", f"{fmt_num(v_geom, 1)} m/s"],
+                            ["Pérdida geométrica media", fmt_pct(geom.mean(), 2)],
+                            ["Pérdida geométrica máxima", fmt_pct(geom.max(), 2)],
+                            ["Sectores críticos", criticos],
+                        ])
+    peor = resumen_anual.sort_values(col_pond, ascending=False).iloc[0]
+    bruta_f4 = num(energia_f4.get("aep_bruta_total"), 0.0) or 0.0
+    estela_f4 = num(energia_f4.get("perdida_estela_mwh"), 0.0) or 0.0
+    tabla_anual = _tabla(
+        "Indicadores anuales", "Pérdidas ponderadas por la frecuencia de cada dirección (mismo cálculo que la Fase 4).",
+        ["Indicador", "Valor"], [
+            ["Pérdida anual ponderada por frecuencia", fmt_pct(perdida_ponderada, 2)],
+            ["Dirección más crítica", f"{peor['Sector']} ({fmt_pct(peor[col_sector], 1)} de pérdida en ese sector)"],
+            ["Energía bruta del análisis de estelas", f"{fmt_num(bruta_f4, 0)} MWh/año"],
+            ["Pérdida energética por estela", f"{fmt_num(estela_f4, 0)} MWh/año ({fmt_pct(estela_f4 / bruta_f4 * 100.0 if bruta_f4 else None, 2)})"],
         ],
-    }
-
-
-def _build_phase5_section(config, phase5_context):
-    phase5_context = phase5_context or {}
-    df_sector = phase5_context.get("df_aep_sector")
-    tabla_perdidas = phase5_context.get("tabla_perdidas")
-    summary = phase5_context.get("summary") or {}
-    method_label = str(phase5_context.get("method_label") or "Weibull")
-    fig_loss = phase5_context.get("fig_loss_distribution")
-    fig_sector = phase5_context.get("fig_sectorial")
-    if df_sector is None or len(df_sector) == 0:
-        return None
-
-    summary_df = pd.DataFrame([
-        {"Indicador": "AEP bruta", "Valor": f"{_safe_float(summary.get('aep_bruta_total')):.2f} MWh/a?o"},
-        {"Indicador": "AEP neta", "Valor": f"{_safe_float(summary.get('aep_neta_total')):.2f} MWh/a?o"},
-        {"Indicador": "Factor de planta bruto", "Valor": f"{_safe_float(summary.get('factor_planta_bruto')):.2f}%"},
-        {"Indicador": "Factor de planta neto", "Valor": f"{_safe_float(summary.get('factor_planta_neto')):.2f}%"},
-        {"Indicador": "Potencia nominal por turbina", "Valor": f"{_safe_float(summary.get('potencia_nominal_turbina_kw')):.2f} kW"},
-        {"Indicador": "N?mero de turbinas", "Valor": str(int(summary.get('n_turbinas') or 0))},
-    ])
-
-    loss_blocks = []
-    if fig_loss is not None:
-        fig_loss = _word_chart_layout(fig_loss, 820, 700, legend_horizontal=False)
-        loss_blocks.append(_word_export_figure_block(fig_loss, "word_phase5_loss_distribution", f"Distribuci?n de p?rdidas ({method_label})", f"Distribuci?n relativa de p?rdidas energ?ticas para el escenario {method_label}.", "word_fase5_distribucion_perdidas", figure_family="phase5_loss_distribution", export_options={"width": 820, "height": 700, "max_dimension": 1600}))
-    if tabla_perdidas is not None and len(tabla_perdidas) > 0:
-        loss_blocks.append(_word_table_block_from_dataframe(tabla_perdidas, "Tabla de p?rdidas energ?ticas", "Detalle de p?rdidas energ?ticas por concepto para el escenario evaluado.", table_family="compact_summary"))
-
-    sector_result_blocks = [_word_table_block_from_dataframe(df_sector, "Resultados por sector", "Tabla completa de resultados energ?ticos por sector.", table_family="phase5_sector_table")]
-    aep_sector_blocks = []
-    if fig_sector is not None:
-        fig_sector = _word_chart_layout(fig_sector, 980, 700, legend_horizontal=True)
-        aep_sector_blocks.append(_word_export_figure_block(fig_sector, "word_phase5_aep_sector", f"AEP por sector ({method_label})", f"Comparaci?n de AEP bruto y neto por sector para el escenario {method_label}.", "word_fase5_aep_sector", figure_family="phase5_sector_chart", export_options={"width": 980, "height": 700, "max_dimension": 1700}))
-
-    return {
-        "id": "fase5_resultados_energeticos",
-        "title": _normalize_spanish_text("Fase 5 - Resultados energ?ticos"),
-        "description": _normalize_spanish_text("Resultados energ?ticos consolidados del proyecto, incluyendo AEP, factor de planta y distribuci?n de p?rdidas."),
-        "subsections": [
-            {"id": "fase5_resultados_principales", "title": _normalize_spanish_text("Resultados principales"), "blocks": [_word_table_block_from_dataframe(summary_df, "Resultados principales", "Indicadores principales disponibles en Fase 5 para el escenario energ?tico actual.", ["Indicador", "Valor"], table_family="compact_summary")]},
-            {"id": "fase5_perdidas", "title": _normalize_spanish_text(f"Distribuci?n de p?rdidas ({method_label})"), "blocks": loss_blocks},
-            {"id": "fase5_resultados_sector", "title": _normalize_spanish_text("Resultados por sector"), "blocks": sector_result_blocks},
-            {"id": "fase5_aep_sector", "title": _normalize_spanish_text(f"AEP por sector ({method_label})"), "blocks": aep_sector_blocks},
-        ],
-    }
-
-
-def _sf_local(v, default=0.0):
+        nota=("La Fase 4 pondera la pérdida de cada dirección por su frecuencia; la Fase 5 aplica la pérdida de cada sector "
+              "sobre la energía de ese sector. Por eso los porcentajes pueden diferir. La AEP oficial del proyecto es la de la Fase 5."),
+    )
+    sector_detalle = str(config.get("f4_worst_sector") or peor["Sector"])
+    detalle = []
+    fila_g = resumen_geom[resumen_geom["Sector"] == sector_detalle]
+    fila_a = resumen_anual[resumen_anual["Sector"] == sector_detalle]
+    df_det_g = detalles_geom.get(sector_detalle, pd.DataFrame())
+    df_det_a = detalles_anual.get(sector_detalle, pd.DataFrame())
     try:
-        f = float(v)
-        if f != f or f == float("inf") or f == float("-inf"):
-            return default
-        return f
-    except (TypeError, ValueError):
-        return default
+        if len(fila_g) and len(df_det_g):
+            detalle.append(_figura(_preparar_grafica(crear_figura_direccion_estela(
+                df_detalle=df_det_g, sector=sector_detalle, direction_deg=float(fila_g.iloc[0][col_dir_geom]), diametro=diametro), 900, 780, False),
+                f"word_phase4_geom_detail_{sector_detalle.lower()}", f"Detalle geométrico – dirección {sector_detalle}",
+                f"Estela sobre cada turbina con viento del {sector_detalle} a {fmt_num(v_geom, 1)} m/s (dirección más crítica).",
+                f"word_fase4_detalle_geom_{sector_detalle.lower()}", "phase4_direction_detail", 900, 780))
+            detalle.append(_tabla_detalle_turbinas(df_det_g, f"Detalle geométrico por turbina – dirección {sector_detalle}",
+                                                   "Velocidades, déficit y potencia de cada turbina en esa dirección."))
+        if len(fila_a) and len(df_det_a):
+            detalle.append(_figura(_preparar_grafica(crear_figura_direccion_estela(
+                df_detalle=df_det_a, sector=sector_detalle, direction_deg=float(fila_a.iloc[0][col_dir_anual]), diametro=diametro), 900, 780, False),
+                f"word_phase4_annual_detail_{sector_detalle.lower()}", f"Detalle anual – dirección {sector_detalle}",
+                f"Estela con la velocidad media anual del sector {sector_detalle}.",
+                f"word_fase4_detalle_anual_{sector_detalle.lower()}", "phase4_direction_detail", 900, 780))
+            detalle.append(_tabla_detalle_turbinas(df_det_a, f"Detalle anual por turbina – dirección {sector_detalle}",
+                                                   "Velocidades, déficit y potencia de cada turbina con el viento medio del sector."))
+    except Exception:
+        pass
+    layout_fig = _preparar_grafica(crear_figura_layout_parque(df_layout=df_layout, diametro=diametro, titulo="Vista en planta del parque"),
+                                   950, 780, False)
+    return _seccion("fase4_estelas", "Fase 4 – Estelas y arreglo del parque",
+                    "Disposición de las turbinas y pérdidas por estela por dirección.", [
+                        _sub("f4_layout", "Vista en planta", [_figura(layout_fig, "word_phase4_layout", "Vista en planta del parque",
+                                                                      f"Posiciones de las {len(df_layout)} turbinas (coordenadas del layout de la Fase 4).",
+                                                                      "word_fase4_layout", "phase4_layout", 950, 780)]),
+                        _sub("f4_geom", "Análisis geométrico", [
+                            _figura(_preparar_grafica(_create_phase4_geometric_rose(resumen_geom), 860, 780, False), "word_phase4_geometric",
+                                    "Rosa geométrica de pérdidas", "Pérdida por estela de cada dirección a la velocidad de referencia.",
+                                    "word_fase4_geometrico", "phase4_polar", 860, 780),
+                            tabla_geom]),
+                        _sub("f4_anual", "Análisis anual ponderado", [
+                            _figura(_preparar_grafica(_create_phase4_annual_rose(resumen_anual), 860, 780, False), "word_phase4_annual",
+                                    "Rosa anual ponderada", "Longitud: pérdida ponderada por frecuencia · color: pérdida del sector.",
+                                    "word_fase4_anual", "phase4_polar", 860, 780),
+                            tabla_anual]),
+                        _sub("f4_comparacion", "Criticidad geométrica frente a anual", [
+                            _figura(_preparar_grafica(_create_phase4_geom_vs_annual(resumen_geom, resumen_anual), 1100, 680), "word_phase4_compare",
+                                    "Criticidad geométrica frente a anual", "Pérdida geométrica y pérdida anual ponderada por dirección.",
+                                    "word_fase4_comparacion", "phase4_comparison", 1100, 680)]),
+                        _sub("f4_energia", "Energía por dirección", [
+                            _figura(_preparar_grafica(_create_phase4_energy_bars(resumen_anual), 1100, 680), "word_phase4_energy",
+                                    "Energía anual por dirección", "Energía bruta y con estela de cada dirección (análisis de la Fase 4).",
+                                    "word_fase4_energia", "phase4_energy", 1100, 680)]),
+                        _sub("f4_detalle", f"Detalle de la dirección más crítica ({sector_detalle})", detalle),
+                    ])
 
 
-def _build_executive_summary_section(project_name, config, phase5_context):
-    """Resumen ejecutivo lightweight para INFORME TECNICO (no bankable).
-
-    Solo KPIs basicos: AEP bruto/neto, factor planta, n_turbinas, perdidas totales.
-    NO incluye P50/P90 (eso es bankable).
-    """
+# ─────────────────────────────────────────────────────────────
+# Fase 5 — Resultados energéticos
+# ─────────────────────────────────────────────────────────────
+def _seccion_fase5(datos, phase5_context):
     phase5_context = phase5_context or {}
-    summary = phase5_context.get("summary") or {}
-    method_label = str(phase5_context.get("method_label") or "Weibull")
-    aep_b = _sf_local(summary.get("aep_bruta_total"))
-    aep_n = _sf_local(summary.get("aep_neta_total"))
-    fp_b = _sf_local(summary.get("factor_planta_bruto"))
-    fp_n = _sf_local(summary.get("factor_planta_neto"))
-    p_kw = _sf_local(summary.get("potencia_nominal_turbina_kw"))
-    n_t = int(summary.get("n_turbinas") or 0)
-    p_inst_mw = (p_kw * n_t / 1000.0) if (p_kw and n_t) else 0.0
-    perdidas = (aep_b - aep_n) if (aep_b and aep_n) else 0.0
-    perdidas_pct = (perdidas / aep_b * 100.0) if aep_b else 0.0
-    rows = [
-        ["Proyecto", str(project_name)],
-        ["Sitio", f"Lat {config.get('nasa_lat', '—')}, Lon {config.get('nasa_lon', '—')}"],
-        ["Periodo de datos", f"{config.get('nasa_inicio', '—')} a {config.get('nasa_fin', '—')}"],
-        ["Aerogeneradores", f"{n_t} turbinas"],
-        ["Potencia nominal por turbina", f"{p_kw:,.0f} kW".replace(",", ".") if p_kw else "—"],
-        ["Potencia instalada total", f"{p_inst_mw:,.2f} MW" if p_inst_mw else "—"],
-        ["Metodo estadistico", method_label],
-        ["AEP bruta parque", f"{aep_b:,.0f} MWh/año".replace(",", ".") if aep_b else "—"],
-        ["AEP neta parque", f"{aep_n:,.0f} MWh/año".replace(",", ".") if aep_n else "—"],
-        ["Perdidas totales", f"{perdidas:,.0f} MWh/año ({perdidas_pct:.2f} %)".replace(",", ".") if perdidas else "—"],
-        ["Factor de planta bruto", f"{fp_b:.2f} %" if fp_b else "—"],
-        ["Factor de planta neto", f"{fp_n:.2f} %" if fp_n else "—"],
+    e = datos["energia"]
+    t = datos["turbina"]
+    if e.get("aep_bruta_mwh") is None:
+        return None
+    metodo = e.get("metodo") or "Weibull"
+    estela_modo = ("Automática desde la Fase 4" if e.get("wake_automatica") else "Manual") + f" · modelo {e.get('wake_model')}"
+    principales = _tabla("Resultados principales", "Indicadores energéticos del escenario calculado en la Fase 5.",
+                         ["Indicador", "Valor"], [
+                             ["AEP bruta del parque", f"{fmt_num(e['aep_bruta_mwh'], 0)} MWh/año"],
+                             ["AEP con estela", f"{fmt_num(e.get('aep_con_estela_mwh'), 0)} MWh/año"],
+                             ["AEP neta del parque", f"{fmt_num(e.get('aep_neta_mwh'), 0)} MWh/año"],
+                             ["Pérdida por estela aplicada", f"{fmt_pct(e.get('estela_pct'), 2)} ({estela_modo})"],
+                             ["Pérdidas totales", fmt_pct(e.get("perdida_total_pct"), 2)],
+                             ["Factor de planta bruto", fmt_pct(e.get("fp_bruto_pct"), 2)],
+                             ["Factor de planta neto", fmt_pct(e.get("fp_neto_pct"), 2)],
+                             ["Número de turbinas", fmt_num(t.get("n_turbinas"), 0)],
+                             ["Potencia nominal por turbina", f"{fmt_num(t.get('p_nominal_kw'), 0)} kW"],
+                             ["Método estadístico", metodo],
+                         ])
+    bloques_perdidas = []
+    fig_loss = phase5_context.get("fig_loss_distribution")
+    if fig_loss is not None:
+        fig_loss = _preparar_grafica(fig_loss, 880, 720, False)
+        # La dona de la Fase 5 trae letra de 11-12 px: en las 4,8 in del Word quedaba ilegible.
+        fig_loss.update_traces(textfont_size=20)
+        fig_loss.update_layout(legend_font_size=18)
+        for anotacion in fig_loss.layout.annotations:
+            anotacion.font.size = 22
+        bloques_perdidas.append(_figura(fig_loss, "word_phase5_loss_distribution",
+                                        f"Distribución de pérdidas ({metodo})", "Peso relativo de cada tipo de pérdida sobre el total.",
+                                        "word_fase5_distribucion_perdidas", "phase5_loss_distribution", 880, 720))
+    tabla_perdidas = e.get("tabla_perdidas")
+    if tabla_perdidas is None:
+        tabla_perdidas = phase5_context.get("tabla_perdidas")
+    if tabla_perdidas is not None and len(tabla_perdidas) > 0:
+        filas = [[str(r.get("Concepto")), fmt_num(r.get("Pérdida (%)"), 2), fmt_num(r.get("Energía perdida (MWh/año)"), 1)]
+                 for _, r in tabla_perdidas.iterrows()]
+        bloques_perdidas.append(_tabla("Pérdidas energéticas", "Pérdidas aplicadas en secuencia sobre la AEP bruta.",
+                                       ["Concepto", "Pérdida (%)", "Energía perdida (MWh/año)"], filas))
+    df_sector = e.get("df_aep_sector")
+    if df_sector is None:
+        df_sector = phase5_context.get("df_aep_sector")
+    bloques_sector = []
+    if df_sector is not None and len(df_sector) > 0:
+        filas = []
+        for _, r in df_sector.iterrows():
+            filas.append([r.get("Sector"), fmt_num(r.get("Frecuencia (%)"), 2), fmt_num(r.get("Horas equivalentes anuales (h/año)"), 0),
+                          fmt_num(num(r.get("Potencia media por turbina (W)"), 0) / 1000.0, 0),
+                          fmt_num(r.get("AEP bruta parque (MWh/año)"), 1), fmt_num(r.get("Pérdida estela sector (%)"), 2),
+                          fmt_num(r.get("AEP con estela (MWh/año)"), 1), fmt_num(r.get("AEP neta sector (MWh/año)"), 1)])
+        filas.append(["Total", fmt_num(df_sector["Frecuencia (%)"].sum(), 2), fmt_num(df_sector["Horas equivalentes anuales (h/año)"].sum(), 0), "—",
+                      fmt_num(df_sector["AEP bruta parque (MWh/año)"].sum(), 1), "—",
+                      fmt_num(df_sector["AEP con estela (MWh/año)"].sum(), 1), fmt_num(df_sector["AEP neta sector (MWh/año)"].sum(), 1)])
+        bloques_sector.append(_tabla("Resultados por sector", "Energía bruta, con estela y neta de cada dirección.",
+                                     ["Sector", "Frec. (%)", "Horas eq. (h/año)", "P media turbina (kW)", "AEP bruta (MWh)",
+                                      "Pérd. estela (%)", "AEP con estela (MWh)", "AEP neta (MWh)"], filas, familia="phase5_sector_table"))
+    fig_sector = phase5_context.get("fig_sectorial")
+    bloques_grafica = []
+    if fig_sector is not None:
+        bloques_grafica.append(_figura(_preparar_grafica(fig_sector, 1100, 680), "word_phase5_aep_sector", f"AEP por sector ({metodo})",
+                                       "AEP bruta y neta por dirección.", "word_fase5_aep_sector", "phase5_sector_chart", 1100, 680))
+    return _seccion("fase5_resultados", "Fase 5 – Resultados energéticos",
+                    "AEP, factor de planta y pérdidas del escenario calculado.", [
+                        _sub("f5_principales", "Resultados principales", [principales]),
+                        _sub("f5_perdidas", "Pérdidas", bloques_perdidas),
+                        _sub("f5_sectores", "Resultados por sector", bloques_sector),
+                        _sub("f5_grafica", "AEP por sector", bloques_grafica),
+                    ])
+
+
+# ─────────────────────────────────────────────────────────────
+# Fase 6 — Estudios avanzados (solo lo que se haya ejecutado)
+# ─────────────────────────────────────────────────────────────
+def _seccion_fase6(datos):
+    a = datos["ambiental"]
+    iec = datos["iec"]
+    r = datos["recurso"]
+    filas = []
+    if a.get("ruido_analizado"):
+        cumple = (a["ruido_max_db"] <= a["ruido_lim_noche"]) if a.get("ruido_lim_noche") is not None else None
+        filas.append(["Ruido máximo en receptores (ISO 9613-2)", f"{fmt_num(a['ruido_max_db'], 1)} dB(A)",
+                      f"día {fmt_num(a.get('ruido_lim_dia'), 0)} / noche {fmt_num(a.get('ruido_lim_noche'), 0)} dB(A)",
+                      "Cumple (también de noche)" if cumple else ("Supera el límite nocturno" if cumple is False else "—")])
+    if a.get("flicker_analizado"):
+        cumple = a["flicker_max_h"] <= a["flicker_lim_h"] if a.get("flicker_lim_h") is not None else None
+        filas.append(["Parpadeo de sombra máximo", f"{fmt_num(a['flicker_max_h'], 1)} h/año", f"{fmt_num(a.get('flicker_lim_h'), 0)} h/año",
+                      "Cumple" if cumple else ("Supera el límite" if cumple is False else "—")])
+    if iec.get("cumple") is not None or r.get("ti_15") is not None:
+        veredicto = {True: "Cumple", False: "No cumple", None: "Sin datos suficientes"}[iec.get("cumple")]
+        filas.append([f"IEC 61400-1 · clase {iec.get('clase_declarada')}{iec.get('categoria_declarada')} (Fase 5)",
+                      f"V media buje {fmt_num(r.get('v_media_buje'), 2)} m/s · TI15 {fmt_num(r.get('ti_15'), 3)}",
+                      f"V ≤ {fmt_num(iec.get('v_avg_clase'), 1)} m/s · TI ≤ {fmt_num(iec.get('ti_clase'), 2)}", veredicto])
+    if not filas:
+        return None
+    tabla = _tabla("Resultados disponibles de la Fase 6", "Solo se listan los estudios que se ejecutaron en la app.",
+                   ["Estudio", "Resultado", "Límite / referencia", "Estado"], filas,
+                   nota=("La intensidad de turbulencia se estima con la serie horaria de la app; la norma usa estadísticos de 10 minutos, "
+                         "por lo que la TI es indicativa y el veredicto de turbulencia debe confirmarse con medición."))
+    return _seccion("fase6_estudios", "Fase 6 – Estudios avanzados (resumen)",
+                    "Resultados de los estudios complementarios ejecutados en la app.", [_sub("f6_resumen", "", [tabla])])
+
+
+# ─────────────────────────────────────────────────────────────
+# Portada, resumen y cierre
+# ─────────────────────────────────────────────────────────────
+def _seccion_identificacion(datos, titulos):
+    p, t = datos["proyecto"], datos["turbina"]
+    from datetime import datetime
+
+    filas = [
+        ["Documento", "Informe técnico — análisis exploratorio por fases"],
+        ["Proyecto", p["nombre"]],
+        ["Ubicación", f"lat {fmt_coord(p.get('lat'))} · lon {fmt_coord(p.get('lon'))}"
+                      + (f" ({p['pais_inferido_nombre']})" if p.get("pais_inferido_nombre") else "")],
+        ["Aerogeneradores", f"{fmt_num(t.get('n_turbinas'), 0)} × {fmt_num(t.get('p_nominal_kw'), 0)} kW · rotor "
+                            f"{fmt_num(t.get('diametro_m'), 1)} m · buje {fmt_num(t.get('altura_buje_m'), 0)} m"],
+        ["Período de datos", f"{p.get('inicio')} a {p.get('fin')} ({p.get('fuente')})"],
+        ["Tipo de informe", "Técnico-descriptivo (no bankable)"],
+        ["Audiencia", "Equipo de ingeniería / soporte interno"],
+        ["Contenido", " · ".join(titulos)],
+        ["Generado", datetime.now().strftime("%Y-%m-%d %H:%M")],
+        ["Herramienta", "SMA 2.0"],
+        ["Diferencia con el bankable", "No incluye P50/P90, incertidumbre, análisis económico ni registro de riesgos: "
+                                       "para eso use el «Reporte bankable» de la Fase 7."],
     ]
+    from .estilo import diagrama_metodologia_png
+
+    pasos = [
+        ("Fase 1 · Aerogenerador", "Curva de potencia y Cp"), ("Fase 2 · Perfiles", "Serie de viento y\nextrapolación vertical"),
+        ("Fase 3 · Dirección", "Rosa y Weibull\npor sector"), ("Fase 3.5 · Probabilidad", "Ocurrencia por sector\ny velocidad"),
+        ("Fase 4 · Estelas", "Disposición y pérdidas\npor dirección"), ("Fase 5 · Energía", "AEP bruta y neta"),
+        ("Fase 6 · Estudios", "Ruido, parpadeo e IEC"),
+    ]
+    diagrama = {"type": "figure", "title": "Estructura del estudio: fases de la aplicación y resultado de cada una",
+                "description": "", "image_bytes": diagrama_metodologia_png(pasos, por_fila=4, destacados=(5,)),
+                "image_format": "png", "file_name": "estructura_del_estudio.png", "figure_family": "diagrama"}
+    return _seccion("identificacion", "Identificación del documento",
+                    "", [_sub("id_tabla", "", [_tabla("Datos del informe", "", ["Campo", "Valor"], filas), diagrama])])
+
+
+def _portada_modelo(datos):
+    """Datos de la portada formal (banda, proyecto, ubicación y datos clave)."""
+    from datetime import datetime
+
+    p, t = datos["proyecto"], datos["turbina"]
+    lugar = p.get("pais_inferido_nombre") or p.get("pais_nombre") or ""
     return {
-        "id": "resumen_ejecutivo",
-        "title": _normalize_spanish_text("Resumen ejecutivo"),
-        "description": _normalize_spanish_text(
-            "Resumen de alto nivel con los principales indicadores tecnicos del proyecto. "
-            "Para indicadores bankable (P50/P75/P90, NPV, IRR, LCOE detallado, IEC 61400-15-2, risk register) "
-            "genere el Reporte BANKABLE desde el modulo dedicado."
-        ),
-        "subsections": [
-            {
-                "id": "exec_kpis",
-                "title": _normalize_spanish_text("Indicadores principales"),
-                "blocks": [
-                    {
-                        "type": "table",
-                        "title": _normalize_spanish_text("Resumen tecnico del proyecto"),
-                        "description": _normalize_spanish_text("Indicadores claves del estudio tecnico, agregados por fases."),
-                        "headers": [_normalize_spanish_text("Concepto"), _normalize_spanish_text("Valor")],
-                        "rows": rows,
-                    },
-                ],
-            },
+        "cover_title": "INFORME TÉCNICO",
+        "cover_subtitle": "Análisis exploratorio por fases del proyecto eólico",
+        "cover_line": f"{lugar} · lat {fmt_coord(p.get('lat'))} · lon {fmt_coord(p.get('lon'))} · {datetime.now():%Y-%m-%d}",
+        "cover_rows": [
+            ["Aerogeneradores", f"{fmt_num(t.get('n_turbinas'), 0)} × {fmt_num(t.get('p_nominal_kw'), 0)} kW · rotor "
+                                f"{fmt_num(t.get('diametro_m'), 1)} m · buje {fmt_num(t.get('altura_buje_m'), 0)} m"],
+            ["Potencia instalada", f"{fmt_num(t.get('p_instalada_mw'), 2)} MW"],
+            ["Datos de viento", f"{p.get('fuente')} · {p.get('inicio')} a {p.get('fin')}"],
+            ["Tipo de documento", "Informe técnico-descriptivo (no bankable)"],
+            ["Herramienta", "SMA 2.0"],
         ],
     }
 
 
-def _build_phase6_section(config, phase5_context):
-    """Fase 7 - Exportacion y manifiesto del informe tecnico.
-
-    Cierra el ciclo: documenta config de exportacion, formatos generados, LCOE
-    basico (si disponible), y manifiesto de trazabilidad sin overlap con bankable.
-    """
-    from datetime import UTC, datetime
-    phase5_context = phase5_context or {}
-    summary = phase5_context.get("summary") or {}
-    lcoe = _sf_local(summary.get("lcoe_mwh"))
-    moneda = str(summary.get("unidad_monetaria") or "USD")
-    aep_n = _sf_local(summary.get("aep_neta_total"))
-    fecha = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-
-    export_rows = [
-        ["Documento generado", "Informe tecnico exploratorio por fases"],
-        ["Formatos disponibles", "PDF + Word (.docx) + Excel/CSV + JSON"],
-        ["Fuente datos meteo", str(config.get("nasa_fuente") or "NASA POWER API")],
-        ["Periodo analisis", f"{config.get('nasa_inicio', '—')} a {config.get('nasa_fin', '—')}"],
-        ["Generado en (UTC)", fecha],
-        ["Herramienta", "SMA 2.0 — modo informe tecnico"],
-        ["Diferencia vs bankable", "Sin P50/P90, sin IEC 61400-15-2, sin risk register, sin cash flow"],
+def _seccion_resumen(datos):
+    p, t, e, r = datos["proyecto"], datos["turbina"], datos["energia"], datos["recurso"]
+    filas = [
+        ["Sitio", f"lat {fmt_coord(p.get('lat'))} · lon {fmt_coord(p.get('lon'))}"],
+        ["Aerogeneradores", f"{fmt_num(t.get('n_turbinas'), 0)} turbinas de {fmt_num(t.get('p_nominal_kw'), 0)} kW"],
+        ["Potencia instalada", f"{fmt_num(t.get('p_instalada_mw'), 2)} MW"],
+        ["Altura de buje", f"{fmt_num(t.get('altura_buje_m'), 0)} m"],
     ]
-    if lcoe:
-        export_rows.insert(5, ["LCOE estimado", f"{lcoe:.2f} {moneda}/MWh"])
-
-    blocks_main = [{
-        "type": "table",
-        "title": _normalize_spanish_text("Configuracion de exportacion"),
-        "description": _normalize_spanish_text("Resumen de los formatos generados y trazabilidad del informe tecnico."),
-        "headers": [_normalize_spanish_text("Campo"), _normalize_spanish_text("Valor")],
-        "rows": export_rows,
-    }]
-
-    next_steps_rows = [
-        ["1. Validar Fase 2", "Confirmar que NASA POWER cubre el periodo de interes y revisar perfil vertical"],
-        ["2. Validar Fase 3", "Verificar rosa de vientos y ajuste Weibull por sector"],
-        ["3. Refinar Fase 4", "Iterar layout para minimizar perdidas por estela"],
-        ["4. Cerrar Fase 5", "Confirmar perdidas (disp, electricas, otras) con O&M y eléctrico"],
-        ["5. Bankable", "Para FID / project finance, generar Reporte BANKABLE separado"],
-        ["6. Validacion 3a parte", "EYA bankable con consultor certificado (WAsP / WindPRO / OpenWind)"],
+    if r.get("v_media_buje") is not None:
+        filas.append(["Velocidad media a la altura de buje", f"{fmt_num(r['v_media_buje'], 2)} m/s"])
+    filas += [
+        ["Método estadístico", e.get("metodo") or "—"],
+        ["AEP bruta del parque", f"{fmt_num(e.get('aep_bruta_mwh'), 0)} MWh/año"],
+        ["Pérdida por estela aplicada", fmt_pct(e.get("estela_pct"), 2)],
+        ["Pérdidas totales", f"{fmt_num((e.get('aep_bruta_mwh') or 0) - (e.get('aep_neta_mwh') or 0), 0)} MWh/año ({fmt_pct(e.get('perdida_total_pct'), 2)})"],
+        ["AEP neta del parque", f"{fmt_num(e.get('aep_neta_mwh'), 0)} MWh/año"],
+        ["Factor de planta bruto / neto", f"{fmt_pct(e.get('fp_bruto_pct'), 1)} / {fmt_pct(e.get('fp_neto_pct'), 1)}"],
     ]
-    blocks_next = [{
-        "type": "table",
-        "title": _normalize_spanish_text("Proximos pasos recomendados"),
-        "description": _normalize_spanish_text("Plan de trabajo sugerido para evolucionar del informe tecnico a un EYA bankable."),
-        "headers": [_normalize_spanish_text("Paso"), _normalize_spanish_text("Accion")],
-        "rows": next_steps_rows,
-    }]
-
-    return {
-        "id": "fase6_exportacion",
-        "title": _normalize_spanish_text("Fase 7 - Exportacion y cierre del informe"),
-        "description": _normalize_spanish_text(
-            "Cierre formal del informe tecnico: configuracion de exportacion, trazabilidad y proximos pasos. "
-            "Esta fase NO incluye analisis economico bankable (CAPEX/OPEX/NPV/LCOE detallado). "
-            "Para project finance use el modulo 'Reporte BANKABLE' en Fase 7 de la app."
-        ),
-        "subsections": [
-            {"id": "fase6_config_export", "title": _normalize_spanish_text("Configuracion de exportacion"), "blocks": blocks_main},
-            {"id": "fase6_next_steps", "title": _normalize_spanish_text("Proximos pasos y recomendaciones"), "blocks": blocks_next},
-        ],
-    }
+    return _seccion("resumen_ejecutivo", "Resumen ejecutivo",
+                    "Indicadores técnicos principales del proyecto. Para P50/P90, VPN, TIR e incertidumbre use el «Reporte bankable».",
+                    [_sub("res_tabla", "", [_tabla("Indicadores principales", "", ["Concepto", "Valor"], filas)])])
 
 
-def _build_informe_cover_section(project_name, config):
-    """Cover diferenciada para INFORME TECNICO (vs reporte bankable).
+def _seccion_cierre(datos, config):
+    from datetime import datetime
 
-    Color teal/verde + subtitulo 'Analisis exploratorio por fases' para
-    contrastar con bankable navy + 'Evaluacion bankable para project finance'.
-    """
-    from datetime import UTC, datetime
-    fecha = datetime.now(UTC).strftime("%Y-%m-%d")
-    cover_rows = [
-        ["Documento", "Informe tecnico — Analisis exploratorio"],
-        ["Proyecto", str(project_name)],
-        ["Tipo de informe", "Tecnico-descriptivo (no bankable)"],
-        ["Audiencia", "Equipo de ingenieria / soporte interno"],
-        ["Estructura", "Por fases del estudio (Fase 1 a Fase 5)"],
-        ["Latitud / Longitud", f"{config.get('nasa_lat', '—')}, {config.get('nasa_lon', '—')}"],
-        ["Periodo", f"{config.get('nasa_inicio', '—')} a {config.get('nasa_fin', '—')}"],
-        ["Fuente datos", "NASA POWER API"],
-        ["Generado (UTC)", fecha],
-        ["Herramienta", "SMA 2.0 — modo INFORME TECNICO"],
-        ["Diferencia con bankable", "Este informe NO incluye P50/P75/P90, ni IEC 61400-15-2, ni analisis economico CAPEX/OPEX, ni risk register. Para evaluacion bankable use el modulo 'Reporte BANKABLE' en Fase 7."],
+    eco = datos["economia"]
+    p = datos["proyecto"]
+    filas = [
+        ["Documento generado", "Informe técnico por fases"],
+        ["Formatos disponibles", "PDF · Word (.docx) · Excel · JSON · GIS (KML/GeoJSON/CSV)"],
+        ["Fuente meteorológica", p.get("fuente")],
+        ["Período analizado", f"{p.get('inicio')} a {p.get('fin')}"],
+        ["Generado", datetime.now().strftime("%Y-%m-%d %H:%M")],
+        ["Herramienta", "SMA 2.0 — modo informe técnico"],
     ]
-    return {
-        "id": "cover_informe_tecnico",
-        "title": _normalize_spanish_text("INFORME TECNICO — Analisis exploratorio por fases"),
-        "description": _normalize_spanish_text(
-            "Documento tecnico-descriptivo del proyecto eolico organizado por fases del estudio. "
-            "Sirve como soporte interno para revisar configuracion, recurso eolico, estelas y "
-            "resultados energeticos. NO sustituye el Reporte BANKABLE para project finance."
-        ),
-        "subsections": [
-            {
-                "id": "cover_informe_metadata",
-                "title": _normalize_spanish_text("Identificacion del documento"),
-                "blocks": [
-                    {
-                        "type": "table",
-                        "title": _normalize_spanish_text("Datos del informe"),
-                        "description": _normalize_spanish_text("Metadatos generales del informe tecnico exploratorio."),
-                        "headers": [_normalize_spanish_text("Campo"), _normalize_spanish_text("Valor")],
-                        "rows": cover_rows,
-                    },
-                ],
-            },
-        ],
-    }
+    nota = None
+    if eco.get("lcoe_mwh") is not None:
+        filas.insert(4, ["LCOE estimado (Fase 5)", f"{eco['moneda']} {fmt_num(eco['lcoe_mwh'] * (eco.get('factor') or 1.0), 2)}/MWh"])
+        if any(a.get("clave") == "capex" for a in datos.get("avisos", [])):
+            nota = ("Revise la moneda de la Fase 5: el CAPEX equivale a menos de 500 USD/kW (lo típico en eólica terrestre es "
+                    "1.000–2.500 USD/kW), así que el LCOE podría estar en otra moneda.")
+    siguientes = [
+        ["1. Validar la Fase 2", "Confirmar que la serie cubre el período de interés y revisar el perfil vertical"],
+        ["2. Validar la Fase 3", "Verificar la rosa de vientos y el ajuste Weibull por sector"],
+        ["3. Refinar la Fase 4", "Iterar el layout para reducir las pérdidas por estela"],
+        ["4. Cerrar la Fase 5", "Confirmar pérdidas (disponibilidad, eléctricas, otras) con O&M y el diseño eléctrico"],
+        ["5. Reporte bankable", "Para FID o project finance, generar el «Reporte bankable» de la Fase 7"],
+        ["6. Validación de tercera parte", "EYA bankable con consultor certificado (WAsP / WindPRO / openWind)"],
+    ]
+    return _seccion("cierre", "Cierre del informe",
+                    "Trazabilidad de la exportación y próximos pasos recomendados. El análisis económico detallado y la "
+                    "incertidumbre P50/P90 están en el «Reporte bankable».", [
+                        _sub("cierre_config", "Configuración de la exportación", [_tabla("Exportación", "", ["Campo", "Valor"], filas, nota=nota)]),
+                        _sub("cierre_pasos", "Próximos pasos", [_tabla("Próximos pasos recomendados",
+                                                                       "Plan sugerido para pasar del informe técnico a un EYA bankable.",
+                                                                       ["Paso", "Acción"], siguientes)]),
+                    ])
 
 
-def build_informe_tecnico_word_model(config=None, project_name="", df_curva_raw=None, df_nasa=None, df_layout=None, master_docx_bytes=None, master_docx_name="informe_tecnico editado por mi.docx", phase5_context=None):
+# ─────────────────────────────────────────────────────────────
+# Modelos públicos
+# ─────────────────────────────────────────────────────────────
+def build_informe_tecnico_model(config=None, project_name="", df_curva_raw=None, df_nasa=None, master_docx_bytes=None,
+                                master_docx_name="informe_tecnico editado por mi.docx", datos=None):
+    """Modelo base (Fases 1 y 2). Se mantiene por compatibilidad."""
     config = config or {}
-    project_name = str(project_name or config.get("project_name") or "Proyecto eolico").strip() or "Proyecto eolico"
+    datos = datos or construir_datos_exportacion(config, {"df_curva_raw": df_curva_raw, "df_nasa": df_nasa,
+                                                          "project_name_default": project_name})
+    secciones = [s for s in (_seccion_fase1(config, datos, df_curva_raw), _seccion_fase2(config, datos, df_nasa)) if s]
+    return normalize_text_deep({
+        "document_id": "informe_tecnico", "title": "Informe técnico", "project_name": datos["proyecto"]["nombre"],
+        "intro_paragraphs": [], "sections": secciones, "base_blocks": [],
+        "word_master": {"available": False, "docx_bytes": None, "file_name": master_docx_name},
+        "appended_sections": secciones[1:], "master_source_name": master_docx_name, "master_source_used": False,
+    })
+
+
+def build_informe_tecnico_word_model(config=None, project_name="", df_curva_raw=None, df_nasa=None, df_layout=None,
+                                     master_docx_bytes=None, master_docx_name="informe_tecnico editado por mi.docx",
+                                     phase5_context=None, datos=None):
+    config = config or {}
+    datos = datos or construir_datos_exportacion(config, {
+        "df_curva_raw": df_curva_raw, "df_nasa": df_nasa, "df_layout": df_layout, "project_name_default": project_name,
+    })
+    nombre = datos["proyecto"]["nombre"]
     word_master = load_informe_tecnico_master_docx(master_docx_bytes, file_name=master_docx_name)
-    cover_section = _build_informe_cover_section(project_name, config)
-    exec_summary_section = _build_executive_summary_section(project_name, config, phase5_context)
-    phase6_section = _build_phase6_section(config, phase5_context)
-    appended_sections = [
-        section for section in [
-            _build_phase3_section(config=config, df_nasa=df_nasa),
-            _build_phase35_section(config=config, df_nasa=df_nasa, df_curva_raw=df_curva_raw),
-            _build_phase4_section(config=config, df_nasa=df_nasa, df_curva_raw=df_curva_raw, df_layout=df_layout),
-            _build_phase5_section(config=config, phase5_context=phase5_context),
-            phase6_section,
-        ]
-        if section
-    ]
 
-    informe_title = _normalize_spanish_text("INFORME TECNICO — Analisis exploratorio por fases")
-    informe_intro = [
-        _normalize_spanish_text(
-            f"Proyecto: {project_name}. Documento tecnico-descriptivo organizado por fases "
-            f"del estudio. Foco: configuracion del aerogenerador, recurso eolico, "
-            f"distribucion direccional, estelas y resultados energeticos sin pretensiones "
-            f"de bankability."
-        ),
-        _normalize_spanish_text(
-            "AVISO: Este informe NO es un EYA bankable. No contiene Monte Carlo P50/P75/P90, "
-            "ni analisis IEC 61400-15-2 de incertidumbre, ni analisis economico CAPEX/OPEX, "
-            "ni risk register. Para soportar decision de inversion (FID, project finance) "
-            "genere el 'Reporte BANKABLE' desde la misma Fase 7."
-        ),
+    fases = [
+        _seccion_fase1(config, datos, df_curva_raw),
+        _seccion_fase2(config, datos, df_nasa),
+        _seccion_fase3(config, df_nasa),
+        _seccion_fase35(config, df_nasa),
+        _seccion_fase4(config, df_nasa, df_curva_raw, df_layout),
+        _seccion_fase5(datos, phase5_context),
+        _seccion_fase6(datos),
     ]
-
+    fases = [s for s in fases if s]
+    cierre = _seccion_cierre(datos, config)
+    resumen = _seccion_resumen(datos)
+    titulos = [s["title"].split(" – ")[0] for s in fases]
+    identificacion = _seccion_identificacion(datos, titulos)
+    intro = [
+        f"Proyecto {nombre}. Documento técnico-descriptivo organizado por las fases del estudio: aerogenerador, recurso "
+        "eólico, distribución direccional, estelas y resultados energéticos.",
+        "Aviso: este informe no es un EYA bankable. No incluye incertidumbre P50/P90, análisis económico ni registro de "
+        "riesgos; para una decisión de inversión (FID o project finance) genere el «Reporte bankable» en la Fase 7.",
+    ]
+    portada = _portada_modelo(datos)
     if word_master.get("available"):
-        sections = [cover_section, exec_summary_section] + list(word_master.get("sections", []) or [])
-        sections.extend(appended_sections)
-        report_model = {
-            "document_id": "informe_tecnico",
-            "title": informe_title,
-            "project_name": _normalize_spanish_text(project_name),
-            "intro_paragraphs": informe_intro,
-            "sections": sections,
-            "base_blocks": word_master.get("base_blocks", []),
-            "word_master": word_master,
-            "appended_sections": appended_sections,
-            "master_source_name": word_master.get("file_name", master_docx_name),
-            "master_source_used": True,
+        secciones = [identificacion, resumen] + list(word_master.get("sections", []) or []) + fases[2:] + [cierre]
+        modelo = {**portada,
+            "document_id": "informe_tecnico", "title": "Informe técnico — Análisis exploratorio por fases",
+            "project_name": nombre, "intro_paragraphs": intro, "sections": [s for s in secciones if s],
+            "base_blocks": word_master.get("base_blocks", []), "word_master": word_master,
+            "appended_sections": [s for s in fases[2:] + [cierre] if s],
+            "master_source_name": word_master.get("file_name", master_docx_name), "master_source_used": True,
         }
-        return normalize_text_deep(report_model)
+        return normalize_text_deep(modelo)
+    modelo = {
+        **portada,
+        "document_id": "informe_tecnico", "title": "Informe técnico — Análisis exploratorio por fases",
+        "project_name": nombre, "intro_paragraphs": intro,
+        "sections": [s for s in [identificacion, resumen] + fases + [cierre] if s],
+        "base_blocks": [], "word_master": {"available": False, "docx_bytes": None, "file_name": master_docx_name},
+        "appended_sections": fases[1:] + [cierre], "master_source_name": master_docx_name, "master_source_used": False,
+    }
+    return normalize_text_deep(modelo)
 
-    base_model = build_informe_tecnico_model(
-        config=config,
-        project_name=project_name,
-        df_curva_raw=df_curva_raw,
-        df_nasa=df_nasa,
-        master_docx_bytes=None,
-        master_docx_name=master_docx_name,
-    )
-    base_sections = list(base_model.get("sections", []) or [])
-    base_model["title"] = informe_title
-    base_model["intro_paragraphs"] = informe_intro
-    base_model["sections"] = [cover_section, exec_summary_section] + base_sections + appended_sections
-    base_model["appended_sections"] = appended_sections
-    return normalize_text_deep(base_model)
 
+__all__ = ["build_informe_tecnico_model", "build_informe_tecnico_word_model", "ROUGHNESS_OPTIONS"]

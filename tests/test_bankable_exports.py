@@ -139,18 +139,15 @@ def synthetic_ctx():
     }
 
 
-def test_excel_pro_generates_all_16_sheets(synthetic_ctx):
+def test_excel_pro_generates_all_17_sheets(synthetic_ctx):
     import openpyxl
     xlsx_bytes = exportar_excel_pro(synthetic_ctx)
     assert isinstance(xlsx_bytes, bytes)
     assert len(xlsx_bytes) > 5000
     wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
-    expected = [
-        "00_Cover", "01_Executive_Summary", "02_Site_Turbine", "03_Wind_Resource",
-        "04_Power_Curve", "05_Energy_Sectorial", "06_Loss_Waterfall", "07_Per_WTG_AEP",
-        "08_Uncertainty_P50_P90", "09_Economics", "10_Cash_Flow", "11_Sensitivity",
-        "12_Site_Suitability_IEC", "13_Assumptions", "14_Glossary_Refs", "15_Audit_Manifest",
-    ]
+    from reportes.excel_pro import HOJAS
+    expected = list(HOJAS)
+    assert len(expected) == 17 and expected[-1] == "16_Manifiesto"
     for s in expected:
         assert s in wb.sheetnames, f"Falta hoja {s}"
 
@@ -159,21 +156,21 @@ def test_excel_pro_has_sha256_hash(synthetic_ctx):
     import openpyxl
     xlsx_bytes = exportar_excel_pro(synthetic_ctx)
     wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
-    ws = wb["15_Audit_Manifest"]
+    ws = wb["16_Manifiesto"]
     found = False
     for r in range(1, ws.max_row + 1):
-        if ws.cell(row=r, column=1).value == "content_sha256":
+        if ws.cell(row=r, column=1).value == "Huella SHA-256 de los datos":
             val = ws.cell(row=r, column=2).value
             assert val and val != "—" and len(str(val)) == 64
             found = True
-    assert found, "Falta entrada content_sha256 en Audit_Manifest"
+    assert found, "Falta la huella SHA-256 en 16_Manifiesto"
 
 
 def test_excel_pro_loss_waterfall_consistent(synthetic_ctx):
     import openpyxl
     xlsx_bytes = exportar_excel_pro(synthetic_ctx)
     wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
-    ws = wb["06_Loss_Waterfall"]
+    ws = wb["06_Cascada_de_pérdidas"]
     # AEP bruta row 4, AEP neta row 9
     aep_bruta = ws.cell(row=4, column=2).value
     aep_neta_row_val = ws.cell(row=9, column=2).value
@@ -302,10 +299,10 @@ def test_excel_pro_has_wind_rose_image_when_sector_data(synthetic_ctx):
     from reportes.excel_pro import exportar_excel_pro
     xlsx = exportar_excel_pro(synthetic_ctx)
     wb = openpyxl.load_workbook(io.BytesIO(xlsx), data_only=True)
-    ws = wb["03_Wind_Resource"]
+    ws = wb["03_Recurso_eólico"]
     # buscar imagenes embebidas (matplotlib PNG)
     n_imgs = len(ws._images) if hasattr(ws, "_images") else 0
-    assert n_imgs >= 1, "rosa de vientos PNG no encontrada en 03_Wind_Resource"
+    assert n_imgs >= 1, "rosa de vientos PNG no encontrada en 03_Recurso_eólico"
 
 
 # ───────── K2: Diurnal sheet ─────────
@@ -316,4 +313,4 @@ def test_diurnal_sheet_present_in_excel_pro(synthetic_ctx):
     from reportes.excel_pro import exportar_excel_pro
     xlsx = exportar_excel_pro(synthetic_ctx)
     wb = openpyxl.load_workbook(io.BytesIO(xlsx), data_only=True)
-    assert "16_Diurnal_Seasonal" in wb.sheetnames
+    assert "15_Diurno_y_estacional" in wb.sheetnames

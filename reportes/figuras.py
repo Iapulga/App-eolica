@@ -59,6 +59,26 @@ def _safe_export_file_name(stem, extension):
     return f"{safe_stem}{ext}"
 
 
+def _norm_col(texto):
+    """Clave comparable de un nombre de columna (tolera tildes, mojibake y signos)."""
+    t = _normalize_spanish_text(str(texto or ""))
+    t = unicodedata.normalize("NFKD", t)
+    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    return re.sub(r"[^a-z0-9]", "", t.lower())
+
+
+def _col(df, *candidatos):
+    """Nombre real de la primera columna de `df` que coincide con algún candidato (o None)."""
+    if df is None:
+        return None
+    mapa = {_norm_col(c): c for c in df.columns}
+    for cand in candidatos:
+        real = mapa.get(_norm_col(cand))
+        if real is not None:
+            return real
+    return None
+
+
 
 
 def _normalize_plotly_figure_text(fig):
@@ -78,12 +98,30 @@ def _normalize_plotly_figure_text(fig):
             colorbar = getattr(axis, "colorbar", None)
             if getattr(getattr(colorbar, "title", None), "text", None):
                 colorbar.title.text = _normalize_spanish_text(colorbar.title.text)
+            if axis_name.startswith("polar"):
+                for sub in ("radialaxis", "angularaxis"):
+                    sub_axis = getattr(axis, sub, None)
+                    sub_title = getattr(sub_axis, "title", None)
+                    if getattr(sub_title, "text", None):
+                        sub_title.text = _normalize_spanish_text(sub_title.text)
+        legend_title = getattr(getattr(fig.layout, "legend", None), "title", None)
+        if getattr(legend_title, "text", None):
+            legend_title.text = _normalize_spanish_text(legend_title.text)
+        for ann in fig.layout.annotations or []:
+            if getattr(ann, "text", None):
+                ann.text = _normalize_spanish_text(ann.text)
         for trace in fig.data:
             if getattr(trace, "name", None):
                 trace.name = _normalize_spanish_text(trace.name)
             colorbar = getattr(trace, "colorbar", None)
             if getattr(getattr(colorbar, "title", None), "text", None):
                 colorbar.title.text = _normalize_spanish_text(colorbar.title.text)
+            try:
+                marker_cb = getattr(getattr(trace, "marker", None), "colorbar", None)
+                if getattr(getattr(marker_cb, "title", None), "text", None):
+                    marker_cb.title.text = _normalize_spanish_text(marker_cb.title.text)
+            except Exception:
+                pass
             if getattr(trace, "hovertemplate", None):
                 trace.hovertemplate = _normalize_spanish_text(trace.hovertemplate)
     except Exception:
@@ -424,8 +462,61 @@ def _export_plotly_figure_matplotlib(fig, title="", export_options=None):
     raise RuntimeError(f"Las trazas {trace_types} no tienen fallback estatico implementado.")
 
 
+_RE_CIFRA_INGLES_MILES = re.compile(r"^([−-]?)(\d{1,3}(?:,\d{3})+)\.(\d+)$")
+_RE_CIFRA_INGLES_DECIMAL = re.compile(r"^([−-]?\d+)\.(\d{1,2})$")
+_RE_PORCENTAJE_INGLES = re.compile(r"(?<![\d.,])(\d{1,3})\.(\d{1,2})(?=\s?%)")
+
+
+def _cifra_en_espanol(texto):
+    """'62,858.2' → '62.858,2' y '-33.9' → '-33,9'. Solo formatos ingleses inequívocos: una cifra que ya
+    está en español (p. ej. '62.858') se deja igual."""
+    limpio = texto.strip()
+    m = _RE_CIFRA_INGLES_MILES.match(limpio)
+    if m:
+        return f"{m.group(1)}{m.group(2).replace(',', '.')},{m.group(3)}"
+    m = _RE_CIFRA_INGLES_DECIMAL.match(limpio)
+    if m:
+        return f"{m.group(1)},{m.group(2)}"
+    return texto
+
+
+def _imagen_formal(fig):
+    """Copia para la imagen estática: sin título interno (el título lo pone el rótulo «Figura N.» del
+    documento o el nombre del archivo) y con separadores decimales en español. Si la leyenda va arriba
+    conserva su espacio; si no, se recorta el margen superior que ocupaba el título."""
+    try:
+        fig = go.Figure(fig)
+        leyenda = fig.layout.legend
+        leyenda_arriba = leyenda.orientation == "h" and leyenda.y is not None and leyenda.y >= 0.95
+        if getattr(fig.layout.title, "text", None):
+            fig.layout.title.text = None
+            if not leyenda_arriba:
+                t = fig.layout.margin.t
+                fig.layout.margin.t = 50 if t is None else min(t, 50)
+        fig.layout.separators = ",."
+        for traza in fig.data:  # etiquetas de valor escritas en formato inglés
+            texto = getattr(traza, "text", None)
+            if isinstance(texto, (list, tuple)) and texto and all(isinstance(x, str) for x in texto):
+                traza.text = [_cifra_en_espanol(x) for x in texto]
+        for anotacion in fig.layout.annotations or ():  # «6.42%» → «6,42%»
+            if isinstance(anotacion.text, str):
+                anotacion.text = _RE_PORCENTAJE_INGLES.sub(r"\1,\2", anotacion.text)
+    except Exception:
+        pass
+    return fig
+
+
 def export_plotly_figure_artifact(fig, figure_id, title, stem=None, source_hint="", preferred_format="png", export_options=None):
     fig = _normalize_plotly_figure_text(fig)
+    if fig is not None:
+        try:  # estilo formal común de los entregables (Calibri, paleta azul marino, rejilla suave)
+            from .estilo import recolorear_plotly, registrar_plantilla_plotly
+
+            fig = recolorear_plotly(go.Figure(fig))
+            fig.update_layout(template=registrar_plantilla_plotly(),
+                              font=dict(family="Calibri, Segoe UI, Arial, sans-serif"))
+        except Exception:
+            pass
     title = _normalize_spanish_text(title or "")
     source_hint = _normalize_spanish_text(source_hint or "")
     filename_stem = _slugify_figure_name(stem or figure_id or title)
@@ -456,7 +547,7 @@ def export_plotly_figure_artifact(fig, figure_id, title, stem=None, source_hint=
                 kwargs["width"] = int(width)
             if height:
                 kwargs["height"] = int(height)
-            png_bytes = fig.to_image(**kwargs)
+            png_bytes = _imagen_formal(fig).to_image(**kwargs)
             png_bytes = _optimize_png_bytes(png_bytes, max_dimension=int(export_options.get("max_dimension", 1600)))
             file_name = _safe_export_file_name(filename_stem, ".png")
             metadata.update({
@@ -1547,104 +1638,64 @@ def _build_phase2_profile_figures(df_nasa, config, roughness_options):
     }
 
 
+def _polar_16(radial=None):
+    return dict(
+        angularaxis=dict(direction="clockwise", rotation=90, tickmode="array",
+                         tickvals=list(SECTOR_CENTERS_16), ticktext=SECTOR_LABELS_16),
+        radialaxis=dict(angle=90, **(radial or {})),
+    )
+
+
 def _create_phase4_geometric_rose(df_geom):
+    col_r = _col(df_geom, "Pérdida geométrica (%)")
+    col_t = _col(df_geom, "Dirección centro (°)")
     fig = go.Figure()
-    fig.add_trace(
-        go.Barpolar(
-            r=df_geom["Perdida GeomÃ©trica (%)"],
-            theta=df_geom["Direcci?n centro (?)"],
-            width=[22.5] * len(df_geom),
-            marker=dict(
-                color=df_geom["Perdida GeomÃ©trica (%)"],
-                colorscale="Reds",
-                colorbar=dict(title="Perdida GeomÃ©trica (%)"),
-            ),
-            name="Perdida GeomÃ©trica",
-        )
-    )
-    fig.update_layout(
-        title="AnÃ¡lisis geometrico puro del arreglo",
-        template="plotly_white",
-        height=650,
-        margin=dict(l=40, r=40, t=60, b=40),
-        polar=dict(
-            angularaxis=dict(
-                direction="clockwise",
-                rotation=90,
-                tickmode="array",
-                tickvals=list(SECTOR_CENTERS_16),
-                ticktext=SECTOR_LABELS_16,
-            ),
-            radialaxis=dict(title="Perdida GeomÃ©trica (%)", angle=90),
-        ),
-    )
+    fig.add_trace(go.Barpolar(
+        r=df_geom[col_r], theta=df_geom[col_t], width=[22.5] * len(df_geom),
+        marker=dict(color=df_geom[col_r], colorscale="Reds", colorbar=dict(title="Pérdida geométrica (%)")),
+        name="Pérdida geométrica",
+    ))
+    fig.update_layout(title="Análisis geométrico puro del arreglo", template="plotly_white", height=650,
+                      margin=dict(l=40, r=40, t=60, b=40), polar=_polar_16())
     return fig
 
 
 def _create_phase4_annual_rose(df_resumen):
+    col_pond = _col(df_resumen, "Pérdida ponderada (%)")
+    col_sector = _col(df_resumen, "Pérdida por estela (%)")
+    col_t = _col(df_resumen, "Dirección centro (°)")
     fig = go.Figure()
-    fig.add_trace(
-        go.Barpolar(
-            r=df_resumen["P?rdida ponderada (%)"],
-            theta=df_resumen["Direcci?n centro (?)"],
-            width=[22.5] * len(df_resumen),
-            marker=dict(
-                color=df_resumen["P?rdida por estela (%)"],
-                colorscale="Blues",
-                colorbar=dict(title="Perdida sector (%)"),
-            ),
-            name="P?rdida anual ponderada",
-        )
-    )
-    fig.update_layout(
-        title="Analisis anual ponderado",
-        template="plotly_white",
-        height=650,
-        margin=dict(l=40, r=40, t=60, b=40),
-        polar=dict(
-            angularaxis=dict(
-                direction="clockwise",
-                rotation=90,
-                tickmode="array",
-                tickvals=list(SECTOR_CENTERS_16),
-                ticktext=SECTOR_LABELS_16,
-            ),
-            radialaxis=dict(title="P?rdida ponderada (%)", angle=90),
-        ),
-    )
+    fig.add_trace(go.Barpolar(
+        r=df_resumen[col_pond], theta=df_resumen[col_t], width=[22.5] * len(df_resumen),
+        marker=dict(color=df_resumen[col_sector], colorscale="Blues", colorbar=dict(title="Pérdida del sector (%)")),
+        name="Pérdida anual ponderada",
+    ))
+    fig.update_layout(title="Análisis anual ponderado", template="plotly_white", height=650,
+                      margin=dict(l=40, r=40, t=60, b=40), polar=_polar_16())
     return fig
 
 
 def _create_phase4_energy_bars(df_resumen):
+    col_b = _col(df_resumen, "Energía bruta (MWh/año)")
+    col_w = _col(df_resumen, "Energía con estela (MWh/año)")
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=df_resumen["Sector"], y=df_resumen["Energ?a bruta (MWh/a?o)"], name="Bruta"))
-    fig.add_trace(go.Bar(x=df_resumen["Sector"], y=df_resumen["Energ?a con estela (MWh/a?o)"], name="Con estela"))
-    fig.update_layout(
-        title="Energ?a anual por direcci?n",
-        template="plotly_white",
-        barmode="group",
-        height=500,
-        margin=dict(l=40, r=40, t=60, b=40),
-        xaxis_title="Sector",
-        yaxis_title="Energ?a (MWh/a?o)",
-    )
+    fig.add_trace(go.Bar(x=df_resumen["Sector"], y=df_resumen[col_b], name="Bruta"))
+    fig.add_trace(go.Bar(x=df_resumen["Sector"], y=df_resumen[col_w], name="Con estela"))
+    fig.update_layout(title="Energía anual por dirección", template="plotly_white", barmode="group", height=500,
+                      margin=dict(l=40, r=40, t=60, b=40), xaxis_title="Sector", yaxis_title="Energía (MWh/año)")
     return fig
 
 
 def _create_phase4_geom_vs_annual(df_geom, df_anual):
-    df_plot = df_geom.merge(df_anual[["Sector", "P?rdida ponderada (%)"]], on="Sector", how="left")
+    col_g = _col(df_geom, "Pérdida geométrica (%)")
+    col_a = _col(df_anual, "Pérdida ponderada (%)")
+    df_plot = df_geom[["Sector", col_g]].merge(df_anual[["Sector", col_a]], on="Sector", how="left")
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=df_plot["Sector"], y=df_plot["Perdida GeomÃ©trica (%)"], name="Geom?trica (%)"))
-    fig.add_trace(go.Bar(x=df_plot["Sector"], y=df_plot["P?rdida ponderada (%)"], name="Anual ponderada (%)"))
-    fig.update_layout(
-        title="Comparaci?n: criticidad geom?trica vs criticidad anual",
-        template="plotly_white",
-        barmode="group",
-        height=500,
-        margin=dict(l=40, r=40, t=60, b=40),
-        xaxis_title="Sector",
-        yaxis_title="P?rdida (%)",
-    )
+    fig.add_trace(go.Bar(x=df_plot["Sector"], y=df_plot[col_g], name="Geométrica (%)"))
+    fig.add_trace(go.Bar(x=df_plot["Sector"], y=df_plot[col_a], name="Anual ponderada (%)"))
+    fig.update_layout(title="Comparación: criticidad geométrica vs criticidad anual", template="plotly_white",
+                      barmode="group", height=500, margin=dict(l=40, r=40, t=60, b=40),
+                      xaxis_title="Sector", yaxis_title="Pérdida (%)")
     return fig
 
 
@@ -1654,14 +1705,14 @@ def _build_phase4_wind_analysis(df_nasa, config, roughness_options):
 
     base_viento = str(config.get("f4_base_viento") or "50 m")
     altura_deseada = float(config.get("perfil_hhub") or 100.0)
-    roughness_label = str(config.get("f4_roughness_label") or "Grass / C?sped")
+    roughness_label = str(config.get("f4_roughness_label") or "Grass / Césped")
     direccion_altura = str(config.get("f4_dir_altura") or "WD50M")
     model_map = {
         "50 m": "50 m",
         "10 m": "10 m",
         "Altura deseada - Exponencial": "Exponencial",
         "Altura deseada - Log A (2 puntos)": "Log A (2 puntos)",
-        "Altura deseada - Log B (z0 te?rica)": "Promedio Log-Exp",
+        "Altura deseada - Log B (z0 teórica)": "Promedio Log-Exp",
         "Altura deseada - Promedio Log-Exp": "Promedio Log-Exp",
     }
     modelo = model_map.get(base_viento, "50 m")
@@ -1700,16 +1751,54 @@ def _analyze_geometry_all_sectors(df_layout, curva_df, diametro, ct, kw, velocid
             eff_pct = 100.0
         filas.append({
             "Sector": sector,
-            "Direcci?n centro (?)": float(center_deg),
+            "Dirección centro (°)": float(center_deg),
             "Velocidad referencia (m/s)": float(velocidad_ref),
             "Potencia parque sin estela (W)": p_base,
             "Potencia parque con estela (W)": p_wake,
-            "Perdida GeomÃ©trica (%)": loss_pct,
-            "Eficiencia geom?trica (%)": eff_pct,
+            "Pérdida geométrica (%)": loss_pct,
+            "Eficiencia geométrica (%)": eff_pct,
             "Turbinas afectadas": int((df_dir["deficit_total"] > 1e-8).sum()),
         })
         detalles[sector] = df_dir.copy()
     return pd.DataFrame(filas), detalles
+
+
+def analisis_anual_fase4(df_nasa, config, df_curva_raw, df_layout):
+    """Análisis anual de estelas EXACTAMENTE como la Fase 4 (misma función y mismos parámetros).
+
+    Devuelve (resumen_por_sector con energías, detalles_por_sector, pérdida_ponderada_pct,
+    resumen_energía) o None si faltan layout o serie de viento.
+    """
+    if df_layout is None or len(df_layout) == 0 or df_nasa is None or len(df_nasa) == 0:
+        return None
+    import calculos_energia as energia_calc
+
+    config = config or {}
+    base_viento = str(config.get("f4_base_viento") or "50 m").strip()
+    if base_viento == "Altura deseada - Log B (z0 teórica)":
+        base_viento = "Altura deseada - Promedio Log-Exp"
+    resultado = energia_calc.calcular_aep_autoritativa(
+        df_layout=df_layout, df_nasa=df_nasa, df_curva_raw=df_curva_raw, base_viento=base_viento,
+        modo_estadistico="Weibull", metodo_detalle="Weibull",
+        altura_deseada=float(config.get("f4_altura_deseada") or config.get("perfil_hhub") or 100.0),
+        roughness_label=str(config.get("f4_roughness_label") or "Grass / Césped"),
+        direccion_fuente=str(config.get("f4_dir_altura") or "WD50M"),
+        n_turbinas=len(df_layout), diametro=float(config.get("diametro") or 100.0),
+        ct=float(config.get("f4_ct") or 0.80), kw=float(config.get("f4_kw") or 0.05),
+        wake_mode="Automática desde Fase 4", wake_manual_pct=0.0, disp_pct=0.0, elec_pct=0.0, otras_pct=0.0,
+    )
+    resumen = resultado["wake_resumen"].copy()
+    if len(resumen) == 0:
+        return None
+    energia = resultado["df_sector"][["Sector", "AEP bruta parque (MWh/año)", "AEP con estela (MWh/año)",
+                                      "Pérdida estela energética (MWh/año)"]].rename(columns={
+        "AEP bruta parque (MWh/año)": "Energía bruta (MWh/año)",
+        "AEP con estela (MWh/año)": "Energía con estela (MWh/año)",
+        "Pérdida estela energética (MWh/año)": "Pérdida energética (MWh/año)",
+    })
+    resumen = resumen.drop(columns=[c for c in energia.columns if c != "Sector" and c in resumen.columns]).merge(
+        energia, on="Sector", how="left")
+    return resumen, resultado["wake_detalles"], float(resultado["wake_perdida_ponderada"]), resultado["resumen"]
 
 
 def build_indexed_appendix_annex_bundle(df_nasa, config, df_curva_raw, df_layout, roughness_options, base_folder="04_Figuras_mapas"):
@@ -1980,75 +2069,78 @@ def build_indexed_appendix_annex_bundle(df_nasa, config, df_curva_raw, df_layout
         pass
 
     try:
-        if df_layout is not None and len(df_layout) > 0 and df_nasa is not None and len(df_nasa) > 0:
+        analisis_f4 = analisis_anual_fase4(df_nasa, config, df_curva_raw, df_layout)
+        if analisis_f4 is not None:
+            resumen_anual, detalles_anual, _, _ = analisis_f4
             diametro = float(config.get("diametro") or 100.0)
             ct = float(config.get("f4_ct") or 0.80)
             kw = float(config.get("f4_kw") or 0.05)
             velocidad_geom = float(config.get("f4_geom_speed") or 8.0)
-            df_f4_analisis, _ = _build_phase4_wind_analysis(df_nasa=df_nasa, config=config, roughness_options=roughness_options)
-            if df_f4_analisis is not None:
-                phase_count += 1
-                resumen_geom, detalles_geom = _analyze_geometry_all_sectors(df_layout=df_layout, curva_df=df_curva_raw, diametro=diametro, ct=ct, kw=kw, velocidad_ref=velocidad_geom)
-                resumen_anual, detalles_anual, _ = analizar_estelas_parque_16(df_layout=df_layout, df_nasa=df_f4_analisis, curva_df=df_curva_raw, diametro=diametro, ct=ct, kw=kw, ws_col="WS_ANALISIS", wd_col="WD_ANALISIS")
-                resumen_anual["Energ?a bruta (MWh/a?o)"] = resumen_anual["Potencia parque sin estela (W)"] * resumen_anual["Horas equivalentes anuales (h/a?o)"] / 1e6
-                resumen_anual["Energ?a con estela (MWh/a?o)"] = resumen_anual["Potencia parque con estela (W)"] * resumen_anual["Horas equivalentes anuales (h/a?o)"] / 1e6
-                resumen_anual["P?rdida energ?tica (MWh/a?o)"] = resumen_anual["Energ?a bruta (MWh/a?o)"] - resumen_anual["Energ?a con estela (MWh/a?o)"]
-                phase4_export = build_figure_export_bundle([
-                    {"id": "layout_wakes", "title": "Vista en planta del parque", "stem": "layout_parque", "figure": crear_figura_layout_parque(df_layout=df_layout, diametro=diametro, titulo="Vista en planta del parque"), "source_hint": "Vista en planta reconstruida desde el layout persistido del parque."},
-                    {"id": "phase4_geometric_analysis", "title": "Analisis geom?trico puro", "stem": "fase4_analisis_geometrico", "figure": _create_phase4_geometric_rose(resumen_geom), "source_hint": "Rosa geom?trica de p?rdidas reconstruida desde Fase 4."},
-                    {"id": "phase4_annual_analysis", "title": "Analisis anual ponderado", "stem": "fase4_analisis_anual", "figure": _create_phase4_annual_rose(resumen_anual), "source_hint": "Rosa anual ponderada reconstruida desde Fase 4."},
-                    {"id": "phase4_geom_vs_annual", "title": "Comparaci?n criticidad geom?trica vs anual", "stem": "fase4_geometrico_vs_anual", "figure": _create_phase4_geom_vs_annual(resumen_geom, resumen_anual), "source_hint": "Comparaci?n entre criticidad geom?trica y anual por direcci?n."},
-                    {"id": "phase4_energy_by_direction", "title": "Energ?a anual por direcci?n", "stem": "fase4_energia_direccional", "figure": _create_phase4_energy_bars(resumen_anual), "source_hint": "Energ?a anual bruta y con estela por direcci?n."},
-                ], base_folder=base_folder)
-                _bundle_table(bundle["tables"], "phase4_geom_summary", resumen_geom, "Analisis geom?trico puro del arreglo", list(resumen_geom.columns), "Resumen geom?trico por direcci?n construido con el modelo de estelas Jensen.", "table_phase4_geom_summary.tex")
-                _bundle_table(bundle["tables"], "phase4_annual_summary", resumen_anual, "Analisis anual ponderado", list(resumen_anual.columns), "Resumen anual ponderado con energ?a bruta, con estela y p?rdida energ?tica por direcci?n.", "table_phase4_annual_summary.tex")
-                _bundle_table(bundle["tables"], "phase4_direction_index", resumen_anual[["Sector", "Frecuencia (%)", "Horas equivalentes anuales (h/a?o)", "P?rdida por estela (%)", "P?rdida ponderada (%)"]].copy(), "?ndice direccional del an?lisis de estelas", ["Sector", "Frecuencia (%)", "Horas equivalentes anuales (h/a?o)", "P?rdida por estela (%)", "P?rdida ponderada (%)"], "?ndice de sectores usado para navegar los anexos direccionales de Fase 4.", "table_phase4_direction_index.tex")
-                for sector in SECTOR_LABELS_16:
-                    slug = _sector_slug(sector)
-                    df_detalle_geom = detalles_geom.get(sector, pd.DataFrame())
-                    df_detalle_anual = detalles_anual.get(sector, pd.DataFrame())
-                    fila_geom = resumen_geom[resumen_geom["Sector"] == sector]
-                    fila_anual = resumen_anual[resumen_anual["Sector"] == sector]
-                    if len(fila_geom) == 0 or len(fila_anual) == 0:
-                        continue
-                    fig_geom = crear_figura_direccion_estela(df_detalle=df_detalle_geom, sector=sector, direction_deg=float(fila_geom.iloc[0]["Direcci?n centro (?)"]), diametro=diametro)
-                    fig_anual = crear_figura_direccion_estela(df_detalle=df_detalle_anual, sector=sector, direction_deg=float(fila_anual.iloc[0]["Direcci?n centro (?)"]), diametro=diametro)
-                    _merge_export_bundle(phase4_export, build_figure_export_bundle([
-                        {"id": f"phase4_geom_detail_{slug}", "title": f"Detalle geom?trico - Sector {sector}", "stem": f"fase4_detalle_geometrico_{slug}", "figure": fig_geom, "source_hint": "Detalle geom?trico por direcci?n reconstruido desde Fase 4."},
-                        {"id": f"phase4_annual_detail_{slug}", "title": f"Detalle anual - Sector {sector}", "stem": f"fase4_detalle_anual_{slug}", "figure": fig_anual, "source_hint": "Detalle anual por direcci?n reconstruido desde Fase 4."},
-                    ], base_folder=base_folder))
-                    if len(df_detalle_geom) > 0:
-                        _bundle_table(bundle["tables"], f"phase4_geom_detail_table_{slug}", df_detalle_geom[["turbina_id", "x_m", "y_m", "velocidad_libre", "velocidad_efectiva", "deficit_total", "perdida_potencia_pct", "potencia_base_W", "potencia_wake_W"]].copy(), f"Detalle geom?trico por turbina - Sector {sector}", ["turbina_id", "x_m", "y_m", "velocidad_libre", "velocidad_efectiva", "deficit_total", "perdida_potencia_pct", "potencia_base_W", "potencia_wake_W"], "Detalle geom?trico por turbina para la direcci?n analizada.", f"table_phase4_geom_detail_{slug}.tex")
-                    if len(df_detalle_anual) > 0:
-                        _bundle_table(bundle["tables"], f"phase4_annual_detail_table_{slug}", df_detalle_anual[["turbina_id", "x_m", "y_m", "velocidad_libre", "velocidad_efectiva", "deficit_total", "perdida_potencia_pct", "potencia_base_W", "potencia_wake_W"]].copy(), f"Detalle anual por turbina - Sector {sector}", ["turbina_id", "x_m", "y_m", "velocidad_libre", "velocidad_efectiva", "deficit_total", "perdida_potencia_pct", "potencia_base_W", "potencia_wake_W"], "Detalle anual ponderado por turbina para la direcci?n analizada.", f"table_phase4_annual_detail_{slug}.tex")
-                    bundle["appendix_specs"].append({
-                        "id": f"anexo_fase4_sector_{slug}",
-                        "appendix_file_name": f"appendix_fase4_sector_{slug}.tex",
-                        "title": f"Anexo E.{len(bundle['appendix_specs'])} - Fase 4 - Direcci?n {sector}",
-                        "purpose": f"Incluir el detalle geom?trico y anual para la direcci?n {sector} del an?lisis de estelas.",
-                        "notes": [],
-                        "table_keys": [key for key in [f"phase4_geom_detail_table_{slug}", f"phase4_annual_detail_table_{slug}"] if key in bundle["tables"]],
-                        "figure_refs": [
-                            _figure_ref(f"phase4_geom_detail_{slug}", f"Detalle geom?trico - Sector {sector}", f"fig:fase4_geom_detail_{slug}", f"04_Figuras_mapas/fase4_detalle_geometrico_{slug}.(png|html)"),
-                            _figure_ref(f"phase4_annual_detail_{slug}", f"Detalle anual - Sector {sector}", f"fig:fase4_annual_detail_{slug}", f"04_Figuras_mapas/fase4_detalle_anual_{slug}.(png|html)"),
-                        ],
-                    })
-                _merge_export_bundle(bundle, phase4_export)
+            phase_count += 1
+            resumen_geom, detalles_geom = _analyze_geometry_all_sectors(df_layout=df_layout, curva_df=df_curva_raw, diametro=diametro, ct=ct, kw=kw, velocidad_ref=velocidad_geom)
+            col_dir_geom = _col(resumen_geom, "Dirección centro (°)")
+            col_dir_anual = _col(resumen_anual, "Dirección centro (°)")
+            phase4_export = build_figure_export_bundle([
+                {"id": "layout_wakes", "title": "Vista en planta del parque", "stem": "layout_parque", "figure": crear_figura_layout_parque(df_layout=df_layout, diametro=diametro, titulo="Vista en planta del parque"), "source_hint": "Vista en planta del layout guardado del parque."},
+                {"id": "phase4_geometric_analysis", "title": "Análisis geométrico puro", "stem": "fase4_analisis_geometrico", "figure": _create_phase4_geometric_rose(resumen_geom), "source_hint": "Rosa geométrica de pérdidas de la Fase 4."},
+                {"id": "phase4_annual_analysis", "title": "Análisis anual ponderado", "stem": "fase4_analisis_anual", "figure": _create_phase4_annual_rose(resumen_anual), "source_hint": "Rosa anual ponderada de la Fase 4."},
+                {"id": "phase4_geom_vs_annual", "title": "Comparación criticidad geométrica vs anual", "stem": "fase4_geometrico_vs_anual", "figure": _create_phase4_geom_vs_annual(resumen_geom, resumen_anual), "source_hint": "Comparación entre criticidad geométrica y anual por dirección."},
+                {"id": "phase4_energy_by_direction", "title": "Energía anual por dirección", "stem": "fase4_energia_direccional", "figure": _create_phase4_energy_bars(resumen_anual), "source_hint": "Energía anual bruta y con estela por dirección."},
+            ], base_folder=base_folder)
+            _bundle_table(bundle["tables"], "phase4_geom_summary", resumen_geom, "Análisis geométrico puro del arreglo", list(resumen_geom.columns), "Resumen geométrico por dirección con el modelo de estelas Jensen, como en la Fase 4.", "table_phase4_geom_summary.tex")
+            _bundle_table(bundle["tables"], "phase4_annual_summary", resumen_anual, "Análisis anual ponderado", list(resumen_anual.columns), "Resumen anual ponderado con energía bruta, con estela y pérdida energética por dirección (mismo cálculo que la Fase 4).", "table_phase4_annual_summary.tex")
+            cols_indice = [c for c in ["Sector", "Frecuencia (%)", "Horas equivalentes anuales (h/año)", "Pérdida por estela (%)", "Pérdida ponderada (%)"] if c in resumen_anual.columns]
+            _bundle_table(bundle["tables"], "phase4_direction_index", resumen_anual[cols_indice].copy(), "Índice direccional del análisis de estelas", cols_indice, "Índice de sectores usado para navegar los anexos direccionales de Fase 4.", "table_phase4_direction_index.tex")
+            cols_detalle = ["turbina_id", "x_m", "y_m", "velocidad_libre", "velocidad_efectiva", "deficit_total", "perdida_potencia_pct", "potencia_base_W", "potencia_wake_W"]
+            for sector in SECTOR_LABELS_16:
+                slug = _sector_slug(sector)
+                df_detalle_geom = detalles_geom.get(sector, pd.DataFrame())
+                df_detalle_anual = detalles_anual.get(sector, pd.DataFrame())
+                fila_geom = resumen_geom[resumen_geom["Sector"] == sector]
+                fila_anual = resumen_anual[resumen_anual["Sector"] == sector]
+                if len(fila_geom) == 0 or len(fila_anual) == 0 or len(df_detalle_anual) == 0:
+                    continue
+                try:
+                    fig_geom = crear_figura_direccion_estela(df_detalle=df_detalle_geom, sector=sector, direction_deg=float(fila_geom.iloc[0][col_dir_geom]), diametro=diametro)
+                    fig_anual = crear_figura_direccion_estela(df_detalle=df_detalle_anual, sector=sector, direction_deg=float(fila_anual.iloc[0][col_dir_anual]), diametro=diametro)
+                except Exception:
+                    continue
+                _merge_export_bundle(phase4_export, build_figure_export_bundle([
+                    {"id": f"phase4_geom_detail_{slug}", "title": f"Detalle geométrico - Sector {sector}", "stem": f"fase4_detalle_geometrico_{slug}", "figure": fig_geom, "source_hint": "Detalle geométrico por dirección de la Fase 4."},
+                    {"id": f"phase4_annual_detail_{slug}", "title": f"Detalle anual - Sector {sector}", "stem": f"fase4_detalle_anual_{slug}", "figure": fig_anual, "source_hint": "Detalle anual por dirección de la Fase 4."},
+                ], base_folder=base_folder))
+                if len(df_detalle_geom) > 0 and all(c in df_detalle_geom.columns for c in cols_detalle):
+                    _bundle_table(bundle["tables"], f"phase4_geom_detail_table_{slug}", df_detalle_geom[cols_detalle].copy(), f"Detalle geométrico por turbina - Sector {sector}", cols_detalle, "Detalle geométrico por turbina para la dirección analizada.", f"table_phase4_geom_detail_{slug}.tex")
+                if all(c in df_detalle_anual.columns for c in cols_detalle):
+                    _bundle_table(bundle["tables"], f"phase4_annual_detail_table_{slug}", df_detalle_anual[cols_detalle].copy(), f"Detalle anual por turbina - Sector {sector}", cols_detalle, "Detalle anual ponderado por turbina para la dirección analizada.", f"table_phase4_annual_detail_{slug}.tex")
                 bundle["appendix_specs"].append({
-                    "id": "anexo_fase4_estelas_y_arreglo",
-                    "appendix_file_name": "appendix_fase4_00_estelas_y_arreglo.tex",
-                    "title": "Anexo E - Fase 4 - Estelas y arreglo del parque",
-                    "purpose": "Concentrar la vista en planta del parque, el AnÃ¡lisis geometrico, el Analisis anual ponderado y la comparaci?n entre criticidad geom?trica y anual.",
-                    "notes": ["Las direcciones individuales se desarrollan en anexos posteriores para facilitar la navegaci?n del pack."],
-                    "table_keys": ["phase4_direction_index", "phase4_geom_summary", "phase4_annual_summary"],
+                    "id": f"anexo_fase4_sector_{slug}",
+                    "appendix_file_name": f"appendix_fase4_sector_{slug}.tex",
+                    "title": f"Anexo E.{len(bundle['appendix_specs'])} - Fase 4 - Dirección {sector}",
+                    "purpose": f"Incluir el detalle geométrico y anual para la dirección {sector} del análisis de estelas.",
+                    "notes": [],
+                    "table_keys": [key for key in [f"phase4_geom_detail_table_{slug}", f"phase4_annual_detail_table_{slug}"] if key in bundle["tables"]],
                     "figure_refs": [
-                        _figure_ref("layout_wakes", "Vista en planta del parque", "fig:layout_parque", "04_Figuras_mapas/layout_parque.(png|html)"),
-                        _figure_ref("phase4_geometric_analysis", "AnÃ¡lisis geometrico puro", "fig:fase4_analisis_geometrico", "04_Figuras_mapas/fase4_analisis_geometrico.(png|html)"),
-                        _figure_ref("phase4_annual_analysis", "Analisis anual ponderado", "fig:fase4_analisis_anual", "04_Figuras_mapas/fase4_analisis_anual.(png|html)"),
-                        _figure_ref("phase4_geom_vs_annual", "Comparaci?n criticidad geom?trica vs criticidad anual", "fig:fase4_geometrico_vs_anual", "04_Figuras_mapas/fase4_geometrico_vs_anual.(png|html)"),
-                        _figure_ref("phase4_energy_by_direction", "Energ?a anual por direcci?n", "fig:fase4_energia_direccional", "04_Figuras_mapas/fase4_energia_direccional.(png|html)"),
+                        _figure_ref(f"phase4_geom_detail_{slug}", f"Detalle geométrico - Sector {sector}", f"fig:fase4_geom_detail_{slug}", f"04_Figuras_mapas/fase4_detalle_geometrico_{slug}.(png|html)"),
+                        _figure_ref(f"phase4_annual_detail_{slug}", f"Detalle anual - Sector {sector}", f"fig:fase4_annual_detail_{slug}", f"04_Figuras_mapas/fase4_detalle_anual_{slug}.(png|html)"),
                     ],
                 })
+            _merge_export_bundle(bundle, phase4_export)
+            bundle["appendix_specs"].append({
+                "id": "anexo_fase4_estelas_y_arreglo",
+                "appendix_file_name": "appendix_fase4_00_estelas_y_arreglo.tex",
+                "title": "Anexo E - Fase 4 - Estelas y arreglo del parque",
+                "purpose": "Concentrar la vista en planta del parque, el análisis geométrico, el análisis anual ponderado y la comparación entre criticidad geométrica y anual.",
+                "notes": ["Las direcciones individuales se desarrollan en anexos posteriores para facilitar la navegación del pack."],
+                "table_keys": ["phase4_direction_index", "phase4_geom_summary", "phase4_annual_summary"],
+                "figure_refs": [
+                    _figure_ref("layout_wakes", "Vista en planta del parque", "fig:layout_parque", "04_Figuras_mapas/layout_parque.(png|html)"),
+                    _figure_ref("phase4_geometric_analysis", "Análisis geométrico puro", "fig:fase4_analisis_geometrico", "04_Figuras_mapas/fase4_analisis_geometrico.(png|html)"),
+                    _figure_ref("phase4_annual_analysis", "Análisis anual ponderado", "fig:fase4_analisis_anual", "04_Figuras_mapas/fase4_analisis_anual.(png|html)"),
+                    _figure_ref("phase4_geom_vs_annual", "Comparación criticidad geométrica vs criticidad anual", "fig:fase4_geometrico_vs_anual", "04_Figuras_mapas/fase4_geometrico_vs_anual.(png|html)"),
+                    _figure_ref("phase4_energy_by_direction", "Energía anual por dirección", "fig:fase4_energia_direccional", "04_Figuras_mapas/fase4_energia_direccional.(png|html)"),
+                ],
+            })
     except Exception:
         pass
 
