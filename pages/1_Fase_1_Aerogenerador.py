@@ -147,7 +147,7 @@ def _build_esquema_resumen_html(fila_ref, diametro, area, densidad):
         ("V", "Velocidad seleccionada", f"{float(fila_ref['Velocidad_num']):.2f} m/s"),
         ("Pv", "Potencia del viento", f"{potencia_viento_kw:,.2f} kW"),
         ("Pg", "Potencia generada", f"{potencia_generada_kw:,.2f} kW"),
-        ("Cp", "Cp en esta velocidad", f"{cp:.4f}"),
+        ("Cp", "Cp en esta velocidad", f"{cp:.4f}" if np.isfinite(cp) else "—"),
         ("&rho;", "Densidad del aire", f"{densidad:.2f} kg/m³"),
         ("D", "Diámetro del rotor", f"{diametro:.2f} m"),
     ]
@@ -186,7 +186,7 @@ def render_esquema_aerogenerador_svg(
     cp,
 ):
     cp_value = float(cp) if pd.notna(cp) and np.isfinite(cp) else np.nan
-    cp_text = f"{cp_value:.3f}" if np.isfinite(cp_value) else "N/A"
+    cp_text = f"{cp_value:.3f}" if np.isfinite(cp_value) else "—"
     potencia_generada_kw = float(potencia_generada_kw)
     velocidad = float(velocidad)
     power_text = f"{potencia_viento_kw:,.0f} kW"
@@ -208,7 +208,7 @@ def render_esquema_aerogenerador_svg(
     dens_text = f"{densidad:.2f}".replace(".", ",")
     pv_text = f"{potencia_viento_kw:,.0f}".replace(",", ".")
     pg_text = f"{potencia_generada_kw:,.0f}".replace(",", ".")
-    cp_box = f"{cp_value:.3f}".replace(".", ",") if np.isfinite(cp_value) else "N/A"
+    cp_box = f"{cp_value:.3f}".replace(".", ",") if np.isfinite(cp_value) else "—"
 
     # Rotación del rotor (SMIL): la duración depende de la velocidad/potencia.
     # rotor_duration is None ⇒ fuera de cut-in/cut-out (potencia ≤ 0) ⇒ NO gira.
@@ -1417,11 +1417,17 @@ with _phase_card("f1_card_c"):
 
     if len(df_resultados) > 0:
         velocidades_disponibles = df_resultados["Velocidad_num"].astype(float).tolist()
+        # Por defecto, la velocidad nominal: la primera fila (0 m/s) da Cp = 0/0 y el esquema queda vacío.
+        indice_ref = 0
+        if metric_summary is not None:
+            v_nominal = metric_summary["velocidad_nominal_ms"]
+            indice_ref = min(range(len(velocidades_disponibles)), key=lambda i: abs(velocidades_disponibles[i] - v_nominal))
         esquema_col, plot_col = st.columns([0.34, 0.66], gap="medium")
         with esquema_col:
             velocidad_ref = st.selectbox(
                 "Velocidad de referencia para visualización",
                 options=velocidades_disponibles,
+                index=indice_ref,
                 format_func=lambda x: f"{x:.2f} m/s",
             )
             fila_ref = df_resultados.loc[

@@ -226,7 +226,9 @@ def calcular_cp(df_calc, densidad, area):
     p_w = df_calc["Potencia_W"].to_numpy()
 
     p_viento_w = 0.5 * densidad * (v ** 3) * area
-    cp = np.where(p_viento_w > 0, p_w / p_viento_w, np.nan)
+    # A 0 m/s P_viento = 0: Cp queda NaN (0/0) sin el aviso de numpy.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cp = np.where(p_viento_w > 0, p_w / p_viento_w, np.nan)
 
     df_calc["P_viento_W"] = p_viento_w
     df_calc["Cp"] = cp

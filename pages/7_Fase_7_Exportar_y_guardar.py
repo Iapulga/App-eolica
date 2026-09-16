@@ -228,7 +228,11 @@ st.markdown(
   border:1.5px solid color-mix(in srgb, var(--kc,var(--ac)) 38%, #fff) !important;
   box-shadow:0 5px 12px color-mix(in srgb, var(--kc,var(--ac)) 18%, transparent) !important}
 .f7-kpi-label{font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
-.f7-kpi-value{font-size:20px;font-weight:900;letter-spacing:-.025em;line-height:1.08;margin-top:3px;font-variant-numeric:tabular-nums;color:#0a2444}
+.f7-kpi-copy{min-width:0}
+.f7-kpi-value{font-size:20px;font-weight:900;letter-spacing:-.025em;line-height:1.08;margin-top:3px;font-variant-numeric:tabular-nums;color:#0a2444;overflow-wrap:break-word}
+/* A 1440 px la ficha deja ~80 px al valor: unidad pequeña bajo la cifra (LCOE) y estados en texto más chicos */
+.f7-kpi-unit{display:inline-block;font-size:12px;font-weight:800;letter-spacing:0;color:#5a6b85}
+.f7-kpi-value.f7-kpi-word{font-size:15px}
 .f7-kpi-sub{font-style:normal;font-size:10px;color:#5a6b85;margin-top:2.5px;font-weight:600}
 
 /* ════════ Summary Grid (6 columnas) ════════ */
@@ -539,8 +543,20 @@ potencia_instalada = config.get("f5_potencia_instalada_mw") or ((runtime_context
 capex_total = config.get("f5_capex_total_display") or ((runtime_context or {}).get("economics", {}).get("capex_total_display")) or config.get("f5_capex_total") or ((runtime_context or {}).get("economics", {}).get("capex_total"))
 opex_total = config.get("f5_opex_total_anual_display") or ((runtime_context or {}).get("economics", {}).get("opex_total_anual_display")) or config.get("f5_opex_total_anual") or ((runtime_context or {}).get("economics", {}).get("opex_total_anual"))
 vp_costos = config.get("f5_vp_costos_display") or ((runtime_context or {}).get("economics", {}).get("vp_costos_display")) or config.get("f5_vp_costos") or ((runtime_context or {}).get("economics", {}).get("vp_costos"))
-enriched_label = "Listos" if heavy_exports_ready else ("Desactualizados" if heavy_exports_stale else "Pendientes")
+# Guion suave (U+00AD): "Desactualizados" solo se parte, con guion, si no cabe en la ficha.
+enriched_label = "Listos" if heavy_exports_ready else (f"Desactua{chr(0xAD)}lizados" if heavy_exports_stale else "Pendientes")
 lcoe_sub = format_lcoe_value(lcoe_mwh, unidad, "MWh") if _has_value(lcoe_mwh) else ""
+
+
+def _f7_valor_unidad(texto: str) -> tuple[str, str]:
+    """'USD 0.0412/kWh' → ('0.0412', 'USD/kWh'): cifra grande y unidad pequeña en la ficha.
+    Cualquier otro texto ('N/D') se devuelve entero y sin unidad."""
+    moneda, _, resto = texto.partition(" ")
+    cifra, sep, por = resto.partition("/")
+    return (cifra, f"{moneda}/{por}") if cifra and sep else (texto, "")
+
+
+lcoe_valor, lcoe_unidad = _f7_valor_unidad(format_lcoe_value(lcoe_kwh, unidad, "kWh")) if _has_value(lcoe_kwh) else ("N/D", "")
 
 
 # =============================================================================
@@ -572,12 +588,14 @@ with st.container(border=True, key="f7_card_header"):
 # =============================================================================
 # RESUMEN EJECUTIVO DEL ESCENARIO ACTUAL
 # =============================================================================
-def _kpi_tile(label, value, icon="chart", sub="", color="#2563eb", size=22):
+def _kpi_tile(label, value, icon="chart", sub="", color="#2563eb", size=22, unit="", word=False):
+    unit_html = f' <span class="f7-kpi-unit">{_escape(unit)}</span>' if unit else ""
+    value_cls = "f7-kpi-value f7-kpi-word" if word else "f7-kpi-value"
     return (
         f'<div class="f7-kpi-card" style="--kc:{color}">'
         f'<div class="f7-kpi-icon">{_f7_icono(icon, size, color)}</div>'
-        f'<div><div class="f7-kpi-label">{_escape(label)}</div>'
-        f'<div class="f7-kpi-value">{_escape(_es(value))}</div>'
+        f'<div class="f7-kpi-copy"><div class="f7-kpi-label">{_escape(label)}</div>'
+        f'<div class="{value_cls}">{_escape(_es(value))}{unit_html}</div>'
         f'<div class="f7-kpi-sub">{_escape(_es(sub))}</div></div></div>'
     )
 
@@ -593,9 +611,9 @@ with st.container(border=True, key="f7_card_exec_summary"):
         _kpi_tile("Método", str(config.get("f5_metodo_detalle") or config.get("f5_modo_estadistico") or "N/D"), "🧮", "principal", "#2563eb"),
         _kpi_tile("AEP bruta", _fmt_float(bruto, 0, " MWh"), "⚡", "", "#7c3aed"),
         _kpi_tile("AEP neta", _fmt_float(neto, 0, " MWh"), "🔋", "", "#16a34a"),
-        _kpi_tile("LCOE", format_lcoe_value(lcoe_kwh, unidad, "kWh") if _has_value(lcoe_kwh) else "N/D", "📉", lcoe_sub, "#16a34a"),
+        _kpi_tile("LCOE", lcoe_valor, "📉", lcoe_sub, "#16a34a", unit=lcoe_unidad),
         _kpi_tile("Turbinas", str(config.get("f5_n_turbinas") or config.get("f4_num_turbinas") or "N/D"), "🌀", "", "#94a3b8"),
-        _kpi_tile("Exportes enriquecidos", enriched_label, "📦", "", "#16a34a" if heavy_exports_ready else "#d97706"),
+        _kpi_tile("Exportes enriquecidos", enriched_label, "📦", "", "#16a34a" if heavy_exports_ready else "#d97706", word=True),
     ]
     st.markdown(f'<div class="f7-kpi-grid">{"".join(main_kpis)}</div>', unsafe_allow_html=True)
 

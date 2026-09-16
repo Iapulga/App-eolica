@@ -1711,8 +1711,9 @@ div[data-testid="stMetricValue"]{color:#0a2444 !important;font-weight:800 !impor
 # ═══════════════════════════════════════════════════════════════════════════════
 # HERO
 # ═══════════════════════════════════════════════════════════════════════════════
-def _f4_hero_html(n_turb="—", estela="—", n_esc="—") -> str:
+def _f4_hero_html(n_turb="—", estela="—", n_esc="—", estela_tip="") -> str:
     """Hero Aurora (mockup 04_fase4): icono + título + 3 pills (Turbinas / Estela anual / Escenarios)."""
+    estela_attr = f' title="{_escape(estela_tip)}" style="cursor:help"' if estela_tip else ""
     return f"""
 <div class="hero-card">
 <svg class="f4-wind" viewBox="0 0 600 190" preserveAspectRatio="none">
@@ -1726,7 +1727,7 @@ def _f4_hero_html(n_turb="—", estela="—", n_esc="—") -> str:
     </div>
     <div class="hero-pills">
         <div class="hpill"><b>{n_turb}</b><span>Turbinas</span></div>
-        <div class="hpill"><b>{estela}</b><span>Estela anual</span></div>
+        <div class="hpill"{estela_attr}><b>{estela}</b><span>Estela anual</span></div>
         <div class="hpill"><b>{n_esc}</b><span>Escenarios</span></div>
     </div>
 </div>
@@ -2162,16 +2163,22 @@ worst_sector_loss = float(worst_row["Pérdida por estela (%)"])
 energia_bruta_total = float(energy_result["resumen"]["aep_bruta_total"])
 energia_wake_total = float(energy_result["resumen"]["aep_con_estela_total"])
 energia_perdida_total = float(energy_result["resumen"]["perdida_estela_mwh"])
+# Pérdida anual por estela ponderada por ENERGÍA (la de cada sector aplicada a su energía), igual que
+# la Fase 5. `perdida_ponderada` pondera por FRECUENCIA la pérdida a la velocidad media de cada sector,
+# por eso sale mayor: los sectores de poco viento pesan por sus horas, no por su energía.
+perdida_estela_energia_pct = energia_perdida_total / energia_bruta_total * 100.0 if energia_bruta_total > 0 else 0.0
+# 3 decimales por debajo de 0,1 % para que una pérdida pequeña no se lea como 0,00 %.
+perdida_estela_energia_txt = f"{perdida_estela_energia_pct:.{3 if perdida_estela_energia_pct < 0.1 else 2}f}"
 
 guardar_config_values({"f4_weighted_wake_loss_pct": perdida_ponderada, "f4_worst_sector": worst_sector, "f4_worst_sector_loss_pct": worst_sector_loss, "f4_energia_bruta_mwh": energia_bruta_total, "f4_energia_wake_mwh": energia_wake_total, "f4_energia_perdida_mwh": energia_perdida_total, "f4_geom_critical_sectors": ", ".join(sectores_geom_criticos), "f4_geom_max_loss_pct": max_geom})
 
 with st.container(border=True, key="f4_card_annual_analysis"):
     _section_header("Análisis anual ponderado", "Pérdidas ponderadas por frecuencia y energía direccional", "bar-chart-2", "#7c3aed")
     ak_html = '<div class="f4-kpi-grid" style="grid-template-columns:repeat(4,1fr)">'
-    ak_html += _kpi_tile("📊", "Pérdida anual pond.", f"{perdida_ponderada:.2f}%", "Total ponderada", "#7c3aed")
+    ak_html += _kpi_tile("📊", "Pérdida anual pond.", f"{perdida_ponderada:.2f}%", "Ponderada por frecuencia", "#7c3aed")
     ak_html += _kpi_tile("🧭", "Sector crítico", worst_sector, f"Pérdida: {worst_weighted:.3f}%", "#ef4444")
     ak_html += _kpi_tile("⚡", "Energía bruta", f"{energia_bruta_total:.1f} MWh/año", "", "#2563eb")
-    ak_html += _kpi_tile("🔋", "Energía con estela", f"{energia_wake_total:.1f} MWh/año", f"Pérdida: {energia_perdida_total:.1f} MWh", "#10b981")
+    ak_html += _kpi_tile("🔋", "Energía con estela", f"{energia_wake_total:.1f} MWh/año", f"Pérdida: {energia_perdida_total:.1f} MWh ({perdida_estela_energia_txt} %)", "#10b981")
     ak_html += '</div>'
     st.markdown(ak_html, unsafe_allow_html=True)
 
@@ -2422,9 +2429,15 @@ with st.container(border=True, key="f4_card_gis_map"):
 # Pills del hero con los valores reales (calculados más abajo en la página)
 try:
     _f4_hero_n_turb = str(int(len(df_layout))) if df_layout is not None else "—"
-    _f4_hero_estela = f"{float(perdida_ponderada):.2f} %".replace(".", ",")
+    # Estela anual = pérdida de energía (criterio de la Fase 5); el tooltip da también la ponderada por frecuencia.
+    _f4_hero_estela = f"{perdida_estela_energia_txt} %".replace(".", ",")
+    _f4_hero_tip = _f4_es(
+        f"Pérdida anual de energía por estela: {energia_perdida_total:,.1f} MWh/año sobre {energia_bruta_total:,.1f} MWh/año "
+        "de AEP bruta (la pérdida de cada sector se aplica a su energía, igual que en la Fase 5). "
+        f"Ponderada por frecuencia, a la velocidad media de cada sector: {perdida_ponderada:.2f} %."
+    )
     _f4_hero_n_esc = str(int(len(df_scenarios)))
-    _f4_hero_slot.markdown(_f4_hero_html(_f4_hero_n_turb, _f4_hero_estela, _f4_hero_n_esc), unsafe_allow_html=True)
+    _f4_hero_slot.markdown(_f4_hero_html(_f4_hero_n_turb, _f4_hero_estela, _f4_hero_n_esc, _f4_hero_tip), unsafe_allow_html=True)
 except Exception:
     pass
 
