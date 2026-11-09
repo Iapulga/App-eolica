@@ -2629,25 +2629,6 @@ st.markdown(
         min-height: 470px !important;
     }
 
-    /* ── Botón "Usar α calculado" en header ── */
-    .st-key-f3_use_alpha_calc button {
-        background: transparent !important;
-        border: 1px solid #bfdbfe !important;
-        border-radius: 20px !important;
-        color: #2563eb !important;
-        font-weight: 700 !important;
-        font-size: 0.83rem !important;
-        padding: 0.26rem 0.85rem !important;
-        min-height: 32px !important;
-        height: 32px !important;
-        box-shadow: none !important;
-        width: 100% !important;
-    }
-    .st-key-f3_use_alpha_calc button:hover {
-        background: #eff6ff !important;
-        border-color: #93c5fd !important;
-        color: #1d4ed8 !important;
-    }
     /* Hint text encima del botón alpha */
     .f3-alpha-hint {
         font-size: 0.74rem !important;
@@ -3125,11 +3106,14 @@ with config_cols[0]:
                         key="f3_bin_width",
                         label_visibility="collapsed",
                     )
+            # Antes había un botón «Usar α calculado» que escribía perfil_alpha, pero
+            # ningún cálculo lo lee (Fase 2 lo sobrescribe y los modelos usan α hora a
+            # hora). Se deja el dato como referencia informativa.
             if _alpha_show:
-                if st.button("α  Usar α calculado", key="f3_use_alpha_calc", help=_alpha_hint or None):
-                    guardar_config_values({"perfil_alpha": _alpha_val, "perfil_alpha_usuario": _alpha_val})
-                    st.success(f"α actualizado a {_alpha_val:.3f}. Recarga la fase para ver el efecto.")
-                    st.rerun()
+                st.caption(
+                    f"{_alpha_hint}. Solo informativo: los modelos Exponencial y "
+                    "Promedio Log-Exp calculan α hora a hora con WS10M y WS50M."
+                )
 
 with config_cols[1]:
     with _phase_card("f3_cfg_cuts"):
