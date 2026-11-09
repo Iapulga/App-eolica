@@ -6,7 +6,7 @@ Calcula huella de carbono lifecycle del proyecto eólico:
 
 Factor típico turbina onshore: 9-12 gCO2eq/kWh
 Comparación gas: ~490 gCO2/kWh, carbón: ~820 gCO2/kWh
-Grid emisión Colombia 2024: ~210 gCO2/kWh (mezcla hidro + térmico)
+Grid emisión Colombia (SIN) 2024: 220 gCO2eq/kWh = 0,220 tCO2eq/MWh (UPME, inventarios)
 """
 
 from __future__ import annotations
@@ -24,8 +24,12 @@ EMISSION_FACTORS_ONSHORE_GCO2EQ_KWH = {
     "desmantelamiento": 0.5,          # demolición + reciclaje
 }
 
-# Factor emisión grid Colombia (XM 2024 aprox)
-GRID_EMISSION_COLOMBIA_GCO2_KWH = 210.0
+# Factor de emisión del SIN de Colombia 2024 para inventarios de GEI (UPME):
+# 0,220 tCO2eq/MWh = 220 gCO2eq/kWh.
+GRID_EMISSION_COLOMBIA_GCO2_KWH = 220.0
+GRID_EMISSION_COLOMBIA_FUENTE = (
+    "UPME, factor de emisión del SIN 2024 para inventarios de GEI: 0,220 tCO₂eq/MWh"
+)
 GRID_EMISSION_USA_GCO2_KWH = 380.0
 GRID_EMISSION_EU_GCO2_KWH = 230.0
 
