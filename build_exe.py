@@ -191,6 +191,8 @@ def verificar_archivos_clave_empaquetados():
         ("reportes/__init__.py", internal / "reportes" / "__init__.py"),
         ("reportes/bankable.py", internal / "reportes" / "bankable.py"),
         ("reportes/excel_pro.py", internal / "reportes" / "excel_pro.py"),
+        # Gráficas de los reportes (estilo.py / graficas.py) — antes se excluía:
+        ("matplotlib/mpl-data", internal / "matplotlib" / "mpl-data"),
         ("assets/style.css", internal / "assets" / "style.css"),
         (".streamlit/config.toml", internal / ".streamlit" / "config.toml"),
     ]
