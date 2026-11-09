@@ -72,6 +72,11 @@ hiddenimports = [
     'simplekml',
     'PIL', 'PIL.Image', 'PIL.ImageChops',
     'folium', 'streamlit_folium', 'branca',
+    # matplotlib: lo usan reportes/estilo.py, graficas.py, pdf.py y figuras.py
+    # (gráficas de los entregables), siempre con import perezoso. El hook oficial
+    # de PyInstaller recolecta mpl-data (fuentes, matplotlibrc).
+    'matplotlib', 'matplotlib.pyplot', 'matplotlib.backends.backend_agg',
+    'matplotlib.backends.backend_pdf',
 ] + _root_modules + ['reportes']
 
 # ── 3. collect_all: binarios + datos + hidden imports ────────
@@ -136,7 +141,9 @@ a = Analysis(
     # scipy YA NO se excluye: el optimizador de layout de Fase 6 requiere
     # scipy.optimize.differential_evolution, y el ajuste Gumbel (calculos.py) +
     # stats del bankable lo usan. Costo: ~80-120 MB más de bundle.
-    excludes=['matplotlib', 'tkinter', 'IPython', 'jupyter'],
+    # matplotlib TAMPOCO se excluye: sin él fallan las gráficas de los reportes
+    # (estilo.py, graficas.py) y el reporte bankable en el .exe.
+    excludes=['tkinter', 'IPython', 'jupyter'],
     noarchive=False,
     optimize=0,
 )

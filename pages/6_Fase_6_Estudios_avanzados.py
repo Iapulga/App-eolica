@@ -2200,13 +2200,20 @@ def _render_card_lca() -> None:
         with c3:
             vida = st.number_input("Vida útil (años)", 5.0, 40.0,
                                    _cfg_float(config, "f5_vida_util_anios", 20.0), 1.0, key="f6_lca_vida")
+        # Etiquetas y valores salen de lca_carbon para no duplicar los factores.
+        _grid_opciones = {
+            f"Colombia ({lca_carbon.GRID_EMISSION_COLOMBIA_GCO2_KWH:.0f} g/kWh)": lca_carbon.GRID_EMISSION_COLOMBIA_GCO2_KWH,
+            f"EE.UU. ({lca_carbon.GRID_EMISSION_USA_GCO2_KWH:.0f} g/kWh)": lca_carbon.GRID_EMISSION_USA_GCO2_KWH,
+            f"UE ({lca_carbon.GRID_EMISSION_EU_GCO2_KWH:.0f} g/kWh)": lca_carbon.GRID_EMISSION_EU_GCO2_KWH,
+        }
         with c4:
             grid_opt = st.selectbox(
                 "Red de comparación",
-                ["Colombia (210 g/kWh)", "EE.UU. (380 g/kWh)", "UE (230 g/kWh)"],
+                list(_grid_opciones),
                 key="f6_lca_grid",
+                help=f"Colombia: {lca_carbon.GRID_EMISSION_COLOMBIA_FUENTE}.",
             )
-        grid_factor = {"Colombia (210 g/kWh)": 210.0, "EE.UU. (380 g/kWh)": 380.0, "UE (230 g/kWh)": 230.0}[grid_opt]
+        grid_factor = _grid_opciones[grid_opt]
 
         if cap_mw <= 0 or aep <= 0:
             st.markdown(_badge_html("Complete la Fase 5 (capacidad instalada y AEP neta) o escriba los valores arriba.", "info"),

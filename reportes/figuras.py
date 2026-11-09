@@ -186,6 +186,48 @@ def _as_list(value):
         return [value]
 
 
+_RE_FECHA_ISO = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?")
+
+# En un eje categórico solo se rotulan como máximo estas etiquetas: con miles de
+# categorías, medir una etiqueta rotada por cada una dejaba savefig colgado.
+_MAX_ETIQUETAS_CATEGORIA = 30
+
+
+def _x_como_fechas_matplotlib(raw):
+    """Si los valores x de una traza son fechas (datetime64, Timestamp/datetime o
+    cadenas ISO «AAAA-MM-DD[ HH:MM[:SS]]»), los devuelve como números de fecha de
+    matplotlib; si no, None. Las cadenas exigen formato ISO para no confundir
+    categorías como «3-4» o «N» con fechas."""
+    if raw is None:
+        return None
+    try:
+        arr = raw if isinstance(raw, np.ndarray) else np.asarray(list(raw), dtype=object)
+        if arr.size == 0:
+            return None
+        if np.issubdtype(arr.dtype, np.datetime64):
+            fechas = pd.DatetimeIndex(arr.ravel())
+        else:
+            valores = arr.ravel().tolist()
+            es_fecha = all(
+                isinstance(v, (pd.Timestamp, np.datetime64))
+                or (isinstance(v, str) and _RE_FECHA_ISO.match(v.strip()))
+                or (hasattr(v, "year") and hasattr(v, "month") and hasattr(v, "day"))
+                for v in valores
+            )
+            if not es_fecha:
+                return None
+            fechas = pd.DatetimeIndex(pd.to_datetime(valores, errors="coerce"))
+        if fechas.tz is not None:
+            fechas = fechas.tz_localize(None)
+        if fechas.isna().all():
+            return None
+        import matplotlib.dates as mdates
+
+        return np.asarray(mdates.date2num(fechas.to_numpy(dtype="datetime64[ns]")), dtype=float)
+    except Exception:
+        return None
+
+
 def _optimize_png_bytes(content, max_dimension=1600):
     try:
         from PIL import Image
@@ -330,32 +372,54 @@ def _export_plotly_figure_matplotlib(fig, title="", export_options=None):
         scatter_traces = [trace for trace in traces if str(getattr(trace, "type", "")).lower() == "scatter"]
         bar_width = 0.8 / max(1, len(bar_traces))
 
+        # Eje temporal: si TODAS las trazas tienen fechas en x se grafican como
+        # fechas (antes cada marca horaria era una categoría con su etiqueta).
+        x_fechas = {id(trace): _x_como_fechas_matplotlib(getattr(trace, "x", None)) for trace in bar_traces + scatter_traces}
+        eje_fechas = bool(x_fechas) and all(v is not None for v in x_fechas.values())
+        paso_x = 1.0
+        if eje_fechas:
+            todas = np.unique(np.concatenate([v[np.isfinite(v)] for v in x_fechas.values()]))
+            if todas.size > 1:
+                paso_x = float(np.median(np.diff(todas)))
+
+        def x_de_traza(trace):
+            if eje_fechas:
+                return x_fechas[id(trace)]
+            return np.array(map_x(_as_list(getattr(trace, "x", []))), dtype=float)
+
         for idx, trace in enumerate(bar_traces):
             target_ax = ax2 if str(getattr(trace, "yaxis", "") or "y").lower() == "y2" and ax2 is not None else ax
-            x_values = _as_list(getattr(trace, "x", []))
             y_values = [float(v) for v in _as_list(getattr(trace, "y", []))]
-            mapped_x = np.array(map_x(x_values), dtype=float) + (idx - (len(bar_traces) - 1) / 2.0) * bar_width
+            mapped_x = x_de_traza(trace) + (idx - (len(bar_traces) - 1) / 2.0) * bar_width * paso_x
             color = _plotly_color_to_matplotlib(getattr(getattr(trace, "marker", None), "color", None))
-            target_ax.bar(mapped_x, y_values, width=bar_width * 0.92, label=str(getattr(trace, "name", "") or f"Serie {idx + 1}"), color=color, alpha=0.9)
+            target_ax.bar(mapped_x, y_values, width=bar_width * 0.92 * paso_x, label=str(getattr(trace, "name", "") or f"Serie {idx + 1}"), color=color, alpha=0.9)
 
         for idx, trace in enumerate(scatter_traces):
             target_ax = ax2 if str(getattr(trace, "yaxis", "") or "y").lower() == "y2" and ax2 is not None else ax
-            x_values = _as_list(getattr(trace, "x", []))
             y_values = [float(v) for v in _as_list(getattr(trace, "y", []))]
-            mapped_x = map_x(x_values)
+            mapped_x = x_de_traza(trace).tolist()
             mode = str(getattr(trace, "mode", "") or "lines").lower()
             color = _plotly_color_to_matplotlib(getattr(getattr(trace, "line", None), "color", None), fallback="#1f77b4")
             marker = "o" if "markers" in mode else None
-            target_ax.plot(mapped_x, y_values, label=str(getattr(trace, "name", "") or f"Serie {idx + 1}"), color=color, marker=marker, linewidth=2)
+            grosor = 2 if len(mapped_x) <= 2000 else 0.6  # series largas: línea fina, no un bloque
+            target_ax.plot(mapped_x, y_values, label=str(getattr(trace, "name", "") or f"Serie {idx + 1}"), color=color, marker=marker, linewidth=grosor)
             text_values = _as_list(getattr(trace, "text", []))
             if text_values and len(text_values) == len(mapped_x):
                 for px, py, text_value in zip(mapped_x, y_values, text_values):
                     if str(text_value or "").strip():
                         target_ax.annotate(str(text_value), (px, py), textcoords="offset points", xytext=(0, 8), ha="center", fontsize=8)
 
-        if categorical_map:
+        if eje_fechas:
+            import matplotlib.dates as mdates
+
+            localizador = mdates.AutoDateLocator()
+            ax.xaxis.set_major_locator(localizador)
+            ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(localizador))
+        elif categorical_map:
             ordered = sorted(categorical_map.items(), key=lambda item: item[1])
-            ax.set_xticks([item[1] for item in ordered], [item[0] for item in ordered], rotation=25, ha="right")
+            paso = max(1, math.ceil(len(ordered) / _MAX_ETIQUETAS_CATEGORIA))
+            visibles = ordered[::paso]
+            ax.set_xticks([item[1] for item in visibles], [item[0] for item in visibles], rotation=25, ha="right")
 
         if getattr(getattr(layout, "xaxis", None), "title", None):
             ax.set_xlabel(str(layout.xaxis.title.text or ""))

@@ -13,6 +13,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from calculos import (
+    AVISO_SERIE_GWA_SINTETICA,
+    FUENTE_GWA_SINTETICO,
     KAPPA,
     ajustar_logaritmico_dos_puntos,
     calcular_alpha_desde_dos_alturas,
@@ -3058,6 +3060,11 @@ f2_nasa_signature = (
     cfg_saved_top.get("nasa_fuente"),
 )
 df_nasa = _session_cached_result("f2_nasa_hourly_df", f2_nasa_signature, cargar_nasa_hourly)
+if str(cfg_saved_top.get("nasa_fuente") or "").strip() == FUENTE_GWA_SINTETICO:
+    st.warning(
+        "La serie horaria activa es la sintética de Global Wind Atlas. "
+        + AVISO_SERIE_GWA_SINTETICA
+    )
 altura_guardada_top, rugosidad_guardada_top = _get_saved_profile_values(cfg_saved_top)
 _init_widget_state("f2_altura", altura_guardada_top)
 rugosidad_visible_top = rugosidad_guardada_top
@@ -3448,6 +3455,7 @@ if f2_data_source == "Global Wind Atlas / Open-Meteo":
                         min_value=1, max_value=10, value=1, step=1,
                         key="f2_gwa_years",
                     )
+                    st.warning(AVISO_SERIE_GWA_SINTETICA)
                     if st.button("Generar serie sint\u00e9tica desde Weibull", use_container_width=True, icon=":material/auto_graph:"):
                         try:
                             _gwa_params = _json.loads(config["gwa_data"])
@@ -3457,7 +3465,7 @@ if f2_data_source == "Global Wind Atlas / Open-Meteo":
                             guardar_nasa_hourly(
                                 df=_gwa_synth_df,
                                 latitude=_gwa_s_lat, longitude=_gwa_s_lon,
-                                source="GWA Weibull sint\u00e9tico",
+                                source=FUENTE_GWA_SINTETICO,
                                 start_date=_gwa_synth_df["timestamp"].min().date(),
                                 end_date=_gwa_synth_df["timestamp"].max().date(),
                             )
@@ -3466,11 +3474,12 @@ if f2_data_source == "Global Wind Atlas / Open-Meteo":
                                 "nasa_lat": _gwa_s_lat, "nasa_lon": _gwa_s_lon,
                                 "nasa_inicio": _gwa_synth_df["timestamp"].min().date(),
                                 "nasa_fin": _gwa_synth_df["timestamp"].max().date(),
-                                "nasa_fuente": "GWA Weibull sint\u00e9tico",
+                                "nasa_fuente": FUENTE_GWA_SINTETICO,
                             })
                             st.session_state["f2_gwa_result"] = (
                                 "success",
-                                f"Serie sint\u00e9tica: {len(_gwa_synth_df):,} horas. Guardada para Fases 3-6."
+                                f"Serie sint\u00e9tica: {len(_gwa_synth_df):,} horas. Guardada para Fases 3-6 "
+                                "(sin direcciones reales: no v\u00e1lida para rosa de vientos ni estelas)."
                             )
                             st.rerun()
                         except Exception as e:
