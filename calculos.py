@@ -1800,12 +1800,26 @@ def leer_csv_gwa(uploaded_file):
     }
 
 
+FUENTE_GWA_SINTETICO = "GWA Weibull sintético"
+
+AVISO_SERIE_GWA_SINTETICA = (
+    "La serie sintética de Global Wind Atlas solo reproduce la distribución de "
+    "velocidades (Weibull A, k). Las direcciones se generan al azar con "
+    "distribución uniforme (0–360°) y las horas no tienen secuencia temporal real. "
+    "No use esta serie para la rosa de vientos (Fase 3) ni para las estelas y el "
+    "arreglo (Fase 4): saldrían sin dirección dominante. Para esos análisis use "
+    "NASA POWER, Open-Meteo o datos medidos."
+)
+
+
 def generar_serie_weibull(gwa_data: dict, n_years: int = 1) -> pd.DataFrame:
     """Generate a synthetic hourly wind-speed series from GWA Weibull parameters.
 
     For WS10M: uses A, k from the height closest to 10 m.
     For WS50M: uses A, k from the height closest to 50 m.
-    Wind direction columns (WD10M, WD50M) are filled with uniform random [0, 360).
+    Wind direction columns (WD10M, WD50M) are filled with uniform random [0, 360),
+    so the series is NOT valid for wind roses or wake analysis
+    (see AVISO_SERIE_GWA_SINTETICA).
 
     Returns a DataFrame with columns:
         timestamp, YEAR, MO, DY, HR, WS10M, WS50M, WD10M, WD50M
