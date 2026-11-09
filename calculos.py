@@ -209,12 +209,15 @@ def interpolar_potencia_curva_preparada(curva_df, velocidades):
     if len(xs) == 0:
         return np.zeros_like(vel, dtype=float)
 
+    # Por debajo del primer punto y por encima del último (el cut-out, ver
+    # inferir_puntos_operacion_curva) la turbina no produce: potencia 0. Así la
+    # integración hasta 35 m/s de calculos_energia no suma energía tras el cut-out.
     return np.interp(
         vel,
         xs,
         ys,
         left=0.0,
-        right=float(ys[-1])
+        right=0.0,
     )
 
 
