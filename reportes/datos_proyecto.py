@@ -599,14 +599,18 @@ def construir_datos_exportacion(config, runtime_context=None):
     avisos = []
     if pais_inferido and pais_inferido != pais_codigo:
         avisos.append({"clave": "pais", "pais": proyecto["pais_nombre"], "inferido": proyecto["pais_inferido_nombre"]})
-    if eco.get("capex_usd_kw") is not None and not (500.0 <= eco["capex_usd_kw"] <= 4000.0):
+    capex_min, capex_max = RANGOS_AVISO["capex"]
+    if eco.get("capex_usd_kw") is not None and not (capex_min <= eco["capex_usd_kw"] <= capex_max):
         avisos.append({"clave": "capex", "valor": eco["capex_usd_kw"], "moneda": eco["moneda_base"]})
-    if eco.get("precio_usd_mwh") is not None and not (15.0 <= eco["precio_usd_mwh"] <= 400.0):
+    precio_min, precio_max = RANGOS_AVISO["precio"]
+    if eco.get("precio_usd_mwh") is not None and not (precio_min <= eco["precio_usd_mwh"] <= precio_max):
         avisos.append({"clave": "precio", "valor": eco["precio_usd_mwh"], "moneda": eco["moneda_base"]})
     if incert.get("mc_obsoleto"):
         avisos.append({"clave": "mc_obsoleto", **incert["mc_obsoleto"]})
     elif incert["fuente"] != "monte_carlo":
         avisos.append({"clave": "sin_mc"})
+    # La TI disponible siempre sale de la serie horaria (Fase 5, calcular_ti_serie):
+    # cuando existe se avisa de que es un valor indicativo, no de que falte.
     if recurso["ti_15"] is not None:
         avisos.append({"clave": "ti_horaria", "valor": recurso["ti_15"]})
 
@@ -621,6 +625,13 @@ def construir_datos_exportacion(config, runtime_context=None):
     }
 
 
+# Rangos de verificación (en USD) de los avisos de CAPEX y precio. Los usan tanto
+# la comprobación como el texto del aviso, para que no puedan divergir.
+RANGOS_AVISO = {
+    "capex": (500.0, 4000.0),   # USD/kW
+    "precio": (15.0, 400.0),    # USD/MWh
+}
+
 _AVISOS = {
     "pais": {
         "es": "El país del informe ({pais}) no coincide con la ubicación del sitio, que parece estar en {inferido}. Revise el país en la Fase 7.",
@@ -629,16 +640,16 @@ _AVISOS = {
         "fr": "Le pays du rapport ({pais}) ne correspond pas à la localisation du site, qui semble se trouver en {inferido}. Vérifiez le pays en Phase 7.",
     },
     "capex": {
-        "es": "El CAPEX equivale a {valor} USD/kW, fuera del rango típico de la eólica terrestre (≈ 1.000–2.500 USD/kW). Revise la moneda ({moneda}) y los costos de la Fase 5.",
-        "en": "CAPEX is equivalent to {valor} USD/kW, outside the typical onshore wind range (≈ 1,000–2,500 USD/kW). Check the currency ({moneda}) and the Phase 5 costs.",
-        "pt": "O CAPEX equivale a {valor} USD/kW, fora da faixa típica da eólica terrestre (≈ 1.000–2.500 USD/kW). Revise a moeda ({moneda}) e os custos da Fase 5.",
-        "fr": "Le CAPEX équivaut à {valor} USD/kW, hors de la plage typique de l'éolien terrestre (≈ 1 000–2 500 USD/kW). Vérifiez la devise ({moneda}) et les coûts de la Phase 5.",
+        "es": "El CAPEX equivale a {valor} USD/kW, fuera del rango plausible para la eólica terrestre ({min}–{max} USD/kW). Revise la moneda ({moneda}) y los costos de la Fase 5.",
+        "en": "CAPEX is equivalent to {valor} USD/kW, outside the plausible onshore wind range ({min}–{max} USD/kW). Check the currency ({moneda}) and the Phase 5 costs.",
+        "pt": "O CAPEX equivale a {valor} USD/kW, fora da faixa plausível para a eólica terrestre ({min}–{max} USD/kW). Revise a moeda ({moneda}) e os custos da Fase 5.",
+        "fr": "Le CAPEX équivaut à {valor} USD/kW, hors de la plage plausible pour l'éolien terrestre ({min}–{max} USD/kW). Vérifiez la devise ({moneda}) et les coûts de la Phase 5.",
     },
     "precio": {
-        "es": "El precio de venta equivale a {valor} USD/MWh, fuera del rango habitual (≈ 30–150 USD/MWh). Revise la moneda ({moneda}) en la Fase 5.",
-        "en": "The energy price is equivalent to {valor} USD/MWh, outside the usual range (≈ 30–150 USD/MWh). Check the currency ({moneda}) in Phase 5.",
-        "pt": "O preço de venda equivale a {valor} USD/MWh, fora da faixa habitual (≈ 30–150 USD/MWh). Revise a moeda ({moneda}) na Fase 5.",
-        "fr": "Le prix de vente équivaut à {valor} USD/MWh, hors de la plage habituelle (≈ 30–150 USD/MWh). Vérifiez la devise ({moneda}) en Phase 5.",
+        "es": "El precio de venta equivale a {valor} USD/MWh, fuera del rango plausible ({min}–{max} USD/MWh). Revise la moneda ({moneda}) en la Fase 5.",
+        "en": "The energy price is equivalent to {valor} USD/MWh, outside the plausible range ({min}–{max} USD/MWh). Check the currency ({moneda}) in Phase 5.",
+        "pt": "O preço de venda equivale a {valor} USD/MWh, fora da faixa plausível ({min}–{max} USD/MWh). Revise a moeda ({moneda}) na Fase 5.",
+        "fr": "Le prix de vente équivaut à {valor} USD/MWh, hors de la plage plausible ({min}–{max} USD/MWh). Vérifiez la devise ({moneda}) en Phase 5.",
     },
     "sin_mc": {
         "es": "No se ha ejecutado el Monte Carlo de la Fase 5: P50/P90 son una estimación genérica.",
@@ -660,10 +671,14 @@ _AVISOS = {
               "sont une estimation générique.",
     },
     "ti_horaria": {
-        "es": "La intensidad de turbulencia (TI a 15 m/s = {valor}) se estima con datos horarios: es indicativa (la norma usa estadísticos de 10 minutos).",
-        "en": "Turbulence intensity (TI at 15 m/s = {valor}) is estimated from hourly data: it is indicative (the standard uses 10-minute statistics).",
-        "pt": "A intensidade de turbulência (TI a 15 m/s = {valor}) é estimada com dados horários: é indicativa (a norma usa estatísticas de 10 minutos).",
-        "fr": "L'intensité de turbulence (TI à 15 m/s = {valor}) est estimée à partir de données horaires : elle est indicative (la norme utilise des statistiques 10 minutes).",
+        "es": "La intensidad de turbulencia de este informe (TI a 15 m/s = {valor}) se calculó con la serie horaria de velocidades, "
+              "así que es un valor indicativo: la IEC 61400-1 usa estadísticos de 10 minutos. Confírmela con datos de 10 minutos.",
+        "en": "The turbulence intensity in this report (TI at 15 m/s = {valor}) was computed from the hourly wind-speed series, "
+              "so it is an indicative value: IEC 61400-1 uses 10-minute statistics. Confirm it with 10-minute data.",
+        "pt": "A intensidade de turbulência deste relatório (TI a 15 m/s = {valor}) foi calculada com a série horária de velocidades, "
+              "portanto é um valor indicativo: a IEC 61400-1 usa estatísticas de 10 minutos. Confirme-a com dados de 10 minutos.",
+        "fr": "L'intensité de turbulence de ce rapport (TI à 15 m/s = {valor}) a été calculée à partir de la série horaire des vitesses ; "
+              "c'est donc une valeur indicative : l'IEC 61400-1 utilise des statistiques 10 minutes. Confirmez-la avec des données 10 minutes.",
     },
 }
 
@@ -672,10 +687,12 @@ def texto_aviso(aviso, lang="es"):
     plantilla = _AVISOS.get(aviso.get("clave"), {})
     texto = plantilla.get(lang) or plantilla.get("es") or ""
     decimales = {"capex": 2, "precio": 3, "ti_horaria": 3}.get(aviso.get("clave"), 2)
+    rango_min, rango_max = RANGOS_AVISO.get(aviso.get("clave"), (None, None))
     return texto.format(
         pais=aviso.get("pais", ""), inferido=aviso.get("inferido", ""), moneda=aviso.get("moneda", ""),
         valor=fmt_num(aviso.get("valor"), decimales, lang),
         base=fmt_num(aviso.get("base"), 0, lang), actual=fmt_num(aviso.get("actual"), 0, lang),
+        min=fmt_num(rango_min, 0, lang), max=fmt_num(rango_max, 0, lang),
     )
 
 
