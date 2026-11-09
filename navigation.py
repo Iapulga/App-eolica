@@ -713,8 +713,9 @@ def _load_global_css(current_script: str = "") -> None:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Rediseño "Aurora": color de acento por fase + sidebar pills + stepper global.
-# Todo es HTML/CSS (sin JS): compatible con QtWebEngine (Chromium) y con el
-# mecanismo anti-FOUC existente (assets_loader recolecta los <style>).
+# Todo es HTML/CSS: compatible con QtWebEngine (Chromium) y con el mecanismo
+# anti-FOUC existente (assets_loader recolecta los <style>). La única pieza JS
+# es el puente de navegación sin recarga (_render_client_nav_bridge).
 # ─────────────────────────────────────────────────────────────────────────────
 _PHASE_META = [
     # (script, etiqueta, nombre, emoji, acento, acento_oscuro)
@@ -903,7 +904,7 @@ def _render_stepper(idx: int) -> str:
         clase = "current" if i == idx else ("done" if i < idx else "")
         barra = '<div class="sbar"></div>' if i < len(_PHASE_META) - 1 else ""
         pasos.append(
-            f'<a class="aurora-step {clase}" href="{_sidebar_href(script)}" target="_self">'
+            f'<a class="aurora-step {clase}" href="{_sidebar_href(script)}" target="_self" data-aurora-page="{i}">'
             f'<div class="sdot">{emoji}</div><span>{label}</span>{barra}</a>'
         )
     return f'<div class="aurora-stepper">{"".join(pasos)}</div>'
@@ -1007,6 +1008,65 @@ def render_dropdown_visibility_fix() -> None:
     )
 
 
+# ── Navegación sin recarga ───────────────────────────────────────────────────
+# Los enlaces Aurora (barra lateral y stepper) son <a href> en HTML: cada clic
+# recargaba la página y Streamlit abría una sesión NUEVA, con lo que se perdía
+# st.session_state (p. ej. el contexto de exportación de Fase 5 que necesita la
+# Fase 7). El puente renderiza un st.page_link oculto por fase y un script que,
+# al pulsar un enlace Aurora (data-aurora-page = índice en _PHASE_META), hace
+# clic en el page_link equivalente: navegación del lado del cliente, misma
+# sesión. Sin puente (o con Ctrl/clic central) el enlace funciona como antes.
+_NAV_BRIDGE_KEY = "aurora_nav_links"
+
+_NAV_BRIDGE_CSS = f"""
+<style id="aurora-nav-bridge">
+.st-key-{_NAV_BRIDGE_KEY}{{position:absolute !important;width:1px !important;height:1px !important;
+  overflow:hidden !important;clip-path:inset(50%) !important;margin:0 !important;padding:0 !important;
+  opacity:0 !important;pointer-events:none !important}}
+</style>
+"""
+
+_NAV_BRIDGE_PARENT_JS = f"""
+document.addEventListener('click', function (ev) {{
+  if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+  var origen = ev.target && ev.target.closest ? ev.target.closest('a[data-aurora-page]') : null;
+  if (!origen) return;
+  var enlaces = document.querySelectorAll('.st-key-{_NAV_BRIDGE_KEY} a[href]');
+  var destino = enlaces[Number(origen.getAttribute('data-aurora-page'))];
+  if (!destino) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  destino.click();
+}}, true);
+"""
+
+
+def _render_client_nav_bridge() -> None:
+    try:
+        import json
+
+        import streamlit.components.v1 as components
+
+        with st.sidebar:
+            st.markdown(_NAV_BRIDGE_CSS, unsafe_allow_html=True)
+            with st.container(key=_NAV_BRIDGE_KEY):
+                for script, label, _nombre, _emoji, _ac, _ac2 in _PHASE_META:
+                    st.page_link(script, label=label)
+                # El listener se inyecta en el documento principal (una sola vez
+                # por pestaña) para que sobreviva a los reruns del iframe.
+                components.html(
+                    "<script>(function(){var w=window.parent;"
+                    "if(!w||w.__auroraNavBridge)return;w.__auroraNavBridge=true;"
+                    "var s=w.document.createElement('script');s.id='aurora-nav-bridge-js';"
+                    f"s.textContent={json.dumps(_NAV_BRIDGE_PARENT_JS)};"
+                    "w.document.head.appendChild(s);})();</script>",
+                    height=0,
+                )
+    except Exception:
+        # Sin puente, los enlaces Aurora siguen navegando con recarga.
+        pass
+
+
 def render_stepper(current_script: str) -> None:
     """Pinta el stepper de fases en el punto de llamada.
 
@@ -1054,7 +1114,7 @@ def render_sidebar_navigation(current_script: str, stepper: bool = True):
         nav_items.append(
             textwrap.dedent(
                 f"""
-                <a class="sidebar-link{estado}" href="{_sidebar_href(page_path)}" target="_self" style="--ic:{ac};--ic2:{ac2}">
+                <a class="sidebar-link{estado}" href="{_sidebar_href(page_path)}" target="_self" data-aurora-page="{i}" style="--ic:{ac};--ic2:{ac2}">
                     <span class="sidebar-link__icon">{emoji}</span>
                     <span class="sidebar-link__copy">
                         <span class="sidebar-link__phase">{phase_label}</span>
@@ -1077,4 +1137,5 @@ def render_sidebar_navigation(current_script: str, stepper: bool = True):
     st.sidebar.markdown(sidebar_brand_html, unsafe_allow_html=True)
     st.sidebar.markdown(sidebar_nav_html, unsafe_allow_html=True)
     st.sidebar.markdown(_render_progress_ring(idx_actual), unsafe_allow_html=True)
+    _render_client_nav_bridge()
 
