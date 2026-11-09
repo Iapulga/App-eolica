@@ -22,10 +22,12 @@ from calculos_energia import potencia_media_sector
 
 def _curva_simple():
     # cut-in 3 m/s, nominal 2 MW desde 12 m/s, cut-out 25 m/s.
-    return pd.DataFrame({
-        "Velocidad_num": [3.0, 6.0, 9.0, 12.0, 25.0],
-        "Potencia_W": [0.0, 400e3, 1200e3, 2000e3, 2000e3],
-    })
+    return pd.DataFrame(
+        {
+            "Velocidad_num": [3.0, 6.0, 9.0, 12.0, 25.0],
+            "Potencia_W": [0.0, 400e3, 1200e3, 2000e3, 2000e3],
+        }
+    )
 
 
 def test_interpolacion_cero_fuera_del_rango():
